@@ -1,0 +1,27 @@
+2		# meshing scheme. 1: Duan et al. (2019); 2: Liu, degenerated and size adjusted triangles for fault geometry.
+3		# ntotft
+4 		# friclaw
+		# Blank space
+0.01d0	# dt1
+200.0d0	# term: maximum time for dynamic ruptures
+1 3000	# icstart, icend
+		# Blank space
+0.5d0	# fric_fs
+0.465d0	# fric_fd
+0.49d0 	# fric_fv
+0.4d0 	# fric_fini
+0.5d0	# critd0, m
+0.2d0	# critv0, m/s
+0.2d0   # critt0, s
+1.5d3	# vrupt0, m/s: forced rupture velocity for nucleation
+2.0d3	# radius, m: radius for forced nucleation patch
+		# Blank space
+6000.0d0	# vp, m/s
+3464.0d0	# vp, m/s
+2670.0d0    # density
+8.4d21	# ant0, Pa-s: 'viscosity' for interseismic loading solution, it is adjusted according to maximum shearing rate
+1.427d-14	# str: maximum shearing loading rate. 
+			# Blank space
+-100.0d6	# ambientnorm
+0 			# debug
+1			# plotmesh
