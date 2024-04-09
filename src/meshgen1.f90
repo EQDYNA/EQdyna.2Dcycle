@@ -28,7 +28,7 @@ subroutine meshgen1
   integer (kind=4) :: i,j,k,ix,iy,nx,ny,nxuni,nyuni,edgex1,edgex2,edgey1,edgey2,&
   	ntemp,ynplot, np=100000, nft, nnode, nelement, ntag
   integer (kind=4),allocatable,dimension(:) :: line1,line2
-  real (kind = dp) :: tol,xstep,ystep,xcoor,ycoor,temp1,temp2,temp3,temp4,temp5,fxmin,fxmax,fymin,fymax
+  real (kind = dp) :: tol,xstep,ystep,xcoor,ycoor,temp1,temp2,temp3,temp4,temp5,fxmin,fxmax,fymin,fymax,pp(2,4)
   real (kind = dp),allocatable,dimension(:) :: xline,yline,ylinetmp
   real (kind = dp) :: xc(3)
   integer (kind = 4),allocatable,dimension(:,:,:)::nsmp
@@ -50,24 +50,24 @@ subroutine meshgen1
              dsp(ftcn(i)-2),esp(ftcn(i)-2))
     !...read control points (x,y) coordinate from predefined files. x-coor should be
     !   from min to max in these files: in sequence for spline! B.D. 11/23/11
-	  if (ntotft>3) then 
-			write(*,*) 'Too many faults, in meshgen1 line 55'
-			stop
-	  endif 	
+	  ! if (ntotft>3) then 
+			! write(*,*) 'Too many faults, in meshgen1 line 55'
+			! stop
+	  ! endif 	
     if(i==1) then
-      filein='x1_1.txt'
+      filein='x1.txt'
     elseif(i==2) then
-      filein='x2_1.txt'
+      filein='x2.txt'
     elseif (i == 3) then
-	filein = 'x3_1.txt'
+	filein = 'x3.txt'
     elseif (i == 4) then
 	filein = 'x4.txt'
     endif
     open(15,file=filein,status='old')
     read(15,*) (xsp(j),ysp(j),j=1,ftcn(i))
 	close(15)
-	xsp = xsp * 1.0d3
-	ysp = ysp * 1.0d3
+	! xsp = xsp * 1.0d3
+	! ysp = ysp * 1.0d3
     do j=1,ftcn(i)  !save for later interpolation use.
       xx(j,i) = xsp(j)
       yy(j,i) = ysp(j)
@@ -326,9 +326,38 @@ subroutine meshgen1
 	  ycoor>=(fxyr(1,2,k)-yext).and.ycoor<=(fxyr(2,2,k)+yext)) then
 	  do i=1,ftcn(k)-1
 	    if(xcoor>=(xx(i,k)-tol) .and. xcoor<=(xx(i+1,k)+tol)) then
-              temp1 = (f(i+1,k)*(xcoor-xx(i,k))**3+f(i,k)*(xx(i+1,k)-xcoor)**3)/(6.0d0*hh(i,k)) &
-                     +(yy(i+1,k)/hh(i,k)-hh(i,k)*f(i+1,k)/6.0d0)*(xcoor-xx(i,k)) &
-                     +(yy(i,k)/hh(i,k)-hh(i,k)*f(i,k)/6.0d0)*(xx(i+1,k)-xcoor)
+			if (i==1) then 
+				pp(1,2) = xx(i,k) 
+				pp(1,3) = xx(i+1,k)
+				pp(1,4) = xx(i+2,k)
+				pp(1,1) = xx(i,k) - (xx(i+1,k) - xx(i,k))
+				pp(2,2) = yy(i,k) 
+				pp(2,3) = yy(i+1,k)
+				pp(2,4) = yy(i+2,k)
+				pp(2,1) = yy(i,k) - (yy(i+1,k) - yy(i,k))
+			elseif (i==ftcn(k)-1) then 
+				pp(1,1) = xx(i-1,k)
+				pp(1,2) = xx(i,k) 
+				pp(1,3) = xx(i+1,k)
+				pp(1,4) = xx(i+1,k) + (xx(i+1,k) - xx(i,k))
+				pp(2,1) = yy(i-1,k)
+				pp(2,2) = yy(i,k) 
+				pp(2,3) = yy(i+1,k)
+				pp(2,4) = yy(i+1,k) + (xx(i+1,k) - xx(i,k))			
+			else 
+				pp(1,1) = xx(i-1,k)
+				pp(1,2) = xx(i,k) 
+				pp(1,3) = xx(i+1,k)
+				pp(1,4) = xx(i+2,k) 
+				pp(2,1) = yy(i-1,k)
+				pp(2,2) = yy(i,k) 
+				pp(2,3) = yy(i+1,k)
+				pp(2,4) = yy(i+2,k) 				
+			endif 
+			call catmullrom(pp, xcoor, temp1, 0.5d0)
+              ! temp1 = (f(i+1,k)*(xcoor-xx(i,k))**3+f(i,k)*(xx(i+1,k)-xcoor)**3)/(6.0d0*hh(i,k)) &
+                     ! +(yy(i+1,k)/hh(i,k)-hh(i,k)*f(i+1,k)/6.0d0)*(xcoor-xx(i,k)) &
+                     ! +(yy(i,k)/hh(i,k)-hh(i,k)*f(i,k)/6.0d0)*(xx(i+1,k)-xcoor)
 	      if(temp1>yline(iy-1) .and. temp1<=yline(iy)) then
 	        temp2 = temp1 - yline(iy-1)
 	        temp3 = yline(iy) - temp1

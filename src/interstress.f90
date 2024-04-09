@@ -49,14 +49,14 @@ do ndt = 1, 1000000000
         ! write (*,*) 'Interseismic t = ', tinter/tcon, ' years'
 	! endif
 	do i = 1, totftnode
-		theta = atan(nsmpnv(1, ida(i))/nsmpnv(2,ida(i))) ! in RAD
-		theta = -theta + 11.71d0/180.0d0*pi - rd(2,ida(i))/180.0d0*pi
+		!theta = atan(nsmpnv(1, ida(i))/nsmpnv(2,ida(i))) ! in RAD
+		theta = rd(2,ida(i))/180.0d0*pi
 		if (theta >= 45.0d0/180.0d0*pi) then 
 			theta = 45.0d0/180.0d0*pi
 		endif   
-		ant = ant0*450.0d0/rd(1,ida(i))     
-		rs = str/450.0d0*rd(1,ida(i)) * cos(2.0d0*theta) * ant
-		rn = -str/450.0d0*rd(1,ida(i)) * sin(2.0d0*theta) * ant
+		ant = ant0*str/rd(1,ida(i))     
+		rs = rd(1,ida(i)) * cos(2.0d0*theta) * ant
+		rn = -rd(1,ida(i)) * sin(2.0d0*theta) * ant
 		ns(i) = (ns0(i) - ambientnorm - rn) * exp(-tinter*amu/ant) + rn + ambientnorm
 		shs(i) = (ss0(i) - rs) * exp(-tinter*amu/ant) + rs 
 		strengthexcess(i) = (abs(ns(i))*fric_fs - shs(i))

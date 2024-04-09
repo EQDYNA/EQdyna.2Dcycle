@@ -2,12 +2,14 @@ F90 = ifort
 OPT =  -c
 OPT1 = 
 OBJ = eqdyna2d.o globalvar.o qdcshl.o prop2d.o formlm.o driver.o \
-	 qdct2.o qdcshg.o contm.o qdcb.o qdct3.o \
-	 contma.o qdckd.o faulting.o fric.o hrglss.o meshgen.o meshgen1.o interstress.o Read_Input_Files.o
-clean: run_eqdyna2d_M_2.0.0
+	 qdct2.o qdcshg.o contm.o qdcb.o qdct3.o contma.o qdckd.o faulting.o \
+	 fric.o hrglss.o meshgen.o meshgen1.o interstress.o Read_Input_Files.o catmullrom.o
+	 
+clean: run_eqdyna2d_2.0.2
 	rm *.o
-run_eqdyna2d_M_2.0.0: $(OBJ) 
-	$(F90) $(OPT1) $(OBJ) -o run_eqdyna2d_M_2.0.0
+	
+run_eqdyna2d_2.0.2: $(OBJ) 
+	$(F90) $(OPT1) $(OBJ) -o run_eqdyna2d_2.0.2
 eqdyna2d.o: eqdyna2d.f90 globalvar.o driver.o interstress.o Read_Input_Files.o
 	$(F90) $(OPT) eqdyna2d.f90 
 globalvar.o: globalvar.f90
@@ -42,9 +44,11 @@ hrglss.o: hrglss.f90 globalvar.o
 	$(F90) $(OPT) hrglss.f90	
 meshgen.o: meshgen.f90 globalvar.o
 	$(F90) $(OPT) meshgen.f90	
-meshgen1.o: meshgen1.f90 globalvar.o
+meshgen1.o: meshgen1.f90 globalvar.o catmullrom.o
 	$(F90) $(OPT) meshgen1.f90		
 interstress.o: interstress.f90 globalvar.o
 	$(F90) $(OPT) interstress.f90
 Read_Input_Files.o:	Read_Input_Files.f90 globalvar.o
 	$(F90) $(OPT) Read_Input_Files.f90
+catmullrom.o : catmullrom.f90 globalvar.o
+	$(F90) $(OPT) catmullrom.f90

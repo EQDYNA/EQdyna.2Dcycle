@@ -6,10 +6,10 @@
 200.0d0	# term: maximum time for dynamic ruptures
 1 3000	# icstart, icend
 		# Blank space
-0.5d0	# fric_fs
-0.465d0	# fric_fd
-0.49d0 	# fric_fv
-0.4d0 	# fric_fini
+0.3d0	# fric_fs
+0.265d0	# fric_fd
+0.29d0 	# fric_fv
+0.25d0 	# fric_fini
 0.5d0	# critd0, m
 0.2d0	# critv0, m/s
 0.2d0   # critt0, s
@@ -24,4 +24,4 @@
 			# Blank space
 -100.0d6	# ambientnorm
 0 			# debug
-1			# plotmesh
+0			# plotmesh
