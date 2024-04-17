@@ -1,15 +1,15 @@
-F90 = ifort
+F90 = gfortran
 OPT =  -c
 OPT1 = 
 OBJ = eqdyna2d.o globalvar.o qdcshl.o prop2d.o formlm.o driver.o \
 	 qdct2.o qdcshg.o contm.o qdcb.o qdct3.o contma.o qdckd.o faulting.o \
 	 fric.o hrglss.o meshgen.o meshgen1.o interstress.o Read_Input_Files.o catmullrom.o
 	 
-clean: run_eqdyna2d_2.0.2
+clean: eqdyna.2dcycle
 	rm *.o
 	
-run_eqdyna2d_2.0.2: $(OBJ) 
-	$(F90) $(OPT1) $(OBJ) -o run_eqdyna2d_2.0.2
+eqdyna.2dcycle: $(OBJ) 
+	$(F90) $(OPT1) $(OBJ) -o eqdyna.2dcycle
 eqdyna2d.o: eqdyna2d.f90 globalvar.o driver.o interstress.o Read_Input_Files.o
 	$(F90) $(OPT) eqdyna2d.f90 
 globalvar.o: globalvar.f90

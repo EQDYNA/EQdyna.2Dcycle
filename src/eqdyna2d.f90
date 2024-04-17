@@ -27,6 +27,8 @@ PROGRAM eqdyna2d
 	call readglobal
 	call readmodelgeometry		
 	allocate(ftcn(ntotft), nfnode(ntotft))
+        ftcn = 0
+        nfnode = 0
 	call readfaultgeometry
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     3 input files has been read in                                ='	
@@ -34,7 +36,7 @@ PROGRAM eqdyna2d
 	amu     =    vs**2*rou
 	lambda  =    vp**2*rou - 2.0d0*amu
 	youngs  =    amu*(3.0d0*lambda + 2.0d0*amu)/(lambda + amu)
-	pois    =    lambda/2.0d0/(lambda + amu)
+	poisr   =    lambda/2.0d0/(lambda + amu)
 	
 	!if (debug==1) write(*,*) 'ftcn'
 	!if (debug==1) write(*,*) (ftcn(i),i=1,ntotft)
@@ -47,17 +49,17 @@ PROGRAM eqdyna2d
 	nsmpnv  =    0.0d0
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     Building finite element mesh ...                              ='	
-	!if (debug==1) write(*,*) 'before meshgen'
+	if (debug==1) write(*,*) 'before meshgen'
 	if      (C_mesh == 1) then 
 		call meshgen
 	elseif 	(C_mesh == 2) then 
 		call meshgen1
 	endif 
-	!if (debug==1) write(*,*) 'after meshgen'
+	if (debug==1) write(*,*) 'after meshgen'
 	
 	totftnode = sum(nfnode)
 	maxftnode = maxval(nfnode)
-	
+        if (debug==1) write(*,*) totftnode, maxftnode
 	allocate(output4plot(5,totftnode), fistr(2,totftnode), x(nsd,numnp), &
 		rd(2,maxftnode*ntotft))
 		
@@ -77,7 +79,7 @@ PROGRAM eqdyna2d
 	allocate(ien(nen,numel), mat(numel),lm(ned,nen,numel), stat=alloc_err)
 	if(alloc_err /= 0) then
 		write(*,*) 'Insufficient space to allocate array ien'
-		stop
+		 
 	endif	
 	
 	do i = 1,nen
@@ -115,7 +117,7 @@ PROGRAM eqdyna2d
 	allocate(id(ndof,numnp),stat=alloc_err)
 	if(alloc_err /= 0) then
 		write(*,*) 'Insufficient space to allocate array id'
-		stop
+		 
 	endif
 	neq = 0	!establish equation numbers after above input
 	do n=1,numnp
