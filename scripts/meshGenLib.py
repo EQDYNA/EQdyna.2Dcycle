@@ -15,7 +15,7 @@ def loadFtLoc(ftName):
         ftLocUTM = np.array(ftLoc)
     return ftLocUTM
 
-def createFtPoints(ftLocUTM, numOfControlPts):
+def createFtPoints(ftLocUTM, numOfControlPts, dx):
     ftEndNodeId=np.zeros(2, dtype=int)
     ftRange = {'xmin':ftLocUTM[:,0].min(), 
               'xmax':ftLocUTM[:,0].max(), 
@@ -24,7 +24,7 @@ def createFtPoints(ftLocUTM, numOfControlPts):
     
     for i in range(ftLocUTM.shape[0]):
         numOfControlPts += 1
-        gmsh.model.geo.addPoint(ftLocUTM[i, 0], ftLocUTM[i, 1], 0, meshSize=0.2, tag=numOfControlPts)
+        gmsh.model.geo.addPoint(ftLocUTM[i, 0], ftLocUTM[i, 1], 0, meshSize=dx, tag=numOfControlPts)
         if i == 0:
             ftEndNodeId[0] = numOfControlPts
     
@@ -173,6 +173,8 @@ def locateFtNodeIds(points, xCoors, yCoors, tolerance):
         ftNodeIds += [index]
     return ftNodeIds
 
+#def isThisNodeInCell(nodeId, nodeIdsInCell):
+#    if 
 def extractIdsforFtElem(ftNodeIds, points, cells):
     elemIdsAboveFt = []
     elemIdsBelowFt = []
@@ -217,12 +219,12 @@ def createSplitNodes(ftNodeIds, points):
     return points, slaveNodeIds
 
 def replaceMasterWithSlaveNodes(cells, masterSlaveNodeIdRelation, elemIdsAboveFt):
-    for cell in cells[elemIdsAboveFt]:
+    for i, nodeIdsInCell in enumerate(cells[elemIdsAboveFt]):
         #print('Processing cell, before replacement ', cell)
-        for i in range(4):
+        for j in range(4):
             try:
-                index = masterSlaveNodeIdRelation[0].index(cell[i])
-                cell[i] = masterSlaveNodeIdRelation[1][index]
+                index = masterSlaveNodeIdRelation[0].index(nodeIdsInCell[j])
+                cells[elemIdsAboveFt[i]][j] = masterSlaveNodeIdRelation[1][index]
             except:
                 index = None
                 #print('Skipping this node ', cell[i])
@@ -230,41 +232,6 @@ def replaceMasterWithSlaveNodes(cells, masterSlaveNodeIdRelation, elemIdsAboveFt
 
     return cells
 
-def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, ftNames):
-    meshInfo = {}
-    meshInfo['totalNumOfNodes'] = len(pointsWithSplitNodes)
-    meshInfo['totalNumOfCells'] = len(cells)
-    
-    for ftName in ftNames:
-        meshInfo[ftName] = len(masterSlaveNodeIdRelation[ftName][0])
-    
-    numOfFtNodes = [] 
-    for ftName in meshInfo:
-        if ftName in ftNames:
-            numOfFtNodes += [meshInfo[ftName]]
-    
-    maxNumOfFtNodes = max(numOfFtNodes)
-    
-    nsmp = np.zeros((maxNumOfFtNodes*3,2))
-    string = ''
-    for iFt, ftName in enumerate(ftNames):
-        n = len(masterSlaveNodeIdRelation[ftName][0])
-        nsmp[iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 0:2] = np.array(masterSlaveNodeIdRelation[ftName]).T #+ 1
-        string += str(n)+' ' 
-        
-    #print(maxNumOfFtNodes)
-    #print(meshInfo)
-    #print(nsmp)
-    
-    np.savetxt('vert.txt', pointsWithSplitNodes, fmt='%e')
-    np.savetxt('fac.txt', cells, fmt='%d')
-    np.savetxt('nsmp.txt', nsmp, fmt='%d')
-    
-    with open('meshGeneralInfo.txt','w') as f:
-        f.write(str(meshInfo['totalNumOfNodes'])+' '+str(meshInfo['totalNumOfCells'])+' \n')
-        f.write(string+' \n')
-        
-    return meshInfo, pointsWithSplitNodes, cells, nsmp
 
 def getCellNodeCoors(nodeIds, points):
     vertices = np.zeros((4,2))
@@ -306,3 +273,76 @@ def reorderCellNodesCounterclockwise(cells, pointsWithSplitNodes):
         else:
             noNeedToReorder = True
     return reorderedCells
+
+def calcTanAndLen(xCoors, yCoors):
+    def calcLen(x1,y1, x2,y2):
+        return ((x2-x1)**2+(y2-y1)**2)**0.5
+    
+    tan = []
+    # for i = 0 
+    ftNodeLength =  0.5*calcLen(xCoors[1],yCoors[1],xCoors[0],yCoors[0])
+    tangent = [(xCoors[1]-xCoors[0])/ftNodeLength/2, (yCoors[1]-yCoors[0])/ftNodeLength/2, ftNodeLength]
+    tan += [tangent]
+    
+    for i in range(1, len(xCoors) - 1):
+        # Calculate the tangent vector as the difference between consecutive points
+        ftNodeLength = 0.5*(calcLen(xCoors[i+1],yCoors[i+1],xCoors[i],yCoors[i]) + calcLen(xCoors[i-1],yCoors[i-1],xCoors[i],yCoors[i]))
+        
+        len1 = calcLen(xCoors[i+1], yCoors[i+1], xCoors[i-1], yCoors[i-1])
+        tangent = [(xCoors[i+1]-xCoors[i-1])/len1, (yCoors[i+1]-yCoors[i-1])/len1, ftNodeLength]
+        tan += [tangent]
+        
+    # for i = len(xCoors)
+    ftNodeLength =  0.5*calcLen(xCoors[len(xCoors)-1],yCoors[len(xCoors)-1],xCoors[len(xCoors)-2],yCoors[len(xCoors)-2])
+    tangent = [(xCoors[len(xCoors)-1]-xCoors[len(xCoors)-2])/ftNodeLength/2, (yCoors[len(xCoors)-1]-yCoors[len(xCoors)-2])/ftNodeLength/2, ftNodeLength]
+    tan += [tangent]
+        
+        ## Rotate the tangent vector by 90 degrees to get the normal vector
+        #normal = np.array([-tangent[1], tangent[0]])
+        # Normalize the normal vector
+        #normal = normal / np.linalg.norm(normal)
+        #normals.append(normal)
+    return tan
+
+def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, ftNodeTanAndLen, modelRange, ftNames):
+    
+    meshInfo = {}
+    meshInfo['totalNumOfNodes'] = len(pointsWithSplitNodes)
+    meshInfo['totalNumOfCells'] = len(cells)
+    
+    for ftName in ftNames:
+        meshInfo[ftName] = len(masterSlaveNodeIdRelation[ftName][0])
+    
+    numOfFtNodes = [] 
+    for ftName in meshInfo:
+        if ftName in ftNames:
+            numOfFtNodes += [meshInfo[ftName]]
+    
+    maxNumOfFtNodes = max(numOfFtNodes)
+    
+    nsmp = np.zeros((maxNumOfFtNodes*3,2))
+    nsmpTanLen = np.zeros((maxNumOfFtNodes*3,3))
+    
+    string = ''
+    for iFt, ftName in enumerate(ftNames):
+        n = len(masterSlaveNodeIdRelation[ftName][0])
+        nsmp[iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 0:2] = np.array(masterSlaveNodeIdRelation[ftName]).T #+ 1iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 0:3    
+        nsmpTanLen[iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 0:3] = np.array(ftNodeTanAndLen[ftName])
+        
+        string += str(n)+' ' 
+        
+    #print(maxNumOfFtNodes)
+    #print(meshInfo)
+    #print(nsmp)
+    
+    np.savetxt('vert.txt', pointsWithSplitNodes, fmt='%e')
+    np.savetxt('fac.txt', cells, fmt='%d')
+    np.savetxt('nsmp.txt', nsmp, fmt='%d')
+    np.savetxt('nsmpTanLen.txt', nsmpTanLen, fmt='%e')
+    
+    with open('meshGeneralInfo.txt','w') as f:
+        f.write(str(meshInfo['totalNumOfNodes'])+' '+str(meshInfo['totalNumOfCells'])+' \n')
+        f.write(string+' \n')
+        f.write(str(modelRange['xmin'])+' '+str(modelRange['xmax'])+' '+str(modelRange['ymin'])+' '+str(modelRange['ymax']))
+        
+    return meshInfo, pointsWithSplitNodes, cells, nsmp
