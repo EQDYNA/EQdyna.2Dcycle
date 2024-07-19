@@ -155,7 +155,7 @@ integer (kind = 4) :: ntag, nfn(ntotft), nft, nnode, nelement
   edgey2 = iy+1 
   ny = edgey1 + nyuni + edgey2 +1
   !write(*,*) 'number of node along x, and y-coor',nx,ny
-  !pause 
+  !  
   ntemp = max(nxuni,nyuni) + 1
 	!write(*,*) 'maxftnode = ', ntemp
   !
@@ -386,8 +386,8 @@ integer (kind = 4) :: ntag, nfn(ntotft), nft, nnode, nelement
     ! close(12)
   ! endif
 
-!  write(*,*) 'plotting done, stop!'
-!  pause
+!  write(*,*) 'plotting done,  !'
+!   
   
   ! open(13,file='Mesh_general_info.txt',status='unknown')
   ! write(13,'( 2i15)') nnode,nelement

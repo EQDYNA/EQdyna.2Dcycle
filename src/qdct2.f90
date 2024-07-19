@@ -92,6 +92,14 @@ SUBROUTINE qdct2
 			k1 = 1 + (i-1) *ned
 			fnms(k) = fnms(k) + eleffm(k1)
 		enddo
+        
+        do i=1,nen
+            k = ien(i,nel)
+            if (fnms(k)<1.d-6) then 
+                write(*,*) 'zero nodal mass at cell id', nel
+                stop
+            endif
+        enddo
 		!...... calculate strain-displacement matrix "b" for
 		! 	1-Gaussian point case only and store.
 		!	   note: nint=1 is assumed. B.D. 7/3/05
@@ -137,4 +145,11 @@ SUBROUTINE qdct2
 		!  
 	enddo
 	!
+    do i = 1,numnp
+        if (fnms(i)==0.0d0) then
+        
+            write(*,*) 'zero mass at node Id', i
+            !stop
+        endif
+    enddo 
 end SUBROUTINE qdct2

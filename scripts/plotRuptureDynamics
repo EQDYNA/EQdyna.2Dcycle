@@ -1,0 +1,103 @@
+#! /usr/bin/env python3
+
+import numpy as np
+from math import *
+import matplotlib.pyplot as plt
+import sys,os
+from user_defined_params import par
+
+fontSize=18
+
+def plotRuptureDynamicsForOneEq(eqId, nsmp, points, numOfFts, numOfFtNodes, maxNumOfFtNodes, ftNodeIndexArr, nsmpTanLen):
+    
+    rawSimuDataPath = './aRawSimuData/'
+    plotPath = './aPlots/'
+    fname = rawSimuDataPath + 'totalop.txt'+str(eqId)
+    if not os.path.exists(plotPath):
+        os.mkdir(plotPath)
+    outputFname = plotPath + 'cRuptureDynamics'+str(eqId)+'.png'
+    res = np.loadtxt(fname)
+    moment = 0.
+    seismoDepth = 14.e3 
+    
+    fig, ax = plt.subplots(4,1,figsize=(10,15))
+    
+    for iFt in range(numOfFts):
+        ax[0].plot(points[nsmp[iFt*maxNumOfFtNodes+1:iFt*maxNumOfFtNodes+numOfFtNodes[iFt]-1,0],0], res[ftNodeIndexArr[iFt]+1:ftNodeIndexArr[iFt+1]-1,0]/1e6, linewidth=2)
+        ax[0].set_ylabel('Shear stress (MPa)', fontsize=fontSize)
+        ax[0].tick_params(axis='both', which='major', labelsize=fontSize)
+        
+        ax[1].plot(points[nsmp[iFt*maxNumOfFtNodes+1:iFt*maxNumOfFtNodes+numOfFtNodes[iFt]-1,0],0], res[ftNodeIndexArr[iFt]+1:ftNodeIndexArr[iFt+1]-1,1]/1e6, linewidth=2)
+        ax[1].set_ylabel('Normal stress (MPa)', fontsize=fontSize)
+        ax[1].tick_params(axis='both', which='major', labelsize=fontSize)
+        
+        ax[2].plot(points[nsmp[iFt*maxNumOfFtNodes+1:iFt*maxNumOfFtNodes+numOfFtNodes[iFt]-1,0],0], res[ftNodeIndexArr[iFt]+1:ftNodeIndexArr[iFt+1]-1,2], linewidth=2)
+        ax[2].set_ylabel('Slip (m)', fontsize=fontSize)
+        ax[2].tick_params(axis='both', which='major', labelsize=fontSize)
+        for i in range(ftNodeIndexArr[iFt]+1,ftNodeIndexArr[iFt+1]-1):
+            moment += res[i,2]*nsmpTanLen[i,2]*1.e3*seismoDepth*3400*3400*2670
+
+        ax[3].plot(points[nsmp[iFt*maxNumOfFtNodes+1:iFt*maxNumOfFtNodes+numOfFtNodes[iFt]-1,0],0], res[ftNodeIndexArr[iFt]+1:ftNodeIndexArr[iFt+1]-1,4], linewidth=2)
+        ax[3].set_ylabel('Rupture time (s)', fontsize=fontSize)
+        ax[3].set_ylim(0,50)
+        ax[3].set_xlabel('Along strike distance (km)', fontsize=fontSize)
+        ax[3].tick_params(axis='both', which='major', labelsize=fontSize)
+    
+    magnitude = 2./3.*log10(moment*1.e7)-10.7 
+    ax[0].set_title('EQ ID ' + str(eqId)+'; Magnitude '+"{:.2f}".format(magnitude), fontsize=fontSize)
+    print('EQ ID ' + str(eqId)+'; Magnitude '+"{:.2f}".format(magnitude), '; Moment ', "{:.2e}".format(moment), ' N-m')
+    
+    if magnitude>6:
+        plt.savefig(outputFname, dpi=300)
+    
+    plt.close()
+    
+def plotRuptureDynamics():
+    print(sys.argv, len(sys.argv))
+    if len(sys.argv)==1:
+        eqCycStartId = par.icstart
+        eqCycEndId = par.icend
+        mode = 1
+    elif len(sys.argv)==2:
+        eqId = int(sys.argv[1])
+        mode = 2
+    else:
+        print('Error: please input cycle Ids to proceed.')
+        sys.exit()
+        
+    nsmp = np.loadtxt('nsmp.txt', dtype=int)
+    points = np.loadtxt('vert.txt')
+    cells = np.loadtxt('fac.txt')
+    nsmpTanLen = np.loadtxt('nsmpTanLen.txt')
+
+    with open('meshGeneralInfo.txt', 'r') as file:
+        next(file)  # Skip the first line
+        numOfFtNodes = list(map(int, file.readline().split()))  # Read the second line
+        print(numOfFtNodes)
+
+    #print(nsmp)
+    #print(len(nsmp))
+
+    numOfFts = len(numOfFtNodes)
+    maxNumOfFtNodes = max(numOfFtNodes)
+    ftNodeIndexArr = np.zeros(numOfFts+1, dtype=int)
+
+    for iFt in range(numOfFts):
+        ftNodeIndexArr[iFt+1] = np.sum(numOfFtNodes[:iFt+1])
+    #print(ftNodeIndexArr)
+
+    if mode == 1:
+        for eqId in range(eqCycStartId, eqCycEndId+1):
+            plotRuptureDynamicsForOneEq(eqId, nsmp, points, numOfFts, numOfFtNodes, maxNumOfFtNodes, ftNodeIndexArr, nsmpTanLen)
+    elif mode == 2:
+        plotRuptureDynamicsForOneEq(eqId, nsmp, points, numOfFts, numOfFtNodes, maxNumOfFtNodes, ftNodeIndexArr, nsmpTanLen)    
+        
+def _main_func(description):
+    plotRuptureDynamics()
+    
+if __name__ == "__main__":
+    _main_func(__doc__)
+
+
+
+    

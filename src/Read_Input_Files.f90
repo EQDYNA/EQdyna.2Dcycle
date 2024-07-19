@@ -9,15 +9,15 @@ subroutine readglobal
 	INQUIRE(FILE="FE_Global.txt", EXIST=file_exists)
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     Checking in FE_global.txt ...                                 ='
-	if (file_exists == 0) then
+	if (file_exists .eqv. .false.) then
 		write(*,*) '=                                                                   ='
 		write(*,*) '=     FE_Global.txt is required but missing ...                     ='	
-		stop
+		 
 	endif 
 	!INQUIRE(FILE="FE_Global.txt", EXIST=file_exists)
-	! if (file_exists == 0) then
+	! if (file_exists .eqv. .false.) then
 		! write(*,*) 'FE_Global.txt is still missing, so exiting EQdyna'
-		! stop
+		!  
 	! endif 
 	
 	open(unit = 1001, file = 'FE_Global.txt', form = 'formatted', status = 'old')
@@ -42,8 +42,8 @@ subroutine readglobal
 		read(1001,*) vp
 		read(1001,*) vs
 		read(1001,*) rou
-		read(1001,*) ant0 !2.8d21*2.0d0 ! Viscosity 
-		read(1001,*) str  !1.427d-14 ! Maximum shearing strain loading rate	
+		read(1001,*) eta0 !2.8d21*2.0d0 ! Viscosity 
+		read(1001,*) maxShearStrainLoadRate  !1.427d-14 ! Maximum shearing strain loading rate	
 		read(1001,*) 
 		read(1001,*) ambientnorm
 		read(1001,*) debug
@@ -61,15 +61,15 @@ subroutine readmodelgeometry
 	INQUIRE(FILE="FE_Model_Geometry.txt", EXIST=file_exists)
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     Checking in FE_Model_Geometry.txt ...                         ='	
-	if (file_exists == 0) then
+	if (file_exists .eqv. .false.) then
 		write(*,*) '=                                                                   ='
 		write(*,*) '=     FE_Model_Geometry.txt is required but missing ...             ='		
-		stop
+		 
 	endif 
 	!INQUIRE(FILE="FE_Model_Geometry.txt", EXIST=file_exists)
-	! if (file_exists == 0) then
+	! if (file_exists .eqv. .false.) then
 		! write(*,*) 'FE_Model_Geometry.txt is still missing, so exiting EQdyna'
-		! stop
+		!  
 	! endif 
 	
 	open(unit = 1002, file = 'FE_Model_Geometry.txt', form = 'formatted', status = 'old')
@@ -94,15 +94,15 @@ subroutine readfaultgeometry
 	INQUIRE(FILE="FE_Fault_Geometry.txt", EXIST=file_exists)
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     Checking in FE_Fault_Geometry.txt ...                         ='
-	if (file_exists == 0) then
+	if (file_exists .eqv. .false.) then
 		write(*,*) '=                                                                   ='
 		write(*,*) '=     FE_Fault_Geometry.txt is required but missing ...             ='	
-		stop
+		 
 	endif 
 	! INQUIRE(FILE="FE_Fault_Geometry.txt", EXIST=file_exists)
-	! if (file_exists == 0) then
+	! if (file_exists .eqv. .false.) then
 		! write(*,*) 'FE_Fault_Geometry.txt is still missing, so exiting EQdyna'
-		! stop
+		!  
 	! endif 
 	
 	open(unit = 1003, file = 'FE_Fault_Geometry.txt', form = 'formatted', status = 'old')
@@ -122,15 +122,15 @@ subroutine readmaterial
 	
 	INQUIRE(FILE="FE_Material.txt", EXIST=file_exists)
 	write(*,*) 'Checking FE_Material.txt by the master procs'
-	if (file_exists == 0) then
+	if (file_exists .eqv. .false.) then
 		write(*,*) 'FE_Material.txt is required but missing ...'
-		pause
+		 
 	endif 
 
 	INQUIRE(FILE="FE_Material.txt", EXIST=file_exists)
-	if (file_exists == 0) then
+	if (file_exists .eqv. .false.) then
 		write(*,*) 'FE_Material.txt is still missing, so exiting EQdyna'
-		stop
+		 
 	endif 
 
 	
@@ -152,15 +152,15 @@ subroutine readfric
 	
 	INQUIRE(FILE="FE_Fric.txt", EXIST=file_exists)
 	write(*,*) 'Checking FE_Fric.txt by the master procs'
-	if (file_exists == 0) then
+	if (file_exists .eqv. .false.) then
 		write(*,*) 'FE_Fric.txt is required but missing ...'
-		pause
+		 
 	endif 
 
 	INQUIRE(FILE="FE_Fric.txt", EXIST=file_exists)
-	if (file_exists == 0) then
+	if (file_exists .eqv. .false.) then
 		write(*,*) 'FE_Fric.txt is still missing, so exiting EQdyna'
-		stop
+		 
 	endif 
 
 	

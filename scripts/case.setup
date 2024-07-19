@@ -1,0 +1,66 @@
+#! /usr/bin/env python3
+"""
+Script to setup the case via user_defined_params.py.
+"""
+from user_defined_params import par
+import numpy as np
+import os
+
+def create_model_input_file():
+    # Function to create bGlobal.txt, bModelGeometry.txt, b.FaultGeometry.txt,
+    #  bMaterial.txt, bStations.txt used by EQdyna.
+    with open('FE_Global.txt', 'w') as f:
+        f.write(str(par.C_mesh)        + "\n")
+        f.write(str(par.ntotft)   + "\n")
+        f.write(str(par.friclaw)    + "\n")
+        f.write(" "           + "\n")
+        f.write(str(par.dt1)     + "\n")
+        f.write(str(par.term) + "\n")
+        f.write(str(par.icstart)+" "+str(par.icend)+" "+"\n")
+        f.write(" "           + "\n")
+        f.write(str(par.fric_fs) + "\n")
+        f.write(str(par.fric_fd) + "\n")
+        f.write(str(par.fric_fv) + "\n")
+        f.write(str(par.fric_fini) + "\n")
+        f.write(str(par.critd0) + "\n")
+        f.write(str(par.critv0) + "\n")
+        f.write(str(par.critt0) + "\n")
+        f.write(str(par.vrupt0) + "\n")
+        f.write(str(par.radius) + "\n")
+        f.write(" "           + "\n")
+        f.write(str(par.vp) + "\n")
+        f.write(str(par.vs) + "\n")
+        f.write(str(par.rou) + "\n")
+        f.write(str(par.eta0) + "\n")
+        f.write(str(par.maxShearStrainLoadRate) + "\n")
+        f.write(" "           + "\n")
+        f.write(str(par.ambientnorm) + "\n")
+        f.write(str(par.debug) + "\n")
+        f.write(str(par.plotmesh) + "\n")
+        
+    with open('FE_Model_Geometry.txt', "w") as f:
+        f.write(str(par.yext) + "\n")
+        f.write(str(par.rat) + "\n")
+        f.write(str(par.dxy) + "\n")
+        
+    with open('FE_Fault_Geometry.txt', "w") as f:
+        for i in range(par.ntotft):
+            f.write(str(par.ftcn[i])+"  ")
+            
+def create_run_sh():
+    # Function to create batch script used by HPC system.
+    with open("FE_run.sh", "w") as f:
+        f.write("#! /bin/bash" + "\n")
+        # Executable part.
+        f.write(" mkdir aRawSimuData" + "\n")
+        f.write(" rm totalop.txt* cyclelog.txt* interval.txt*" + "\n")
+        f.write(" eqdyna.2dcycle" + "\n")
+        f.write(" mv totalop.txt* cyclelog.txt* interval.txt* aRawSimuData" + "\n") 
+        f.write(" ./plotRuptureDynamics" + "\n")     
+
+def _main_func(description):
+    create_model_input_file()
+    create_run_sh()
+
+if __name__ == "__main__":
+    _main_func(__doc__)

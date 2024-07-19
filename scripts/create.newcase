@@ -1,0 +1,34 @@
+#! /usr/bin/env python3 
+
+import xml.etree.ElementTree as ET
+import shutil, sys, os
+
+def case_copy(src, dst):
+    # copy files from src to dst
+    filenames = os.listdir(src)
+    for f in filenames:
+        srcf = src + '/' + f
+        shutil.copy(srcf, dst)
+
+def _main_func(description):
+
+    case_path = sys.argv[1]
+    compset = sys.argv[2]
+    print('Directory for newly created case is ', case_path)
+    print('Compset chosen is ', compset)
+
+    env_var = os.environ
+
+    shutil.rmtree(str(case_path), ignore_errors=True)
+    os.mkdir(str(case_path))
+    
+    eqdyna2dcycleRoot = env_var['EQDYNA2DCYCLEROOT']
+    input_path = eqdyna2dcycleRoot + '/compset/' + str(compset) 
+    utils_path = eqdyna2dcycleRoot + '/scripts'
+  
+    case_copy(input_path, case_path)
+    case_copy(utils_path, case_path)
+
+if __name__ == "__main__":
+    _main_func(__doc__)
+
