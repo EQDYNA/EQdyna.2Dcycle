@@ -174,12 +174,12 @@ program eqdyna2d
     write(mm,'(i6)') icstart
     mm=trim(adjustl(mm))    
     
-    open(4,file='cyclelog.txt'//mm,form = 'formatted', status = 'unknown')
+    open(4, file='cyclelog.txt'//mm, form = 'formatted', status = 'unknown')
         write(4,*) icstart, icstart
     close(4)    
     if (icstart>1) then 
-        open(5, file = 'binaryop', form = 'unformatted', status = 'unknown')
-            read(5) ((output4plot(i,j), i = 1,5), j = 1, totftnode)
+        open(5, file = 'restart.txt', form='formatted', status = 'unknown')
+            read(5,*) ((output4plot(i,j), i = 1,5), j = 1, totftnode)
         close(5)    
         do i = 1,totftnode
             fistr(1,i) = output4plot(1,i)
