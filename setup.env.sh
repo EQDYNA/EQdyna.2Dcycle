@@ -3,11 +3,9 @@
 # The shell script is to set up computing environments for EQdyna.2Dcycle.
 
 # Currently, the machines supported are:
-#	ls6:	Lonestar6 at TACC
-#	ubuntu: Ubuntu 22.04
-
-# Usage: setup.env.sh [Machine_name]
-
+#   ls6: Lonestar6 at TACC
+#   ubuntu: Ubuntu 22.04
+#   MacOS
 
 echo "Usage: ./setup.env.sh [Machine_name]  "
 echo "                                                                     "
@@ -39,7 +37,7 @@ elif [ $MACHINE == "macos" ]; then
     echo "Installing EQdyna.2Dcycle on MacOS with Homebrew ... ..."
     echo "It is assumed Homebrew is installed either vis .pkg or cmd"
     brew install gcc python 
-    pip install numpy matplotlib xarray
+    pip3 install --break-system-packages numpy matplotlib xarray
 fi 
 
 export EQDYNA2DCYCLEROOT=$(pwd)
