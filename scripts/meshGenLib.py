@@ -321,12 +321,14 @@ def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, 
     maxNumOfFtNodes = max(numOfFtNodes)
     
     nsmp = np.zeros((maxNumOfFtNodes*3,2))
+    nsmpTanLen = np.zeros((maxNumOfFtNodes*3,3))
     nsmpGeoPhys = np.zeros((maxNumOfFtNodes*3,9))
     
     string = ''
     for iFt, ftName in enumerate(ftNames):
         n = len(masterSlaveNodeIdRelation[ftName][0])
         nsmp[iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 0:2] = np.array(masterSlaveNodeIdRelation[ftName]).T #+ 1iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 0:3    
+        nsmpTanLen[iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 0:3] = np.array(ftNodeTanAndLen[ftName])
         nsmpGeoPhys[iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 0:3] = np.array(ftNodeTanAndLen[ftName])
         nsmpGeoPhys[iFt*maxNumOfFtNodes:iFt*maxNumOfFtNodes+n, 3:9] = np.array(ftPhys[ftName])
         string += str(n)+' ' 
@@ -338,6 +340,7 @@ def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, 
     np.savetxt('vert.txt', pointsWithSplitNodes, fmt='%e')
     np.savetxt('fac.txt', cells, fmt='%d')
     np.savetxt('nsmp.txt', nsmp, fmt='%d')
+    np.savetxt('nsmpTanlen.txt', nsmpTanLen, fmt='%e')
     np.savetxt('nsmpGeoPhys.txt', nsmpGeoPhys, fmt='%e')
     
     with open('meshGeneralInfo.txt','w') as f:
