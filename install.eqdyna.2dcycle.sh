@@ -10,10 +10,14 @@
 
 # Usage: install.eqdyna.2dcycle.sh [-h] [-m Machine_name] [-c Machine_name]
 
-while getopts "m:c:h" OPTION; do
+while getopts "m:e:c:h" OPTION; do
     case $OPTION in 
         m)
             MACH=$OPTARG
+            ;;
+        e) 
+            MACH=$OPTARG
+            ENV="True"
             ;;
         c)
             MACH=$OPTARG
@@ -47,10 +51,19 @@ if [ -n "$MACH" ]; then
     export MACHINE=$MACH
     if [ $MACHINE == "ls6" ]; then 
         echo "Installing EQdyna.2Dcycle on Lonestar6 at TACC ... ..."
-        
+        if [ -n "$ENV" ]; then
+            echo "Set up ENV on LS6 ... ..."
+        fi 
     elif [ $MACHINE == "ubuntu" ]; then 
         echo "Installing EQdyna.2Dcycle on Ubuntu 22.04 ... ..."
-    
+    elif [ $MACHINE == "macos" ]; then 
+        echo "Installing EQdyna.2Dcycle on MacOS ... ..."
+        if [ -n "$ENV" ]; then
+            echo "Setting up Env for EQdyna.2Dcycle on MacOS with Homebrew ... ..."
+            echo "It is assumed Homebrew is installed either vis .pkg or cmd"
+            brew install gcc python 
+            pip3 install --break-system-packages numpy matplotlib xarray
+        fi 
     elif [ $MACHINE == "grace" ]; then 
         echo "Installing EQdyna.2Dcycle on Grace at TAMU ... ..."
     fi 
