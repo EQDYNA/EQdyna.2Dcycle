@@ -48,7 +48,7 @@ subroutine loadGmshMesh
         enddo 
     close(14)
     
-    open(14, file = 'nsmpTanLen.txt', form = 'formatted', status ='old')
+    open(14, file = 'nsmpGeoPhys.txt', form = 'formatted', status ='old')
         do i = 1,maxftnode*3
             read(14,*) tmp1, tmp2, tmp3
             nsmpnv(1,i) = -tmp2
