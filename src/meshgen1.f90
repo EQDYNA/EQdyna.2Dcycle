@@ -49,13 +49,13 @@ subroutine loadGmshMesh
     close(14)
     
     open(14, file = 'nsmpGeoPhys.txt', form = 'formatted', status ='old')
-        do i = 1,maxftnode*3
-            read(14,*) tmp1, tmp2, tmp3
-            nsmpnv(1,i) = -tmp2
-            nsmpnv(2,i) = tmp1 
-            nsmpnv(3,i) = tmp3*1.0d3
-        enddo
-    close(14) 
+      do i = 1, maxftnode*3
+        read(14,*) tmp1, tmp2, (nsmpnv(j,i), j=3,9)
+        nsmpnv(1,i) = -tmp2
+        nsmpnv(2,i) = tmp1
+        nsmpnv(3,i) = nsmpnv(3,i) * 1.0d3
+      enddo
+    close(14)
     write(*,*) 'nsmpnv is ', nsmpnv(3,200)
     ! open(14, file = 'nsmpnv.txt', form = 'formatted', status = 'unknown')
     ! do j = 1, ntotft
