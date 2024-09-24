@@ -8,7 +8,7 @@ SUBROUTINE faulting(step)
         taox,taoy,ftix, ftiy, fnfault, ftfault, slip,sliprate,xmu,trupt,tr,temp1, maxslip, maxsliprate
     real (kind = dp),dimension(4,2,3)::fvd=0.0d0 
     real (kind = dp):: xcoor0, ycoor0, ift0, radi
-    real (kind = dp),dimension(totftnode) :: maxslip_arr, maxsliprate_arr
+    real (kind = dp),dimension(totNumFtNode) :: maxslip_arr, maxsliprate_arr
     !
     if (loc < nfnode(1)+1) then
         ift0 = 1

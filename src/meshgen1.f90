@@ -9,7 +9,7 @@ subroutine loadGmshMesh
         read(14,*) (nfnode(i), i=1,ntotft)
         read(14,*) xmin, xmax, ymin, ymax
     close(14)
-    totftnode = sum(nfnode)
+    totNumFtNode = sum(nfnode)
     maxftnode = maxval(nfnode)
     xmin = xmin*1.d3
     xmax = xmax*1.d3
@@ -19,7 +19,7 @@ subroutine loadGmshMesh
     if (debug==1) then 
         write(*,*) 'Num of nodes, cells are', numnp, numel
         write(*,*) 'Num of fault nodes are', (nfnode(i),i=1,ntotft)
-        write(*,*) 'Total num of ft nodes is', totftnode
+        write(*,*) 'Total num of ft nodes is', totNumFtNode
         write(*,*) 'Max num per ft node is', maxftnode
         write(*,*) 'Model ranges are', xmin, xmax, ymin, ymax
     endif  
