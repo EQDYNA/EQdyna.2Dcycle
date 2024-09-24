@@ -5,10 +5,11 @@
 #	an executable eqdyna.2dcycle and move it to bin/.
 
 # Currently, the machines supported are:
-#	ls6:	Lonestar6 at TACC
+#	ls6:    Lonestar6 at TACC
 #	ubuntu: Ubuntu 22.04
+#   macos:  MacOS Sonoma 14.7
 
-# Usage: install.eqdyna.2dcycle.sh [-h] [-m Machine_name] [-c Machine_name]
+# Usage: install.eqdyna.2dcycle.sh [-h] [-m Machine_name] [-e Machine_name] [-c Machine_name]
 
 while getopts "m:e:c:h" OPTION; do
     case $OPTION in 
@@ -34,9 +35,8 @@ while getopts "m:e:c:h" OPTION; do
             echo "install.eqdyna.2dcycle.sh -m ls6                                     "
             echo " -----Install EQdyna.2Dcycle on Lonestar6 at TACC                    "
             echo "                                                                     "
-            echo "install.eqdyna.2dcycle.sh -c ubuntu                                  "
-            echo " -----Simply set up envs for EQdyna.2Dcycle without installation     "
-            echo " -----on ubuntu                                                      "
+            echo "install.eqdyna.2dcycle.sh -e macos                                   "
+            echo " -----Setup env and install EQdyna.2Dcycle on MacOS                  "
             echo "                                                                     "
             echo "source install.eqdyna.2dcycle.sh                                     "
             echo " -----Activate ENV VAR EQDYNA2DCYCLEROOT and add exes to PATH        "
@@ -62,7 +62,7 @@ if [ -n "$MACH" ]; then
             echo "Setting up Env for EQdyna.2Dcycle on MacOS with Homebrew ... ..."
             echo "It is assumed Homebrew is installed either vis .pkg or cmd"
             brew install gcc python 
-            pip3 install --break-system-packages numpy matplotlib xarray
+            pip3 install --break-system-packages numpy matplotlib xarray gmsh meshio nbconvert
         fi 
     elif [ $MACHINE == "grace" ]; then 
         echo "Installing EQdyna.2Dcycle on Grace at TAMU ... ..."

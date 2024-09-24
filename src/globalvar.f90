@@ -52,7 +52,7 @@ module globalvar
   integer (kind = 4) :: C_mesh, ntotft, friclaw, ien0(5,10000000),nsmp0(2,10000)
   integer (kind = 4) :: totNumFtNode, maxftnode, loc, icstart, icend, debug, ftn, plotmesh,numOfStepsToPrint=2000
   real (kind = dp) :: xnode0(2,10000000), nsmpGeoPhys(9, 10000), fnft(10000), fric(50,10000)
-  real (kind = dp) :: ambientnorm, minnorm = -10.0d6, vp, vs, lambda
+  real (kind = dp) :: ambientNorm, minnorm = -10.0d6, vp, vs, lambda
   real (kind = dp),allocatable, dimension(:,:) :: fistr, output4plot, rd! Shear, normal, slip, sliprate, miu
   integer (kind=4),allocatable, dimension(:) :: nfnode, ftcn
   

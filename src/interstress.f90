@@ -11,15 +11,13 @@ subroutine interstress(cycleID)
     real (kind = dp) :: initShear(totNumFtNode)
     real (kind = dp) :: initNorm(totNumFtNode)
     real (kind = dp) :: strengthExcess(totNumFtNode)
-    real (kind = dp) :: eta
-    real (kind = dp) :: etaMin
-    real (kind = dp) :: dtInSeconds
-    real (kind = dp) :: dtInYears
+    real (kind = dp) :: eta, etaMin
+    real (kind = dp) :: dtInSeconds, dtInYears
     real (kind = dp) :: interseisElapsedTime
     real (kind = dp) :: conYrToSec
-    real (kind = dp) :: rn
-    real (kind = dp) :: rs
-    real (kind = dp) :: theta
+    real (kind = dp) :: dNorm, dShear
+    real (kind = dp) :: minusLocStrikeAngleToX
+    real (kind = dp) :: locMaximumShearRate, locLoadAngleToX, locLoadWeight, locFtType, locFtDip
     real (kind = dp) :: minStrengthExcess
     integer (kind = 4):: nuci(300), nucntag = 0
     character (len = 30) :: m1
@@ -31,13 +29,15 @@ subroutine interstress(cycleID)
     if (debug==1) write(*,*) 'INTERSTRESS: start. Cycle id is', cycleID
 
     if (cycleID == 1) then 
-        initShear = -ambientnorm * fric_fini
-        initNorm = ambientnorm
+        initShear = -ambientNorm * fric_fini
+        initNorm = ambientNorm
     else
-        do i = 1, totNumFtNode
-            initShear(i) = fistr(1,i) 
-            initNorm(i) = fistr(2,i) 
-        enddo 
+        initShear = fistr(1,:)
+        initNorm = fistr(2,:)
+        !do i = 1, totNumFtNode
+        !    initShear(i) = fistr(1,i) 
+        !    initNorm(i) = fistr(2,i) 
+        !enddo 
     endif
     ntag = 0  
     do ift = 1, ntotft
@@ -68,34 +68,39 @@ subroutine interstress(cycleID)
             write (*,*) 'Interseismic t = ', interseisElapsedTime/conYrToSec, ' years'
         endif
         do i = 1, totNumFtNode
-            theta = atan(nsmpGeoPhys(1, ftPairIDtoNodeID(i))/nsmpGeoPhys(2,ftPairIDtoNodeID(i))) ! in RAD
-            !theta = rd(2,ftPairIDtoNodeID(i))/180.0d0*pi
-            !if (debug==1) write(*,*) 'INTERSTRESS: node id', i, 'theta', theta
+            ! NOTE: the minus sign is good for left-lateral loading and faults.
+            minusLocStrikeAngleToX = atan(nsmpGeoPhys(1,ftPairIDtoNodeID(i))/nsmpGeoPhys(2,ftPairIDtoNodeID(i)))
+            !minusLocStrikeAngleToX = rd(2,ftPairIDtoNodeID(i))/180.0d0*pi
+            !if (debug==1) write(*,*) 'INTERSTRESS: node id', i, 'minusLocStrikeAngleToX', minusLocStrikeAngleToX
             
-            !if (theta >= 45.0d0/180.0d0*pi) then 
-            !    theta = 45.0d0/180.0d0*pi
+            !if (minusLocStrikeAngleToX >= 45.0d0/180.0d0*pi) then 
+            !    minusLocStrikeAngleToX = 45.0d0/180.0d0*pi
             !endif
             
             ! Viscosity eta is inversely proportional to the maximum shear strain rate (Liu et al., 2022).
             ! NOTE: don't scale for now.
             !rd(1,ftPairIDtoNodeID(i)) = maxShearStrainLoadRate
             !eta   = eta0*maxShearStrainLoadRate/rd(1,ftPairIDtoNodeID(i))
-            !rs    = rd(1,ftPairIDtoNodeID(i))*cos(2.0d0*theta)*eta ! eq.(3)
-            !rn    = -rd(1,ftPairIDtoNodeID(i))*sin(2.0d0*theta)*eta ! eq.(3)
-            
+            !rs    = rd(1,ftPairIDtoNodeID(i))*cos(2.0d0*minusLocStrikeAngleToX)*eta ! eq.(3)
+            !rn    = -rd(1,ftPairIDtoNodeID(i))*sin(2.0d0*minusLocStrikeAngleToX)*eta ! eq.(3)
+            locFtType = nsmpGeoPhys(4,ftPairIDtoNodeID(i))
+            locFtDip = nsmpGeoPhys(5,ftPairIDtoNodeID(i))
+            locMaximumShearRate = nsmpGeoPhys(6,ftPairIDtoNodeID(i))
+            locLoadAngleToX = nsmpGeoPhys(7,ftPairIDtoNodeID(i))
+            locLoadWeight = nsmpGeoPhys(8,ftPairIDtoNodeID(i))
             eta = nsmpGeoPhys(9,ftPairIDtoNodeID(i))     
-            rs    = nsmpGeoPhys(6,ftPairIDtoNodeID(i)) *cos(2.0d0*theta)*eta ! eq.(3)
-            rn    = -nsmpGeoPhys(6,ftPairIDtoNodeID(i)) *sin(2.0d0*theta)*eta ! eq.(3)
-            normStress(i) = (initNorm(i) - ambientnorm - rn)*exp(-interseisElapsedTime*amu/eta)+rn+ambientnorm ! eq.(2) 
-            shearStress(i) = (initShear(i) - rs) * exp(-interseisElapsedTime*amu/eta) + rs ! eq.(1)
+            dShear = locMaximumShearRate*locLoadWeight*cos(2.0d0*minusLocStrikeAngleToX)*eta ! eq.(3)
+            dNorm = -locMaximumShearRate*locLoadWeight*sin(2.0d0*minusLocStrikeAngleToX)*eta ! eq.(3)
+            normStress(i) = (initNorm(i)-ambientNorm-dNorm)*exp(-interseisElapsedTime*amu/eta)+dNorm+ambientNorm ! eq.(2) 
+            shearStress(i) = (initShear(i)-dShear) * exp(-interseisElapsedTime*amu/eta)+dShear ! eq.(1)
             
-            etaMin = -fric_fs*ambientnorm/maxShearStrainLoadRate
+            etaMin = -fric_fs*ambientNorm/maxShearStrainLoadRate
             if (eta<etaMin) then 
                 write(*,*) 'Minimum viscosity is ', etaMin
-                write(*,*) 'For ambient normal stress ', ambientnorm/1.d6, ' MPa'
+                write(*,*) 'For ambient normal stress ', ambientNorm/1.d6, ' MPa'
                 write(*,*) 'and static friction ', fric_fs
                 write(*,*) 'maxShearStrainLoadRate is', maxShearStrainLoadRate
-                write(*,*) 'Max Shr direction to strike angle is', theta/pi*180.d0
+                write(*,*) 'Max Shr direction to strike angle is', minusLocStrikeAngleToX/pi*180.d0
                 write(*,*) 'Viscosity is ', eta
                 write(*,*) 'Viscosity is lower than the minimum requirement. Exiting ...'
                 stop
