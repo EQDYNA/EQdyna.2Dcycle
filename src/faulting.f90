@@ -36,9 +36,9 @@ SUBROUTINE faulting(step)
             kk = kk + 1
             !...get unit normal, shear: use variables for easily coding. B.D. 8/25/06
             ! AN error: I imported nx,ny while Dr. Duan imported tx,ty.
-            nx = -nsmpnv(1,i)
-            ny = -nsmpnv(2,i)
-            txy = nsmpnv(3,i)
+            nx = -nsmpGeoPhys(1,i)
+            ny = -nsmpGeoPhys(2,i)
+            txy = nsmpGeoPhys(3,i)
             ftfault = -fistr(1,kk)
             fnfault = fistr(2,kk)
             tx = -ny ! The sign of tx,ty are reversed from those in Cajonpass Cyc2d_v3a.

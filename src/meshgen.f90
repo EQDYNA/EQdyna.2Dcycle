@@ -406,7 +406,7 @@ integer (kind = 4) :: ntag, nfn(ntotft), nft, nnode, nelement
   ! enddo
   ! close(14)
 
-  ! open(14, file = 'nsmpnv.txt', form = 'formatted', status = 'unknown')
+  ! open(14, file = 'nsmpGeoPhys.txt', form = 'formatted', status = 'unknown')
   ! do j = 1, nft
         ! write(14, '(3e18.7e4)') (-dirvec(2,i,j), dirvec(1,i,j), dirvec(3,i,j), i = 1, ntemp)
   ! enddo
@@ -425,9 +425,9 @@ integer (kind = 4) :: ntag, nfn(ntotft), nft, nnode, nelement
 	do j = 1, nft 
 		do i = 1, ntemp
 			ntag = ntag + 1
-			nsmpnv(1,ntag) = -dirvec(2,i,j)
-			nsmpnv(2,ntag) = dirvec(1,i,j)
-			nsmpnv(3,ntag) = dirvec(3,i,j)
+			nsmpGeoPhys(1,ntag) = -dirvec(2,i,j)
+			nsmpGeoPhys(2,ntag) = dirvec(1,i,j)
+			nsmpGeoPhys(3,ntag) = dirvec(3,i,j)
 		enddo 
 	enddo 
 

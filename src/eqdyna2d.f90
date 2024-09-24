@@ -47,7 +47,7 @@ program eqdyna2d
     xnode0  =    0.0d0
     ien0    =    0
     nsmp0   =    0
-    nsmpnv  =    0.0d0
+    nsmpGeoPhys  =    0.0d0
     write(*,*) '=                                                                   ='
     write(*,*) '=     Building finite element mesh ...                              ='    
     if (debug==1) write(*,*) 'before meshgen'

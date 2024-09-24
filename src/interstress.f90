@@ -55,7 +55,7 @@ subroutine interstress(ic)
             write (*,*) 'Interseismic t = ', tinter/tcon, ' years'
         endif
         do i = 1, totftnode
-            theta = atan(nsmpnv(1, ida(i))/nsmpnv(2,ida(i))) ! in RAD
+            theta = atan(nsmpGeoPhys(1, ida(i))/nsmpGeoPhys(2,ida(i))) ! in RAD
             !theta = rd(2,ida(i))/180.0d0*pi
             !if (debug==1) write(*,*) 'INTERSTRESS: node id', i, 'theta', theta
             
@@ -65,10 +65,14 @@ subroutine interstress(ic)
             
             ! Viscosity eta is inversely proportional to the maximum shear strain rate (Liu et al., 2022).
             ! NOTE: don't scale for now.
-            rd(1,ida(i)) = maxShearStrainLoadRate
-            eta   = eta0*maxShearStrainLoadRate/rd(1,ida(i))      
-            rs    = rd(1,ida(i))*cos(2.0d0*theta)*eta ! eq.(3)
-            rn    = -rd(1,ida(i))*sin(2.0d0*theta)*eta ! eq.(3)
+            !rd(1,ida(i)) = maxShearStrainLoadRate
+            !eta   = eta0*maxShearStrainLoadRate/rd(1,ida(i))
+            !rs    = rd(1,ida(i))*cos(2.0d0*theta)*eta ! eq.(3)
+            !rn    = -rd(1,ida(i))*sin(2.0d0*theta)*eta ! eq.(3)
+            
+            eta = nsmpGeoPhys(9,ida(i))     
+            rs    = nsmpGeoPhys(6,ida(i)) *cos(2.0d0*theta)*eta ! eq.(3)
+            rn    = -nsmpGeoPhys(6,ida(i)) *sin(2.0d0*theta)*eta ! eq.(3)
             ns(i) = (ns0(i) - ambientnorm - rn)*exp(-tinter*amu/eta)+rn+ambientnorm ! eq.(2) 
             shs(i) = (ss0(i) - rs) * exp(-tinter*amu/eta) + rs ! eq.(1)
             
