@@ -9,7 +9,7 @@ subroutine loadGmshMesh
         read(14,*) (nfnode(i), i=1,ntotft)
         read(14,*) xmin, xmax, ymin, ymax
     close(14)
-    totftnode = sum(nfnode)
+    totNumFtNode = sum(nfnode)
     maxftnode = maxval(nfnode)
     xmin = xmin*1.d3
     xmax = xmax*1.d3
@@ -19,7 +19,7 @@ subroutine loadGmshMesh
     if (debug==1) then 
         write(*,*) 'Num of nodes, cells are', numnp, numel
         write(*,*) 'Num of fault nodes are', (nfnode(i),i=1,ntotft)
-        write(*,*) 'Total num of ft nodes is', totftnode
+        write(*,*) 'Total num of ft nodes is', totNumFtNode
         write(*,*) 'Max num per ft node is', maxftnode
         write(*,*) 'Model ranges are', xmin, xmax, ymin, ymax
     endif  
@@ -49,15 +49,15 @@ subroutine loadGmshMesh
     close(14)
     
     open(14, file = 'nsmpGeoPhys.txt', form = 'formatted', status ='old')
-        do i = 1,maxftnode*3
-            read(14,*) tmp1, tmp2, tmp3
-            nsmpnv(1,i) = -tmp2
-            nsmpnv(2,i) = tmp1 
-            nsmpnv(3,i) = tmp3*1.0d3
-        enddo
-    close(14) 
-    write(*,*) 'nsmpnv is ', nsmpnv(3,200)
-    ! open(14, file = 'nsmpnv.txt', form = 'formatted', status = 'unknown')
+      do i = 1, maxftnode*3
+        read(14,*) tmp1, tmp2, (nsmpGeoPhys(j,i), j=3,9)
+        nsmpGeoPhys(1,i) = -tmp2
+        nsmpGeoPhys(2,i) = tmp1
+        nsmpGeoPhys(3,i) = nsmpGeoPhys(3,i) * 1.0d3
+      enddo
+    close(14)
+    write(*,*) 'nsmpGeoPhys is ', nsmpGeoPhys(3,200)
+    ! open(14, file = 'nsmpGeoPhys.txt', form = 'formatted', status = 'unknown')
     ! do j = 1, ntotft
         ! write(14, '(3e21.14)') (-dirvec(2,i,j), dirvec(1,i,j), dirvec(3,i,j), i = 1, ntemp)
     ! enddo
@@ -626,9 +626,9 @@ subroutine meshgen1
   do i = 1, nft
     do j = 1, ntemp
         ntag = ntag + 1
-        nsmpnv(1,ntag) = -dirvec(2,j,i)
-        nsmpnv(2,ntag) = dirvec(1,j,i)
-        nsmpnv(3,ntag) = dirvec(3,j,i)
+        nsmpGeoPhys(1,ntag) = -dirvec(2,j,i)
+        nsmpGeoPhys(2,ntag) = dirvec(1,j,i)
+        nsmpGeoPhys(3,ntag) = dirvec(3,j,i)
     enddo 
   enddo  
     if (plotmesh == 1) then  
@@ -638,7 +638,7 @@ subroutine meshgen1
         enddo
         close(14)
 
-        open(14, file = 'nsmpnv.txt', form = 'formatted', status = 'unknown')
+        open(14, file = 'nsmpGeoPhys.txt', form = 'formatted', status = 'unknown')
         do j = 1, nft
             write(14, '(3e21.14)') (-dirvec(2,i,j), dirvec(1,i,j), dirvec(3,i,j), i = 1, ntemp)
         enddo

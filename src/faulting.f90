@@ -8,7 +8,7 @@ SUBROUTINE faulting(step)
         taox,taoy,ftix, ftiy, fnfault, ftfault, slip,sliprate,xmu,trupt,tr,temp1, maxslip, maxsliprate
     real (kind = dp),dimension(4,2,3)::fvd=0.0d0 
     real (kind = dp):: xcoor0, ycoor0, ift0, radi
-    real (kind = dp),dimension(totftnode) :: maxslip_arr, maxsliprate_arr
+    real (kind = dp),dimension(totNumFtNode) :: maxslip_arr, maxsliprate_arr
     !
     if (loc < nfnode(1)+1) then
         ift0 = 1
@@ -36,9 +36,9 @@ SUBROUTINE faulting(step)
             kk = kk + 1
             !...get unit normal, shear: use variables for easily coding. B.D. 8/25/06
             ! AN error: I imported nx,ny while Dr. Duan imported tx,ty.
-            nx = -nsmpnv(1,i)
-            ny = -nsmpnv(2,i)
-            txy = nsmpnv(3,i)
+            nx = -nsmpGeoPhys(1,i)
+            ny = -nsmpGeoPhys(2,i)
+            txy = nsmpGeoPhys(3,i)
             ftfault = -fistr(1,kk)
             fnfault = fistr(2,kk)
             tx = -ny ! The sign of tx,ty are reversed from those in Cajonpass Cyc2d_v3a.

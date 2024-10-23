@@ -47,7 +47,7 @@ program eqdyna2d
     xnode0  =    0.0d0
     ien0    =    0
     nsmp0   =    0
-    nsmpnv  =    0.0d0
+    nsmpGeoPhys  =    0.0d0
     write(*,*) '=                                                                   ='
     write(*,*) '=     Building finite element mesh ...                              ='    
     if (debug==1) write(*,*) 'before meshgen'
@@ -60,11 +60,11 @@ program eqdyna2d
     endif 
     if (debug==1) write(*,*) 'Mesh is generated/loaded.'
     
-    totftnode = sum(nfnode)
+    totNumFtNode = sum(nfnode)
     maxftnode = maxval(nfnode)
-    if (debug==1) write(*,*) 'Total num of ft nodes is', totftnode, 'max num per ft node is', maxftnode
+    if (debug==1) write(*,*) 'Total num of ft nodes is', totNumFtNode, 'max num per ft node is', maxftnode
     
-    allocate(output4plot(5,totftnode), fistr(2,totftnode), x(nsd,numnp), &
+    allocate(output4plot(5,totNumFtNode), fistr(2,totNumFtNode), x(nsd,numnp), &
         rd(2,maxftnode*ntotft))
         
     !open(3,file='Rate_direction.txt',form = 'formatted',status = 'old')
@@ -179,9 +179,9 @@ program eqdyna2d
     close(4)    
     if (icstart>1) then 
         open(5, file = 'restart.txt', form='formatted', status = 'unknown')
-            read(5,*) ((output4plot(i,j), i = 1,5), j = 1, totftnode)
+            read(5,*) ((output4plot(i,j), i = 1,5), j = 1, totNumFtNode)
         close(5)    
-        do i = 1,totftnode
+        do i = 1,totNumFtNode
             fistr(1,i) = output4plot(1,i)
             fistr(2,i) = output4plot(2,i)
         enddo                 
@@ -209,28 +209,28 @@ program eqdyna2d
         call driver    
         
         write(*,*) 'Exiting driver. Write results to files. '
-        do i = 1,totftnode
+        do i = 1,totNumFtNode
             fistr(1,i) = output4plot(1,i)
             fistr(2,i) = output4plot(2,i)
         enddo         
         
         ! open(5, file = 'binaryop', form = 'unformatted', status = 'unknown')
-            ! write(5) ((output4plot(i,j), i = 1,5), j = 1, totftnode)
+            ! write(5) ((output4plot(i,j), i = 1,5), j = 1, totNumFtNode)
         ! close(5)
         
         open(5, file = 'restart.txt', form = 'formatted', status = 'unknown')
-            write(5,*) ((output4plot(i,j), i = 1,5), j = 1,totftnode)
+            write(5,*) ((output4plot(i,j), i = 1,5), j = 1,totNumFtNode)
         close(5)
         
         write(cycleId,'(i6)') ic
         cycleId=trim(adjustl(cycleId))  
     
         open(1001, file = 'totalop.txt'//cycleId, form='formatted', status = 'unknown')
-            write(1001,'(5e18.7)') ((output4plot(i,j), i = 1,5), j = 1, totftnode)
+            write(1001,'(5e18.7)') ((output4plot(i,j), i = 1,5), j = 1, totNumFtNode)
         close(1001)   
         
         ! open(6, file = 'totalop.txt'//mm, position = 'append', status = 'unknown')
-            ! write(6,'(5e18.7)') ((output4plot(i,j), i = 1,5), j = 1, totftnode)
+            ! write(6,'(5e18.7)') ((output4plot(i,j), i = 1,5), j = 1, totNumFtNode)
         ! close(6)    
         open(4,file='cyclelog.txt'//mm,form = 'formatted', status = 'unknown')
             write(4,*) icstart, ic

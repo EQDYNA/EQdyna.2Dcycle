@@ -45,7 +45,7 @@ subroutine readglobal
 		read(1001,*) eta0 !2.8d21*2.0d0 ! Viscosity 
 		read(1001,*) maxShearStrainLoadRate  !1.427d-14 ! Maximum shearing strain loading rate	
 		read(1001,*) 
-		read(1001,*) ambientnorm
+		read(1001,*) ambientNorm
 		read(1001,*) debug
 		read(1001,*) plotmesh
 	close(1001)
