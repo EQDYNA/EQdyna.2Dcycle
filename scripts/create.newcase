@@ -25,9 +25,11 @@ def _main_func(description):
     eqdyna2dcycleRoot = env_var['EQDYNA2DCYCLEROOT']
     input_path = eqdyna2dcycleRoot + '/compset/' + str(compset) 
     utils_path = eqdyna2dcycleRoot + '/scripts'
+    bin_path = eqdyna2dcycleRoot + '/bin'
   
     case_copy(input_path, case_path)
     case_copy(utils_path, case_path)
+    case_copy(bin_path, case_path)
 
 if __name__ == "__main__":
     _main_func(__doc__)

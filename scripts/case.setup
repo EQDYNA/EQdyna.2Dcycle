@@ -49,12 +49,12 @@ def create_model_input_file():
             
 def create_run_sh():
     # Function to create batch script used by HPC system.
-    with open("FE_run.sh", "w") as f:
+    with open("run.sh", "w") as f:
         f.write("#! /bin/bash" + "\n")
         # Executable part.
         f.write(" mkdir aRawSimuData" + "\n")
         f.write(" rm totalop.txt* cyclelog.txt* interval.txt*" + "\n")
-        f.write(" eqdyna.2dcycle" + "\n")
+        f.write(" ./eqdyna.2dcycle" + "\n")
         f.write(" mv totalop.txt* cyclelog.txt* interval.txt* aRawSimuData" + "\n") 
         f.write(" ./plotRuptureDynamics" + "\n")     
 

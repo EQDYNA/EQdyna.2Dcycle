@@ -6,7 +6,7 @@ program eqdyna2d
     integer (kind=4) :: ic, n,i,j,k,alloc_err
     character (len = 30) :: mm, cycleId
     write(*,*) '====================================================================='
-    write(*,*) '================== Welcome to EQdyna 2D 2.0.3 ======================='
+    write(*,*) '================== Welcome to EQdyna 2D 2.0.4 ======================='
     write(*,*) '===== Product of Earthquake Modeling Lab @ Texas A&M University ====='
     write(*,*) '========== Website https://seismotamu.wixsite.com/emlam ============='
     write(*,*) '=========== Contacts: dliu@ig.utexas.edu, bduan@tamu.edu ============='
