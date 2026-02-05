@@ -53,9 +53,9 @@ cd /path/to/new/case
 ### Configure and run:
 ```bash
 # Edit user_defined_params.py to set simulation parameters
-case.setup  # Creates FE_*.txt input files and FE_run.sh
-chmod +x FE_run.sh
-./FE_run.sh  # Runs simulation and generates plots
+case.setup  # Creates FE_*.txt input files and run.sh
+python3 meshgen.py  # Generate mesh (creates fem_mesh_output/ folder)
+bash run.sh  # Runs simulation and generates plots
 ```
 
 ### Multi-cycle simulations:
@@ -65,9 +65,22 @@ python3 runCycle.py  # For earthquake cycle simulations
 
 ## Testing
 
-### Run validation tests:
+### Run automated test suite:
 ```bash
-python3 check.test.py  # Compares results against reference data
+python3 -m test.testAll  # Complete automated testing pipeline
+```
+
+This runs:
+- Fresh compilation from source
+- Case creation with organized folder structure  
+- Mesh generation and setup
+- Full simulation execution
+- Post-processing and visualization
+- Verification against reference results
+
+### Manual verification:
+```bash
+python3 test/verify.test.py  # Compare results against reference data
 ```
 
 ## Key File Types and Architecture

@@ -1,56 +1,29 @@
 # EQdyna.2Dcycle
 
-EQdyna.2Dcycle is a 2-D finite element method (FEM) code to simulate physics-based multicycle earthquake dynamics on geometrically complex fault systems.
+2D finite element code for physics-based multicycle earthquake dynamics on geometrically complex fault systems.
 
 ## Quick Start
 
-### 1. Install and Build
-
-For macOS:
+### 1. Build
 ```bash
-./install.eqdyna.2dcycle.sh -e macos
+./install.eqdyna.2dcycle.sh -e macos    # macOS
+./install.eqdyna.2dcycle.sh -m ubuntu   # Linux
 ```
 
-For Ubuntu/Linux:
+### 2. Run Test
 ```bash
-./install.eqdyna.2dcycle.sh -m ubuntu
+python3 -m test.testAll
+```
+This runs complete end-to-end testing: build → mesh → simulate → validate.
+
+### 3. Create New Case  
+```bash
+python3 scripts/create.newcase work/my_case test.subei
+cd work/my_case
+python3 meshgen.py && python3 case.setup && bash run.sh
 ```
 
-Manual build:
-```bash
-cd src/
-make
-cd ..
-mkdir -p bin
-mv src/eqdyna.2dcycle bin/
-```
-
-### 2. Set Environment Variables
-
-```bash
-export EQDYNA2DCYCLEROOT=$(pwd)
-export PATH="$EQDYNA2DCYCLEROOT/bin:$EQDYNA2DCYCLEROOT/scripts:$PATH"
-```
-
-### 3. Create and Run a Test Case
-
-```bash
-# Create new case
-mkdir -p work
-python3 scripts/create.newcase work/test_subei test.subei
-
-# Configure case
-cd work/test_subei
-python3 case.setup
-
-# Run simulation
-chmod +x run.sh
-./run.sh
-```
-
-### 4. View Results
-
-Results are automatically generated in the `aPlots/` directory, including rupture dynamics visualizations.
+Results in `aPlots/` (visualizations) and `aRawSimuData/` (simulation output).
 
 ## Example Output
 

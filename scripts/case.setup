@@ -48,14 +48,46 @@ def create_model_input_file():
             f.write(str(par.ftcn[i])+"  ")
             
 def create_run_sh():
-    # Function to create batch script used by HPC system.
+    # Function to create batch script with organized folder support
     with open("run.sh", "w") as f:
         f.write("#! /bin/bash" + "\n")
-        # Executable part.
-        f.write(" mkdir aRawSimuData" + "\n")
-        f.write(" rm totalop.txt* cyclelog.txt* interval.txt*" + "\n")
+        f.write("echo 'Setting up simulation files...'" + "\n")
+        f.write("" + "\n")
+        
+        # Copy mesh files from organized folder structure
+        f.write("# Copy mesh files from fem_mesh_output/ if they exist" + "\n")
+        f.write("if [ -d 'fem_mesh_output' ]; then" + "\n")
+        f.write("  cp fem_mesh_output/vert.txt . 2>/dev/null || echo 'Warning: vert.txt not found'" + "\n")
+        f.write("  cp fem_mesh_output/fac.txt . 2>/dev/null || echo 'Warning: fac.txt not found'" + "\n")
+        f.write("  cp fem_mesh_output/nsmp.txt . 2>/dev/null || echo 'Warning: nsmp.txt not found'" + "\n")
+        f.write("  cp fem_mesh_output/nsmpGeoPhys.txt . 2>/dev/null || echo 'Warning: nsmpGeoPhys.txt not found'" + "\n")
+        f.write("  cp fem_mesh_output/meshGeneralInfo.txt . 2>/dev/null || echo 'Warning: meshGeneralInfo.txt not found'" + "\n")
+        f.write("  cp fem_mesh_output/nsmpTanLen.txt . 2>/dev/null || echo 'Warning: nsmpTanLen.txt not found'" + "\n")
+        f.write("  echo 'Mesh files copied from fem_mesh_output/'" + "\n")
+        f.write("fi" + "\n")
+        f.write("" + "\n")
+        
+        # Check for required files
+        f.write("# Check for required files" + "\n") 
+        f.write("REQUIRED_FILES=('vert.txt' 'fac.txt' 'nsmp.txt' 'nsmpGeoPhys.txt' 'meshGeneralInfo.txt' 'FE_Global.txt' 'FE_Model_Geometry.txt' 'FE_Fault_Geometry.txt')" + "\n")
+        f.write("for file in \"${REQUIRED_FILES[@]}\"; do" + "\n")
+        f.write("  if [ ! -f \"$file\" ]; then" + "\n") 
+        f.write("    echo \"Error: Required file $file not found\"" + "\n")
+        f.write("    echo \"Make sure to run 'python3 meshgen.py' first\"" + "\n")
+        f.write("    exit 1" + "\n")
+        f.write("  fi" + "\n")
+        f.write("done" + "\n")
+        f.write("" + "\n")
+        
+        f.write("echo 'All required files found. Starting simulation...'" + "\n")
+        f.write("" + "\n")
+        
+        # Executable part
+        f.write("# Prepare directories and run simulation" + "\n")
+        f.write(" mkdir -p aRawSimuData" + "\n")
+        f.write(" rm -f totalop.txt* cyclelog.txt* interval.txt*" + "\n")
         f.write(" ./eqdyna.2dcycle" + "\n")
-        f.write(" mv totalop.txt* cyclelog.txt* interval.txt* aRawSimuData" + "\n") 
+        f.write(" mv totalop.txt* cyclelog.txt* interval.txt* aRawSimuData 2>/dev/null" + "\n")
         f.write(" ./plotRuptureDynamics" + "\n")     
 
 def _main_func(description):

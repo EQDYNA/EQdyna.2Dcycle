@@ -4,11 +4,18 @@ import xml.etree.ElementTree as ET
 import shutil, sys, os
 
 def case_copy(src, dst):
-    # copy files from src to dst
+    # copy files and directories from src to dst
     filenames = os.listdir(src)
     for f in filenames:
-        srcf = src + '/' + f
-        shutil.copy(srcf, dst)
+        srcf = os.path.join(src, f)
+        dstf = os.path.join(dst, f)
+        
+        if os.path.isdir(srcf):
+            # Copy directory recursively
+            shutil.copytree(srcf, dstf, dirs_exist_ok=True)
+        else:
+            # Copy file
+            shutil.copy2(srcf, dst)
 
 def _main_func(description):
 
