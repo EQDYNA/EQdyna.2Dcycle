@@ -1,3 +1,0 @@
-10.0d3			# yexrt in m
-1.025d0			# enlarging ratio
-200.0d0			# dxy, element size in m
