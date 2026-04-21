@@ -3,13 +3,26 @@
 import xml.etree.ElementTree as ET
 import shutil, sys, os
 
+SKIP_DIRS = {'fem_mesh_output', '__pycache__', 'archive', 'aRawSimuData', 'aRawSimuData.preFix', 'aPlots'}
+SKIP_FILES = {
+    '.DS_Store',
+    'run.sh',
+    'FE_Global.txt',
+    'FE_Model_Geometry.txt',
+    'FE_Fault_Geometry.txt',
+}
+
 def case_copy(src, dst):
-    # copy files and directories from src to dst
+    # copy files and directories from src to dst, skipping generated dirs
     filenames = os.listdir(src)
     for f in filenames:
+        if f in SKIP_DIRS:
+            continue
+        if f in SKIP_FILES:
+            continue
         srcf = os.path.join(src, f)
         dstf = os.path.join(dst, f)
-        
+
         if os.path.isdir(srcf):
             # Copy directory recursively
             shutil.copytree(srcf, dstf, dirs_exist_ok=True)
@@ -27,7 +40,7 @@ def _main_func(description):
     env_var = os.environ
 
     shutil.rmtree(str(case_path), ignore_errors=True)
-    os.mkdir(str(case_path))
+    os.makedirs(str(case_path), exist_ok=True)
     
     eqdyna2dcycleRoot = env_var['EQDYNA2DCYCLEROOT']
     input_path = eqdyna2dcycleRoot + '/compset/' + str(compset) 
@@ -40,4 +53,3 @@ def _main_func(description):
 
 if __name__ == "__main__":
     _main_func(__doc__)
-

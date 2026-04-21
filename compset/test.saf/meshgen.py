@@ -1,10 +1,19 @@
-#!/usr/bin/env python
-# coding: utf-8
+#!/usr/bin/env python3
+# meshgen.py — SAF test case
+#
+# Uses gmsh embedded-curves approach:
+#   - One rectangular domain (no sub-surfaces, no connector lines)
+#   - Fault lines embedded as interior constraints via gmsh.model.mesh.embed
+#   - No shared nodes between non-touching fault traces → no junction slivers
+#
+# Fault layout:
+#   ssaf1 + bridge + ssaf2  →  'ssaf' (one logical fault)
+#   sjfn                    →  'sjfn' (independent, not connected to ssaf)
+#   sjfs                    →  'sjfs' (independent, not connected to sjfn)
 
-# In[1]:
-
-
-#!pip install matplotlib meshio
+import os
+import matplotlib
+matplotlib.use('Agg')
 import gmsh
 import numpy as np
 import meshio
@@ -13,44 +22,34 @@ from meshGenLib import *
 from userDefinedFaultSysGeoPhys import *
 
 debugMode = False
-meshName = 'eqdynaMesh'
+meshName  = 'eqdynaMesh'
 
-# ssaf is split into ssaf1 and ssaf2 for mesh topology.
-# In the simulation, they are combined as one fault 'ssaf'.
 ftNamesForGmsh = ['ssaf1', 'ssaf2', 'sjfn', 'sjfs']
-ftNames = ['ssaf', 'sjfn', 'sjfs']
-
+ftNames        = ['ssaf', 'sjfn', 'sjfs']
+ftNamesForOutput = ['sjfn', 'sjfs', 'ssaf']
 
 system = "saf"
 
-# length in km
-dx = 0.3
-dxAtBoundary = 20
-totalSimuTime = 30
-vp = 6000
-ext = 10 + totalSimuTime*vp/1e3
+dx            = 0.3   # km — target element size on faults
+dxAtBoundary  = 20    # km — element size at model boundary
+totalSimuTime = 30    # s
+vp            = 6000  # m/s
+ext           = 10 + totalSimuTime * vp / 1e3   # km — boundary extension
 
 tolerance = 1e-6
 
-
-# In[2]:
-
-
-# generating reference mesh with GMSH without split nodes
+# ── 1. gmsh initialisation ──────────────────────────────────────────────────
 gmsh.initialize()
-#gmsh.model.geo.setFactory("OpenCASCADE")
 gmsh.model.add(meshName)
 gmsh.option.setNumber("Geometry.Tolerance", 1e-3)
-modelRange={'xmin':0,
-          'xmax':0,
-          'ymin':0,
-          'ymax':0}
 
+# ── 2. fault points and lines ───────────────────────────────────────────────
+modelRange = {'xmin': 0, 'xmax': 0, 'ymin': 0, 'ymax': 0}
 ftEndNodeIdDict = {}
 ftEndLineIdDict = {}
 numOfControlPts = 0
-lineCount = 0
-surfaceCount = 0
+lineCount       = 0
+
 for ftName in ftNamesForGmsh:
     ftFileName = 'user_fault_geometry_input/' + ftName + '.gmt.txt'
     ftLoc = loadFtLoc(ftFileName)
@@ -59,270 +58,192 @@ for ftName in ftNamesForGmsh:
     modelRange = redefineModelRange(modelRange, ftRange)
     lineCount, ftEndLineId = createLinesForFt(ftEndNodeId, lineCount)
     ftEndLineIdDict[ftName] = ftEndLineId
-    print(ftLoc)
+
 modelRange = extendModelRange(modelRange, ext)
 
+# Bridge ssaf1-end → ssaf2-start (same physical fault, just split for geometry).
+# This is an embedded fault segment — it does NOT connect to sjfn or sjfs.
+lineCount += 1
+ssafBridgeLine = lineCount
+gmsh.model.geo.addLine(ftEndNodeIdDict['ssaf1'][1],
+                        ftEndNodeIdDict['ssaf2'][0],
+                        tag=ssafBridgeLine)
 
-#print(ftRange)
-#print(modelRange)
-#print(ftEndNodeIdDict)
-#print(ftEndLineIdDict)
+# ── 3. rectangular domain ───────────────────────────────────────────────────
+numOfControlPts += 1; lb = numOfControlPts
+gmsh.model.geo.addPoint(modelRange['xmin'], modelRange['ymin'], 0, dxAtBoundary, tag=lb)
+numOfControlPts += 1; rb = numOfControlPts
+gmsh.model.geo.addPoint(modelRange['xmax'], modelRange['ymin'], 0, dxAtBoundary, tag=rb)
+numOfControlPts += 1; rt = numOfControlPts
+gmsh.model.geo.addPoint(modelRange['xmax'], modelRange['ymax'], 0, dxAtBoundary, tag=rt)
+numOfControlPts += 1; lt = numOfControlPts
+gmsh.model.geo.addPoint(modelRange['xmin'], modelRange['ymax'], 0, dxAtBoundary, tag=lt)
 
-numOfControlPts, boundaryNodeIdDict = createBoundaryNodes(numOfControlPts, modelRange, dxAtBoundary)
-#print(boundaryNodeIdDict)
+lineCount += 1; Bline = lineCount; gmsh.model.geo.addLine(lb, rb, tag=Bline)
+lineCount += 1; Rline = lineCount; gmsh.model.geo.addLine(rb, rt, tag=Rline)
+lineCount += 1; Tline = lineCount; gmsh.model.geo.addLine(rt, lt, tag=Tline)
+lineCount += 1; Lline = lineCount; gmsh.model.geo.addLine(lt, lb, tag=Lline)
 
-# linking faults to model boundary
-# this part always needs some customized design
-# all lines are defined counterclockwisely.
-
-ssaf1Curve = [i+ftEndLineIdDict['ssaf1'][0] for i in range(ftEndLineIdDict['ssaf1'][1]-ftEndLineIdDict['ssaf1'][0]+1)]
-ssaf2Curve = [i+ftEndLineIdDict['ssaf2'][0] for i in range(ftEndLineIdDict['ssaf2'][1]-ftEndLineIdDict['ssaf2'][0]+1)]
-sjfnCurve = [i+ftEndLineIdDict['sjfn'][0] for i in range(ftEndLineIdDict['sjfn'][1]-ftEndLineIdDict['sjfn'][0]+1)]
-sjfsCurve = [i+ftEndLineIdDict['sjfs'][0] for i in range(ftEndLineIdDict['sjfs'][1]-ftEndLineIdDict['sjfs'][0]+1)]
-#print(ssaf1Curve, ssaf2Curve, sjfnCurve, sjfsCurve)
-
-# boundary edges
-lineCount += 1
-T = gmsh.model.geo.addLine(boundaryNodeIdDict['right_top'], boundaryNodeIdDict['left_top'], tag=lineCount)
-lineCount += 1
-B = gmsh.model.geo.addLine(boundaryNodeIdDict['right_bottom'], boundaryNodeIdDict['left_bottom'], tag=lineCount)
-lineCount += 1
-L = gmsh.model.geo.addLine(boundaryNodeIdDict['left_top'], boundaryNodeIdDict['left_bottom'], tag=lineCount)
-lineCount += 1
-R = gmsh.model.geo.addLine(boundaryNodeIdDict['right_top'], boundaryNodeIdDict['right_bottom'], tag=lineCount)
-
-# ssaf to boundary
-lineCount += 1
-S_LT = gmsh.model.geo.addLine(ftEndNodeIdDict['ssaf1'][0], boundaryNodeIdDict['left_top'], tag=lineCount) # ssaf1 start to left top
-lineCount += 1
-S_LB = gmsh.model.geo.addLine(ftEndNodeIdDict['ssaf1'][0], boundaryNodeIdDict['left_bottom'], tag=lineCount) # ssaf1 start to left bottom
-lineCount += 1
-S_RT = gmsh.model.geo.addLine(ftEndNodeIdDict['ssaf2'][1], boundaryNodeIdDict['right_top'], tag=lineCount) # ssaf2 end to right top
-
-# ssaf segment connection
-lineCount += 1
-S1_S2 = gmsh.model.geo.addLine(ftEndNodeIdDict['ssaf1'][1], ftEndNodeIdDict['ssaf2'][0], tag=lineCount) # ssaf1 end to ssaf2 start
-
-# ssaf to sjfn connections
-lineCount += 1
-S_SJFN = gmsh.model.geo.addLine(ftEndNodeIdDict['ssaf1'][1], ftEndNodeIdDict['sjfn'][0], tag=lineCount) # ssaf1 end to sjfn start
-lineCount += 1
-S_SJFN_R = gmsh.model.geo.addLine(ftEndNodeIdDict['ssaf2'][1], ftEndNodeIdDict['sjfn'][1], tag=lineCount) # ssaf2 end to sjfn end
-
-# sjfn to sjfs connection
-lineCount += 1
-SJFN_SJFS = gmsh.model.geo.addLine(ftEndNodeIdDict['sjfn'][1], ftEndNodeIdDict['sjfs'][0], tag=lineCount) # sjfn end to sjfs start
-
-# sjfn/sjfs to boundary
-lineCount += 1
-SJFS_RB = gmsh.model.geo.addLine(ftEndNodeIdDict['sjfs'][1], boundaryNodeIdDict['right_bottom'], tag=lineCount) # sjfs end to right bottom
-lineCount += 1
-SJFN_LB = gmsh.model.geo.addLine(ftEndNodeIdDict['sjfn'][0], boundaryNodeIdDict['left_bottom'], tag=lineCount) # sjfn start to left bottom
-
-# ssaf-top block
-surfaceCount = createSurface(ssaf1Curve+[S1_S2]+ssaf2Curve+[S_RT, T, -S_LT], surfaceCount)
-# left block
-surfaceCount = createSurface([S_LB, -L, -S_LT], surfaceCount)
-# ssaf-sjfn wedge block
-surfaceCount = createSurface([S1_S2]+ssaf2Curve+[S_SJFN_R]+addMinusToList(sjfnCurve[::-1])+[-S_SJFN], surfaceCount)
-# bottom-left block
-surfaceCount = createSurface(addMinusToList(ssaf1Curve[::-1])+[S_LB, -SJFN_LB, -S_SJFN], surfaceCount)
-# sjf-bottom block
-surfaceCount = createSurface([SJFN_LB, -B, -SJFS_RB]+addMinusToList(sjfsCurve[::-1])+[-SJFN_SJFS]+addMinusToList(sjfnCurve[::-1]), surfaceCount)
-# right block
-surfaceCount = createSurface([S_SJFN_R, SJFN_SJFS]+sjfsCurve+[SJFS_RB, -R, -S_RT], surfaceCount)
+gmsh.model.geo.addCurveLoop([Bline, Rline, Tline, Lline], tag=1)
+gmsh.model.geo.addPlaneSurface([1], tag=1)
 
 gmsh.model.geo.synchronize()
 
-for iSur in range(surfaceCount):
-    surfaceId = iSur+1
-    print('recombining surface id ', surfaceId)
-    gmsh.model.mesh.setRecombine(2, surfaceId)
+# ── 4. embed all fault lines into the surface ───────────────────────────────
+# Each fault is a free-floating interior constraint; no fault touches another.
+ssaf1Lines  = list(range(ftEndLineIdDict['ssaf1'][0], ftEndLineIdDict['ssaf1'][1] + 1))
+ssaf2Lines  = list(range(ftEndLineIdDict['ssaf2'][0], ftEndLineIdDict['ssaf2'][1] + 1))
+sjfnLines   = list(range(ftEndLineIdDict['sjfn'][0],  ftEndLineIdDict['sjfn'][1]  + 1))
+sjfsLines   = list(range(ftEndLineIdDict['sjfs'][0],  ftEndLineIdDict['sjfs'][1]  + 1))
 
-#gmsh.model.mesh.coherence() not available in python
+allFaultLines = ssaf1Lines + [ssafBridgeLine] + ssaf2Lines + sjfnLines + sjfsLines
+gmsh.model.mesh.embed(1, allFaultLines, 2, 1)
+
+# ── 5. mesh-size field: fine near faults, coarse at boundary ────────────────
+gmsh.model.mesh.field.add("Distance", 1)
+gmsh.model.mesh.field.setNumbers(1, "CurvesList", allFaultLines)
+gmsh.model.mesh.field.setNumber(1, "Sampling", 200)
+
+gmsh.model.mesh.field.add("Threshold", 2)
+gmsh.model.mesh.field.setNumber(2, "InField",  1)
+gmsh.model.mesh.field.setNumber(2, "SizeMin",  dx)
+gmsh.model.mesh.field.setNumber(2, "SizeMax",  dxAtBoundary)
+gmsh.model.mesh.field.setNumber(2, "DistMin",  dx)
+gmsh.model.mesh.field.setNumber(2, "DistMax",  ext * 0.3)
+
+gmsh.model.mesh.field.setAsBackgroundMesh(2)
+# Disable other size sources so the field has full control
+gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+
+gmsh.option.setNumber("Mesh.Smoothing", 5)
+gmsh.model.mesh.setRecombine(2, 1)
 gmsh.model.mesh.generate(2)
-#gmsh.model.mesh.removeUnusedEntities()
-gmsh.write('fem_mesh_output/' + meshName+'.msh')
-gmsh.option.setNumber("Mesh.Smoothing", 2)
-#gmsh.finalize()
 
+os.makedirs('fem_mesh_output', exist_ok=True)
+gmsh.write('fem_mesh_output/' + meshName + '.msh')
 
-# In[3]:
-
-
+# ── 6. extract fault nodes from gmsh ────────────────────────────────────────
+# ssaf = ssaf1 + bridge + ssaf2 (one continuous logical fault)
 ftTag = {}
-ftTag['ssaf'] = ssaf1Curve+[S1_S2]+ssaf2Curve
-ftTag['sjfn'] = sjfnCurve
-ftTag['sjfs'] = sjfsCurve
-if debugMode==True:
-    print(ftTag)
+ftTag['ssaf'] = ssaf1Lines + [ssafBridgeLine] + ssaf2Lines
+ftTag['sjfn'] = sjfnLines
+ftTag['sjfs'] = sjfsLines
 
-
-# In[4]:
-
-
-nodeTagsFtDict={}
-xCoorDict={}
-yCoorDict={}
+nodeTagsFtDict = {}
+xCoorDict      = {}
+yCoorDict      = {}
 for key in ftNames:
     nodeTagsFtDict[key], xCoorDict[key], yCoorDict[key] = extractFtNodes(ftTag[key])
-    if debugMode==True:
-        print(nodeTagsFtDict[key])
 
+# ── 7. read mesh with meshio ─────────────────────────────────────────────────
+mesh   = meshio.read('fem_mesh_output/' + meshName + '.msh')
+points = mesh.points[:, :2]
+cells  = mesh.cells_dict["quad"]
 
-# In[5]:
+if debugMode:
+    fig, ax = plt.subplots(figsize=(15, 20), dpi=300)
+    ax.scatter(points[:, 0], points[:, 1], s=0.01, color='red', zorder=1)
+    for cell in cells:
+        vertices = points[cell]
+        ax.add_patch(plt.Polygon(vertices, edgecolor='black', linewidth=0.1, fill=False))
+    ax.set_aspect('equal')
+    plt.savefig('fem_mesh_output/meshWOSplitNode.png', dpi=300)
+    plt.close()
 
-
-# plotting
-mesh = meshio.read('fem_mesh_output/' + meshName+'.msh')
-points = mesh.points[:, :2]  # Get the x, y coordinates
-cells = mesh.cells_dict["quad"]  # Assuming quadrilateral elements
-
-fig, ax = plt.subplots(figsize=(15, 20), dpi=600)
-ax.scatter(points[:, 0], points[:, 1], s=0.01, color='red', zorder=1)
-for cell in cells:
-    vertices = points[cell]
-    ax.add_patch(plt.Polygon(vertices, edgecolor='black', linewidth=0.1, fill=False))
-ax.set_aspect('equal')
-
-plt.savefig('fem_mesh_output/meshWOSplitNode.png', dpi=600)
-if debugMode==True:
-    plt.show()
-
-
-# In[6]:
-
-
-ftNodeIdsDict={}
+# ── 8. locate fault nodes in meshio node list ────────────────────────────────
+ftNodeIdsDict = {}
 for key in ftNames:
+    print(f'locateFtNodeIds: {key} ...', flush=True)
     ftNodeIdsDict[key] = locateFtNodeIds(points, xCoorDict[key], yCoorDict[key], tolerance)
-    if debugMode==True:
-        print(ftNodeIdsDict[key])
+    print(f'locateFtNodeIds: {key} done', flush=True)
 
-
-# In[7]:
-
-
-# check and plot ft nodes
-fig, ax = plt.subplots(figsize=(15, 10), dpi=600)
-
-ax.scatter(points[:, 0], points[:, 1], s=0.1, color='red', zorder=1)
-for ftName in ftNames:
-    ax.scatter(points[ftNodeIdsDict[ftName],0], points[ftNodeIdsDict[ftName],1], s=0.3, color='black', zorder=2)
-
-plt.savefig('fem_mesh_output/meshWithFaultNodes.png', dpi=600)
-if debugMode==True:
-    plt.show()
-
-
-# In[8]:
-
-
+# ── 9. classify elements as above / below each fault ─────────────────────────
 elemIdsAboveFtDict = {}
 elemIdsBelowFtDict = {}
 for key in ftNames:
-    elemIdsAboveFtDict[key], elemIdsBelowFtDict[key] = extractIdsforFtElem(ftNodeIdsDict[key], points, cells)
+    elemIdsAboveFtDict[key], elemIdsBelowFtDict[key] = \
+        extractIdsforFtElem(ftNodeIdsDict[key], points, cells)
 
-if debugMode==True:
-    print(elemIdsAboveFtDict)
+if debugMode:
+    fig, ax = plt.subplots(figsize=(15, 10), dpi=300)
+    ax.scatter(points[:, 0], points[:, 1], s=0.1, color='red', zorder=1)
+    for ftName in ftNames:
+        ax.scatter(points[ftNodeIdsDict[ftName], 0],
+                   points[ftNodeIdsDict[ftName], 1], s=0.3, color='black', zorder=2)
+    plt.savefig('fem_mesh_output/meshWithFaultNodes.png', dpi=300)
+    plt.close()
 
-
-# In[9]:
-
-
-slaveNodeIdsDict={}
+# ── 10. create split nodes ────────────────────────────────────────────────────
+slaveNodeIdsDict         = {}
 masterSlaveNodeIdRelation = {}
-pointsWithSplitNodes = np.copy(points)
+pointsWithSplitNodes     = np.copy(points)
 for ftNameKey in ftNames:
-    pointsWithSplitNodes, slaveNodeIdsDict[ftNameKey] = createSplitNodes(ftNodeIdsDict[ftNameKey], pointsWithSplitNodes)
+    pointsWithSplitNodes, slaveNodeIdsDict[ftNameKey] = \
+        createSplitNodes(ftNodeIdsDict[ftNameKey], pointsWithSplitNodes)
+    masterSlaveNodeIdRelation[ftNameKey] = \
+        [ftNodeIdsDict[ftNameKey], slaveNodeIdsDict[ftNameKey]]
 
-    masterSlaveNodeIdRelation[ftNameKey] = [ftNodeIdsDict[ftNameKey], slaveNodeIdsDict[ftNameKey]]
-
-if debugMode==True:
-    print(slaveNodeIdsDict)
-    print(ftNodeIdsDict)
-    print(' ')
-    print(masterSlaveNodeIdRelation)
-
-
-# In[10]:
-
-
-# check and plot ft nodes
-fig, ax = plt.subplots(figsize=(15, 10), dpi=600)
-plt.scatter(points[:, 0], points[:, 1], s=0.01, color='red', zorder=1)
-for key in ftNames:
-    plt.scatter(pointsWithSplitNodes[ftNodeIdsDict[key],0], pointsWithSplitNodes[ftNodeIdsDict[key],1], s=0.03, color='black', zorder=2)
-    plt.scatter(pointsWithSplitNodes[slaveNodeIdsDict[key],0], pointsWithSplitNodes[slaveNodeIdsDict[key],1], marker='*', s=0.003, color='blue', zorder=2)
-#plt.savefig('mesh.png', dpi=600)
-if debugMode==True:
-    plt.show()
-
-
-# In[11]:
-
-
+# ── 11. replace master with slave nodes in above-fault elements ───────────────
 for ftNameKey in ftNames:
-    #print(masterSlaveNodeIdRelation[ftNameKey][1])
-    cells = replaceMasterWithSlaveNodes(cells, masterSlaveNodeIdRelation[ftNameKey], elemIdsAboveFtDict[ftNameKey])
+    cells = replaceMasterWithSlaveNodes(
+        cells, masterSlaveNodeIdRelation[ftNameKey], elemIdsAboveFtDict[ftNameKey])
 
-
-# In[12]:
-
-
-if debugMode==True:
-    # testing if node orders are counterclockwise for cell id 1
-    vertices = getCellNodeCoors(cells[1], pointsWithSplitNodes)
-    showCellNodes(vertices)
-    isThisQuadCounterclockwise(vertices)
-
-
-# In[13]:
-
-
-## testing if node orders are counterclockwise for cell id 1728
-#vertices = getCellNodeCoors(cells[1728], pointsWithSplitNodes)
-#showCellNodes(vertices)
-#isThisQuadCounterclockwise(vertices)
-
-
-# In[14]:
-
-
+# ── 12. reorder cell nodes counter-clockwise ──────────────────────────────────
 reorderedCells = reorderCellNodesCounterclockwise(cells, pointsWithSplitNodes)
 
-
-# In[15]:
-
-
+# ── 13. fault tangent and length ──────────────────────────────────────────────
 ftNodeTanAndLen = {}
 for ftNameKey in ftNames:
     ftNodeTanAndLen[ftNameKey] = calcTanAndLen(xCoorDict[ftNameKey], yCoorDict[ftNameKey])
 
-
-# In[16]:
-
-
+# ── 14. fault physics ─────────────────────────────────────────────────────────
 ftPhys = defineSysPhys(system, ftNames, xCoorDict, yCoorDict)
 
+# Per-node loading interpolation from 4-column gmt files
+REFERENCE_LOAD_RATE = 1.427e-14  # s^-1, equivalent to the legacy 450 nrad/yr reference
+REFERENCE_LOAD_WEIGHT = 450.0
 
-# In[17]:
+def _arc_lengths(xy):
+    d = np.sqrt(np.sum(np.diff(xy, axis=0)**2, axis=1))
+    return np.concatenate([[0.0], np.cumsum(d)])
 
+_gmt_map = {
+    'ssaf': ['user_fault_geometry_input/ssaf1.gmt.txt',
+             'user_fault_geometry_input/ssaf2.gmt.txt'],
+    'sjfn': ['user_fault_geometry_input/sjfn.gmt.txt'],
+    'sjfs': ['user_fault_geometry_input/sjfs.gmt.txt'],
+}
+for ftNameKey in ftNames:
+    ctrl_parts   = [np.loadtxt(f) for f in _gmt_map[ftNameKey]]
+    ctrl         = np.vstack(ctrl_parts)          # (N,4): x(km), y(km), rate, angle
+    ctrl_s       = _arc_lengths(ctrl[:, :2])
+    ft_xy        = np.column_stack([xCoorDict[ftNameKey], yCoorDict[ftNameKey]])
+    node_s       = _arc_lengths(ft_xy)
+    rate_interp  = np.interp(node_s, ctrl_s, ctrl[:, 2])
+    angle_interp = np.interp(node_s, ctrl_s, ctrl[:, 3])
+    weight_interp = REFERENCE_LOAD_WEIGHT * rate_interp / REFERENCE_LOAD_RATE
+    for i in range(len(ftPhys[ftNameKey])):
+        ftPhys[ftNameKey][i][4] = float(weight_interp[i])
+        ftPhys[ftNameKey][i][3] = float(angle_interp[i])
 
-# Change working directory to output folder temporarily
-import os
+# ── 15. write EQdyna input files ──────────────────────────────────────────────
 original_dir = os.getcwd()
 os.chdir('fem_mesh_output')
 
 meshInfo, pointsWithSplitNodes, reorderedCells, nsmp, nsmpGeoPhys = \
-    writeFilesForEQdyna(pointsWithSplitNodes, reorderedCells, masterSlaveNodeIdRelation, ftNodeTanAndLen, ftPhys, modelRange, ftNames)
+    writeFilesForEQdyna(
+        pointsWithSplitNodes,
+        reorderedCells,
+        masterSlaveNodeIdRelation,
+        ftNodeTanAndLen,
+        ftPhys,
+        modelRange,
+        ftNamesForOutput,
+    )
 
-# Return to original directory
 os.chdir(original_dir)
 
-
-# In[18]:
-
-
-if debugMode==True:
+if debugMode:
     plotSystemPhys(ftPhys, ftNames, xCoorDict)

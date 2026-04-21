@@ -48,47 +48,72 @@ def create_model_input_file():
             f.write(str(par.ftcn[i])+"  ")
             
 def create_run_sh():
-    # Function to create batch script with organized folder support
     with open("run.sh", "w") as f:
-        f.write("#! /bin/bash" + "\n")
-        f.write("echo 'Setting up simulation files...'" + "\n")
-        f.write("" + "\n")
-        
-        # Copy mesh files from organized folder structure
-        f.write("# Copy mesh files from fem_mesh_output/ if they exist" + "\n")
-        f.write("if [ -d 'fem_mesh_output' ]; then" + "\n")
-        f.write("  cp fem_mesh_output/vert.txt . 2>/dev/null || echo 'Warning: vert.txt not found'" + "\n")
-        f.write("  cp fem_mesh_output/fac.txt . 2>/dev/null || echo 'Warning: fac.txt not found'" + "\n")
-        f.write("  cp fem_mesh_output/nsmp.txt . 2>/dev/null || echo 'Warning: nsmp.txt not found'" + "\n")
-        f.write("  cp fem_mesh_output/nsmpGeoPhys.txt . 2>/dev/null || echo 'Warning: nsmpGeoPhys.txt not found'" + "\n")
-        f.write("  cp fem_mesh_output/meshGeneralInfo.txt . 2>/dev/null || echo 'Warning: meshGeneralInfo.txt not found'" + "\n")
-        f.write("  cp fem_mesh_output/nsmpTanLen.txt . 2>/dev/null || echo 'Warning: nsmpTanLen.txt not found'" + "\n")
-        f.write("  echo 'Mesh files copied from fem_mesh_output/'" + "\n")
-        f.write("fi" + "\n")
-        f.write("" + "\n")
-        
-        # Check for required files
-        f.write("# Check for required files" + "\n") 
-        f.write("REQUIRED_FILES=('vert.txt' 'fac.txt' 'nsmp.txt' 'nsmpGeoPhys.txt' 'meshGeneralInfo.txt' 'FE_Global.txt' 'FE_Model_Geometry.txt' 'FE_Fault_Geometry.txt')" + "\n")
-        f.write("for file in \"${REQUIRED_FILES[@]}\"; do" + "\n")
-        f.write("  if [ ! -f \"$file\" ]; then" + "\n") 
-        f.write("    echo \"Error: Required file $file not found\"" + "\n")
-        f.write("    echo \"Make sure to run 'python3 meshgen.py' first\"" + "\n")
-        f.write("    exit 1" + "\n")
-        f.write("  fi" + "\n")
-        f.write("done" + "\n")
-        f.write("" + "\n")
-        
-        f.write("echo 'All required files found. Starting simulation...'" + "\n")
-        f.write("" + "\n")
-        
-        # Executable part
-        f.write("# Prepare directories and run simulation" + "\n")
-        f.write(" mkdir -p aRawSimuData" + "\n")
-        f.write(" rm -f totalop.txt* cyclelog.txt* interval.txt*" + "\n")
-        f.write(" ./eqdyna.2dcycle" + "\n")
-        f.write(" mv totalop.txt* cyclelog.txt* interval.txt* aRawSimuData 2>/dev/null" + "\n")
-        f.write(" ./plotRuptureDynamics" + "\n")     
+        f.write("#! /bin/bash\n")
+        f.write("echo 'Setting up simulation...'\n\n")
+
+        if par.C_mesh == 2:
+            # Internal Fortran meshing (2.0.2-style)
+            # Required files come from compset: x*_1.txt, Rate_direction.txt
+            required = ['FE_Global.txt', 'FE_Model_Geometry.txt', 'FE_Fault_Geometry.txt',
+                        'Rate_direction.txt']
+            for i in range(1, par.ntotft + 1):
+                required.append('x' + str(i) + '_1.txt')
+            f.write("REQUIRED_FILES=(" + " ".join("'" + r + "'" for r in required) + ")\n")
+            f.write("for file in \"${REQUIRED_FILES[@]}\"; do\n")
+            f.write("  if [ ! -f \"$file\" ]; then\n")
+            f.write("    echo \"Error: Required file $file not found\"\n")
+            f.write("    exit 1\n")
+            f.write("  fi\n")
+            f.write("done\n\n")
+            f.write("echo 'All required files found. Submitting simulation to background...'\n\n")
+            f.write("LOGFILE=\"run_$(date +%Y%m%d_%H%M%S).log\"\n")
+            f.write("echo \"Logging to $LOGFILE\"\n")
+            f.write("nohup bash -c '\n")
+            f.write("  echo \"=== Job started at $(date) ===\"\n")
+            f.write("  mkdir -p aRawSimuData\n")
+            f.write("  rm -f totalop.txt* cyclelog.txt* interval.txt* binaryop\n")
+            f.write("  " + par.exe + "\n")
+            f.write("  mv totalop.txt* cyclelog.txt* interval.txt* binaryop aRawSimuData 2>/dev/null\n")
+            f.write("  plotRuptureDynamics\n")
+            f.write("  echo \"=== Job finished at $(date) ===\"\n")
+            f.write("' > \"$LOGFILE\" 2>&1 &\n")
+            f.write("echo \"Job PID: $!\"\n")
+        else:
+            # External gmsh-based meshing (C_mesh=3)
+            f.write("# Run meshgen.py to generate the mesh\n")
+            f.write("echo 'Running meshgen.py...'\n")
+            f.write("python3 meshgen.py\n\n")
+            f.write("# Copy mesh files from fem_mesh_output/\n")
+            f.write("if [ -d 'fem_mesh_output' ]; then\n")
+            for mf in ['vert.txt', 'fac.txt', 'nsmp.txt', 'nsmpGeoPhys.txt',
+                       'meshGeneralInfo.txt', 'nsmpTanLen.txt']:
+                f.write("  cp fem_mesh_output/" + mf + " . 2>/dev/null || echo 'Warning: " + mf + " not found'\n")
+            f.write("  echo 'Mesh files copied from fem_mesh_output/'\n")
+            f.write("fi\n\n")
+            required = ['vert.txt', 'fac.txt', 'nsmp.txt', 'nsmpGeoPhys.txt',
+                        'meshGeneralInfo.txt', 'FE_Global.txt', 'FE_Model_Geometry.txt', 'FE_Fault_Geometry.txt']
+            f.write("REQUIRED_FILES=(" + " ".join("'" + r + "'" for r in required) + ")\n")
+            f.write("for file in \"${REQUIRED_FILES[@]}\"; do\n")
+            f.write("  if [ ! -f \"$file\" ]; then\n")
+            f.write("    echo \"Error: Required file $file not found\"\n")
+            f.write("    echo \"Make sure to run 'python3 meshgen.py' first\"\n")
+            f.write("    exit 1\n")
+            f.write("  fi\n")
+            f.write("done\n\n")
+            f.write("echo 'All required files found. Submitting simulation to background...'\n\n")
+            f.write("LOGFILE=\"run_$(date +%Y%m%d_%H%M%S).log\"\n")
+            f.write("echo \"Logging to $LOGFILE\"\n")
+            f.write("nohup bash -c '\n")
+            f.write("  echo \"=== Job started at $(date) ===\"\n")
+            f.write("  mkdir -p aRawSimuData\n")
+            f.write("  rm -f totalop.txt* cyclelog.txt* interval.txt*\n")
+            f.write("  " + par.exe + "\n")
+            f.write("  mv totalop.txt* cyclelog.txt* interval.txt* aRawSimuData 2>/dev/null\n")
+            f.write("  plotRuptureDynamics\n")
+            f.write("  echo \"=== Job finished at $(date) ===\"\n")
+            f.write("' > \"$LOGFILE\" 2>&1 &\n")
+            f.write("echo \"Job PID: $!\"\n")
 
 def _main_func(description):
     create_model_input_file()

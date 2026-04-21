@@ -9,7 +9,7 @@ par.ntotft = 3
 par.friclaw = 4 
 par.dt1 = 0.01 
 par.term = 200. 
-par.icstart, par.icend = 1, 10 
+par.icstart, par.icend = 1, 1000 
 
 par.fric_fs = 0.5 
 par.fric_fd = 0.465

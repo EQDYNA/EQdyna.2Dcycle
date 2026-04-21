@@ -2,6 +2,7 @@
 import numpy as np
 import gmsh
 import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
 
 def loadFtLoc(ftName):
     
@@ -176,33 +177,58 @@ def locateFtNodeIds(points, xCoors, yCoors, tolerance):
 #def isThisNodeInCell(nodeId, nodeIdsInCell):
 #    if 
 def extractIdsforFtElem(ftNodeIds, points, cells):
+    # Build node->elements lookup once: O(nElems) instead of O(nFtNodes*nElems)
+    nodeToElems = {}
+    for iElem, nodeIds in enumerate(cells):
+        for nid in nodeIds:
+            if nid not in nodeToElems:
+                nodeToElems[nid] = []
+            nodeToElems[nid].append(iElem)
+
     elemIdsAboveFt = []
     elemIdsBelowFt = []
+    classified = set()
+
+    # Pass 1: edge-on-fault cells (2 consecutive fault nodes in the cell)
     for iNode in range(len(ftNodeIds)-1):
-        pairOfNodes = [ftNodeIds[iNode], ftNodeIds[iNode+1]]
-        for iElem, elemTag in enumerate(cells):
+        n0, n1 = ftNodeIds[iNode], ftNodeIds[iNode+1]
+        candidates = set(nodeToElems.get(n0, [])) & set(nodeToElems.get(n1, []))
+        for iElem in candidates:
+            if iElem in classified:
+                continue
             nodeIds = cells[iElem]
-            if pairOfNodes[0] in nodeIds and pairOfNodes[1] in nodeIds:
-                otherTwoNodes = [tag for tag in nodeIds if tag not in pairOfNodes]
-                #print(nodeIds, pairOfNodes, otherTwoNodes)
-                
-                coorsOnFt = [points[nodeId,:] for nodeId in pairOfNodes]
-                coorsOffFt = [points[nodeId,:] for nodeId in otherTwoNodes]
-                cxOnFt = calcCenterLoc(coorsOnFt)
-                cxOffFt = calcCenterLoc(coorsOffFt)
-                #print(cxOnFt, cxOffFt)
-                quadrant = judgeElemDirect(cxOnFt, cxOffFt)
-                #print(quadrant)
+            otherTwoNodes = [tag for tag in nodeIds if tag not in (n0, n1)]
+            coorsOnFt  = [points[n0, :], points[n1, :]]
+            coorsOffFt = [points[tag, :] for tag in otherTwoNodes]
+            cxOnFt  = calcCenterLoc(coorsOnFt)
+            cxOffFt = calcCenterLoc(coorsOffFt)
+            quadrant = judgeElemDirect(cxOnFt, cxOffFt)
+            if quadrant == 1 or quadrant == 2:
+                elemIdsAboveFt.append(iElem)
+            if quadrant == 3 or quadrant == 4:
+                elemIdsBelowFt.append(iElem)
+            classified.add(iElem)
 
-                if quadrant==1 or quadrant==2:
-                    elemIdsAboveFt += [iElem]  
-                    #gmsh.model.addPhysicalGroup(2, [elemTag], physicalGroupForElemAboveFt)
-                    #gmsh.model.setPhysicalName(2, physicalGroupForElemAboveFt, 'elemAboveFt')
+    # Pass 2: corner-only cells (exactly one fault node in the cell, no edge on fault)
+    ftSet = set(ftNodeIds)
+    for iFt in ftNodeIds:
+        for iElem in nodeToElems.get(iFt, []):
+            if iElem in classified:
+                continue
+            nodeIds = cells[iElem]
+            ftInCell = [nid for nid in nodeIds if nid in ftSet]
+            if len(ftInCell) != 1:
+                continue  # skip cells with 0 or ≥2 fault nodes (handled in pass 1 or not relevant)
+            otherThree = [tag for tag in nodeIds if tag != iFt]
+            cxOnFt  = list(points[iFt, :])
+            cxOffFt = calcCenterLoc([points[tag, :] for tag in otherThree])
+            quadrant = judgeElemDirect(cxOnFt, cxOffFt)
+            if quadrant == 1 or quadrant == 2:
+                elemIdsAboveFt.append(iElem)
+            if quadrant == 3 or quadrant == 4:
+                elemIdsBelowFt.append(iElem)
+            classified.add(iElem)
 
-                if quadrant==3 or quadrant==4:
-                    elemIdsBelowFt += [iElem]
-                    #gmsh.model.addPhysicalGroup(2, [elemTag], physicalGroupForElemBelowFt)
-                    #gmsh.model.setPhysicalName(2, physicalGroupForElemBelowFt, 'elemBelowFt')
     return elemIdsAboveFt, elemIdsBelowFt
 
 def createSplitNodes(ftNodeIds, points):
@@ -275,34 +301,30 @@ def reorderCellNodesCounterclockwise(cells, pointsWithSplitNodes):
     return reorderedCells
 
 def calcTanAndLen(xCoors, yCoors):
-    def calcLen(x1,y1, x2,y2):
-        return ((x2-x1)**2+(y2-y1)**2)**0.5
-    
-    tan = []
-    # for i = 0 
-    ftNodeLength =  0.5*calcLen(xCoors[1],yCoors[1],xCoors[0],yCoors[0])
-    tangent = [(xCoors[1]-xCoors[0])/ftNodeLength/2, (yCoors[1]-yCoors[0])/ftNodeLength/2, ftNodeLength]
-    tan += [tangent]
-    
-    for i in range(1, len(xCoors) - 1):
-        # Calculate the tangent vector as the difference between consecutive points
-        ftNodeLength = 0.5*(calcLen(xCoors[i+1],yCoors[i+1],xCoors[i],yCoors[i]) + calcLen(xCoors[i-1],yCoors[i-1],xCoors[i],yCoors[i]))
-        
-        len1 = calcLen(xCoors[i+1], yCoors[i+1], xCoors[i-1], yCoors[i-1])
-        tangent = [(xCoors[i+1]-xCoors[i-1])/len1, (yCoors[i+1]-yCoors[i-1])/len1, ftNodeLength]
-        tan += [tangent]
-        
-    # for i = len(xCoors)
-    ftNodeLength =  0.5*calcLen(xCoors[len(xCoors)-1],yCoors[len(xCoors)-1],xCoors[len(xCoors)-2],yCoors[len(xCoors)-2])
-    tangent = [(xCoors[len(xCoors)-1]-xCoors[len(xCoors)-2])/ftNodeLength/2, (yCoors[len(xCoors)-1]-yCoors[len(xCoors)-2])/ftNodeLength/2, ftNodeLength]
-    tan += [tangent]
-        
-        ## Rotate the tangent vector by 90 degrees to get the normal vector
-        #normal = np.array([-tangent[1], tangent[0]])
-        # Normalize the normal vector
-        #normal = normal / np.linalg.norm(normal)
-        #normals.append(normal)
-    return tan
+    # Parametric cubic spline in arc-length s: C^2-smooth tangent, matching
+    # Fortran meshgen1.f90's spline-derivative tangent. Returns [tx, ty, len].
+    x = np.asarray(xCoors, dtype=float)
+    y = np.asarray(yCoors, dtype=float)
+    n = len(x)
+
+    seg = np.hypot(np.diff(x), np.diff(y))
+    s = np.concatenate(([0.0], np.cumsum(seg)))
+
+    cs_x = CubicSpline(s, x, bc_type="natural")
+    cs_y = CubicSpline(s, y, bc_type="natural")
+    dxds = cs_x(s, 1)
+    dyds = cs_y(s, 1)
+    mag = np.hypot(dxds, dyds)
+    tx = dxds / mag
+    ty = dyds / mag
+
+    # Associated length per node: half of each adjacent segment
+    L = np.empty(n)
+    L[0]      = 0.5 * seg[0]
+    L[-1]     = 0.5 * seg[-1]
+    L[1:-1]   = 0.5 * (seg[:-1] + seg[1:])
+
+    return [[float(tx[i]), float(ty[i]), float(L[i])] for i in range(n)]
 
 def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, ftNodeTanAndLen, ftPhys, modelRange, ftNames):
     
@@ -340,7 +362,7 @@ def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, 
     np.savetxt('vert.txt', pointsWithSplitNodes, fmt='%e')
     np.savetxt('fac.txt', cells, fmt='%d')
     np.savetxt('nsmp.txt', nsmp, fmt='%d')
-    np.savetxt('nsmpTanlen.txt', nsmpTanLen, fmt='%e')
+    np.savetxt('nsmpTanLen.txt', nsmpTanLen, fmt='%e')
     np.savetxt('nsmpGeoPhys.txt', nsmpGeoPhys, fmt='%e')
     
     with open('meshGeneralInfo.txt','w') as f:
@@ -349,4 +371,3 @@ def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, 
         f.write(str(modelRange['xmin'])+' '+str(modelRange['xmax'])+' '+str(modelRange['ymin'])+' '+str(modelRange['ymax']))
         
     return meshInfo, pointsWithSplitNodes, cells, nsmp, nsmpGeoPhys
-

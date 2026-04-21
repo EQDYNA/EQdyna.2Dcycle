@@ -6,31 +6,31 @@ def defineSysPhys(ftSystem, ftNames, xCoorDict, yCoorDict):
         for i, xcoor in enumerate(xCoorDict[ftNameKey]):
             
             if ftSystem=="none":
-                ftType = 1 # 1: left-strike; -1: right-strike; 2: thrust; -2: normal. 
+                ftType = 1 # 1: left-strike; -1: right-strike; 2: thrust; -2: normal.
                 ftDip = 90 # 90: strike-slip; positive: tilting to y+; negative; tilting to y-.
                 ftLoadMaxShear = 1.427e-14
-                ftLoadAngle = -999
-                ftLoadWt = 1.
-                ftVis = 6e21 
+                ftLoadAngle = -999  # -999: auto from fault tangent vs. general strike (x-axis)
+                ftLoadWt = 450.     # default=450 (full loading); scales approach timescale
+                ftVis = 8.4e21
                 tmp += [[ftType, ftDip, ftLoadMaxShear, ftLoadAngle, ftLoadWt, ftVis]]
             elif ftSystem=="subei":
                 ftType = 1
                 ftDip = 90
                 ftLoadMaxShear = 1.427e-14
                 ftLoadAngle = -999
-                ftLoadWt = 1.
-                ftVis = 6e21
-                
+                ftLoadWt = 450.     # default=450
+                ftVis = 8.4e21
+
                 if ftNameKey=='sbt':
-                    ftType = 2   
+                    ftType = 2
                     ftDip = 30
-                
+
                 if ftNameKey=='atf' and xcoor>0:
-                    ftLoadWt = .8
-                
+                    ftLoadWt = 0.8 * 450.   # 80% relative loading
+
                 if ftNameKey=='dxs':
-                    ftLoadWt = .1
-                
+                    ftLoadWt = 0.1 * 450.   # 10% relative loading
+
                 tmp += [[ftType, ftDip, ftLoadMaxShear, ftLoadAngle, ftLoadWt, ftVis]]
                 
         ftPhys[ftNameKey] = tmp

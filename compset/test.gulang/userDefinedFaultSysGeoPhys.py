@@ -10,16 +10,16 @@ def defineSysPhys(ftSystem, ftNames, xCoorDict, yCoorDict):
                 ftDip = 90 # 90: strike-slip; positive: tilting to y+; negative; tilting to y-.
                 ftLoadMaxShear = 1.427e-14
                 ftLoadAngle = -999
-                ftLoadWt = 1.
-                ftVis = 6e21
+                ftLoadWt = 450.
+                ftVis = 8.4e21
                 tmp += [[ftType, ftDip, ftLoadMaxShear, ftLoadAngle, ftLoadWt, ftVis]]
             elif ftSystem=="gulang":
                 ftType = 1 # left-lateral strike-slip
                 ftDip = 90
                 ftLoadMaxShear = 1.427e-14
                 ftLoadAngle = -999
-                ftLoadWt = 1.
-                ftVis = 6e21
+                ftLoadWt = 450.
+                ftVis = 8.4e21
 
                 tmp += [[ftType, ftDip, ftLoadMaxShear, ftLoadAngle, ftLoadWt, ftVis]]
 

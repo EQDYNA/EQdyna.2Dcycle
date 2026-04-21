@@ -27,7 +27,7 @@ class parameters:
     vs = 3.464e3 # m/s
     rou = 2.67e3 # kg/m^3
     
-    eta0 = 6.e21 # Pa-s, pseudo viscosity for interseismic loading solution.
+    eta0 = 8.4e21 # Pa-s, pseudo viscosity for interseismic loading solution.
     # Adjusted according to maximum shear rate, and shear modulus. 
     maxShearStrainLoadRate = 1.427e-14 # On-fault maximum shearing strain loading rate.
     
@@ -40,5 +40,7 @@ class parameters:
     dxy = 300. # m, cell size
     
     ftcn = [15, 10, 80]
+
+    exe = 'run_eqdyna2d_2.0.3'  # executable name in bin/
     
     

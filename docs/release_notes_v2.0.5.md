@@ -2,6 +2,36 @@
 
 **Release Date**: February 5, 2025
 
+## April 2026 SAF Addendum
+
+The `test.saf` case is now working in the newer `C_mesh = 3` workflow with the Python/Gmsh meshing path.
+
+### `test.saf` Status
+- `test.saf` now runs through the external meshing pipeline (`meshgen.py` -> `fem_mesh_output/` -> `run.sh`).
+- Fault tangent/normal calculation now uses natural cubic spline boundary conditions to match the legacy `meshgen1.f90` intent more closely.
+- `plotRuptureDynamics` now converts `nsmpTanLen.txt` lengths correctly for `C_mesh = 3` when computing seismic moment and magnitude.
+- Figure 3 and Figure 4/7/8 style SAF plotting utilities were added under `scripts/`.
+
+### How We Got Here
+- Started from the published/legacy SAF setup in `docs/EQdyna2D_M_2.0.2/input/` and the older `C_mesh = 2` `Rate_direction.txt` workflow.
+- Built a new SAF case on the Python/Gmsh path (`C_mesh = 3`) in `work/test.saf`.
+- Moved fault loading information from legacy `Rate_direction.txt` style inputs into per-node `nsmpGeoPhys.txt`.
+- Corrected the SAF `C_mesh = 3` loading mapping so the old variable-viscosity behavior is represented by:
+  - constant base viscosity `ftVis`
+  - constant reference `ftLoadMaxShear`
+  - spatially varying `ftLoadWt`
+  - spatially varying `ftLoadAngle`
+- Verified that the derived interseismic timescale `ant = ftVis * 450 / ftLoadWt` now varies spatially in `test.saf`.
+
+### Current `test.saf` Interpretation
+- The active `test.saf` branch is the development/transition SAF case for the new meshing workflow.
+- The active `safpub*` cases remain on the older `C_mesh = 2` published-reference path unless explicitly migrated.
+
+### Practical Notes
+- `run.sh` for `C_mesh = 3` depends on a Python environment with `gmsh` installed.
+- If `meshgen.py` is run with a Python that lacks `gmsh`, the case may silently fall back to previously generated mesh files already present in `fem_mesh_output/`.
+- For restart-style runs, preserve `binaryop` and increase `icstart`; the default `run.sh` cleanup behavior may need adjustment depending on the case.
+
 ## 🎉 Major Improvements
 
 ### 🔄 Complete Testing System Overhaul

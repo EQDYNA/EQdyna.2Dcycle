@@ -2,6 +2,7 @@
 import numpy as np
 import gmsh
 import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
 
 def loadFtLoc(ftName):
     
@@ -275,34 +276,29 @@ def reorderCellNodesCounterclockwise(cells, pointsWithSplitNodes):
     return reorderedCells
 
 def calcTanAndLen(xCoors, yCoors):
-    def calcLen(x1,y1, x2,y2):
-        return ((x2-x1)**2+(y2-y1)**2)**0.5
-    
-    tan = []
-    # for i = 0 
-    ftNodeLength =  0.5*calcLen(xCoors[1],yCoors[1],xCoors[0],yCoors[0])
-    tangent = [(xCoors[1]-xCoors[0])/ftNodeLength/2, (yCoors[1]-yCoors[0])/ftNodeLength/2, ftNodeLength]
-    tan += [tangent]
-    
-    for i in range(1, len(xCoors) - 1):
-        # Calculate the tangent vector as the difference between consecutive points
-        ftNodeLength = 0.5*(calcLen(xCoors[i+1],yCoors[i+1],xCoors[i],yCoors[i]) + calcLen(xCoors[i-1],yCoors[i-1],xCoors[i],yCoors[i]))
-        
-        len1 = calcLen(xCoors[i+1], yCoors[i+1], xCoors[i-1], yCoors[i-1])
-        tangent = [(xCoors[i+1]-xCoors[i-1])/len1, (yCoors[i+1]-yCoors[i-1])/len1, ftNodeLength]
-        tan += [tangent]
-        
-    # for i = len(xCoors)
-    ftNodeLength =  0.5*calcLen(xCoors[len(xCoors)-1],yCoors[len(xCoors)-1],xCoors[len(xCoors)-2],yCoors[len(xCoors)-2])
-    tangent = [(xCoors[len(xCoors)-1]-xCoors[len(xCoors)-2])/ftNodeLength/2, (yCoors[len(xCoors)-1]-yCoors[len(xCoors)-2])/ftNodeLength/2, ftNodeLength]
-    tan += [tangent]
-        
-        ## Rotate the tangent vector by 90 degrees to get the normal vector
-        #normal = np.array([-tangent[1], tangent[0]])
-        # Normalize the normal vector
-        #normal = normal / np.linalg.norm(normal)
-        #normals.append(normal)
-    return tan
+    # Parametric natural cubic spline in arc-length s, matching the SAF
+    # C_mesh=3 development workflow and the legacy meshgen1.f90 intent.
+    x = np.asarray(xCoors, dtype=float)
+    y = np.asarray(yCoors, dtype=float)
+    n = len(x)
+
+    seg = np.hypot(np.diff(x), np.diff(y))
+    s = np.concatenate(([0.0], np.cumsum(seg)))
+
+    cs_x = CubicSpline(s, x, bc_type="natural")
+    cs_y = CubicSpline(s, y, bc_type="natural")
+    dxds = cs_x(s, 1)
+    dyds = cs_y(s, 1)
+    mag = np.hypot(dxds, dyds)
+    tx = dxds / mag
+    ty = dyds / mag
+
+    L = np.empty(n)
+    L[0] = 0.5 * seg[0]
+    L[-1] = 0.5 * seg[-1]
+    L[1:-1] = 0.5 * (seg[:-1] + seg[1:])
+
+    return [[float(tx[i]), float(ty[i]), float(L[i])] for i in range(n)]
 
 def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, ftNodeTanAndLen, ftPhys, modelRange, ftNames):
     
@@ -350,4 +346,3 @@ def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, 
         f.write(str(modelRange['xmin'])+' '+str(modelRange['xmax'])+' '+str(modelRange['ymin'])+' '+str(modelRange['ymax']))
         
     return meshInfo, pointsWithSplitNodes, cells, nsmp, nsmpGeoPhys
-

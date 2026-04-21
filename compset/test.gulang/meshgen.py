@@ -5,6 +5,9 @@
 
 
 #!pip install matplotlib meshio
+import os
+import matplotlib
+matplotlib.use('Agg')
 import gmsh
 import numpy as np
 import meshio
@@ -133,10 +136,11 @@ for iSur in range(surfaceCount):
     gmsh.model.mesh.setRecombine(2, surfaceId)
 
 #gmsh.model.mesh.coherence() not available in python
+gmsh.option.setNumber("Mesh.Smoothing", 2)
 gmsh.model.mesh.generate(2)
 #gmsh.model.mesh.removeUnusedEntities()
+os.makedirs('fem_mesh_output', exist_ok=True)
 gmsh.write('fem_mesh_output/' + meshName+'.msh')
-gmsh.option.setNumber("Mesh.Smoothing", 2)
 #gmsh.finalize()
 
 
@@ -173,15 +177,15 @@ mesh = meshio.read('fem_mesh_output/' + meshName+'.msh')
 points = mesh.points[:, :2]  # Get the x, y coordinates
 cells = mesh.cells_dict["quad"]  # Assuming quadrilateral elements
 
-fig, ax = plt.subplots(figsize=(15, 20), dpi=600)
-ax.scatter(points[:, 0], points[:, 1], s=0.01, color='red', zorder=1)
-for cell in cells:
-    vertices = points[cell]
-    ax.add_patch(plt.Polygon(vertices, edgecolor='black', linewidth=0.1, fill=False))
-ax.set_aspect('equal')
-
-plt.savefig('fem_mesh_output/meshWOSplitNode.png', dpi=600)
 if debugMode==True:
+    fig, ax = plt.subplots(figsize=(15, 20), dpi=600)
+    ax.scatter(points[:, 0], points[:, 1], s=0.01, color='red', zorder=1)
+    for cell in cells:
+        vertices = points[cell]
+        ax.add_patch(plt.Polygon(vertices, edgecolor='black', linewidth=0.1, fill=False))
+    ax.set_aspect('equal')
+    plt.savefig('fem_mesh_output/meshWOSplitNode.png', dpi=600)
+    plt.close()
     plt.show()
 
 
@@ -198,15 +202,14 @@ for key in ftNames:
 # In[7]:
 
 
-# check and plot ft nodes
-fig, ax = plt.subplots(figsize=(15, 10), dpi=600)
-
-ax.scatter(points[:, 0], points[:, 1], s=0.1, color='red', zorder=1)
-for ftName in ftNames:
-    ax.scatter(points[ftNodeIdsDict[ftName],0], points[ftNodeIdsDict[ftName],1], s=0.3, color='black', zorder=2)
-
-plt.savefig('fem_mesh_output/meshWithFaultNodes.png', dpi=600)
 if debugMode==True:
+    # check and plot ft nodes
+    fig, ax = plt.subplots(figsize=(15, 10), dpi=600)
+    ax.scatter(points[:, 0], points[:, 1], s=0.1, color='red', zorder=1)
+    for ftName in ftNames:
+        ax.scatter(points[ftNodeIdsDict[ftName],0], points[ftNodeIdsDict[ftName],1], s=0.3, color='black', zorder=2)
+    plt.savefig('fem_mesh_output/meshWithFaultNodes.png', dpi=600)
+    plt.close()
     plt.show()
 
 
@@ -243,14 +246,14 @@ if debugMode==True:
 # In[10]:
 
 
-# check and plot ft nodes
-fig, ax = plt.subplots(figsize=(15, 10), dpi=600)
-plt.scatter(points[:, 0], points[:, 1], s=0.01, color='red', zorder=1)
-for key in ftNames:
-    plt.scatter(pointsWithSplitNodes[ftNodeIdsDict[key],0], pointsWithSplitNodes[ftNodeIdsDict[key],1], s=0.03, color='black', zorder=2)
-    plt.scatter(pointsWithSplitNodes[slaveNodeIdsDict[key],0], pointsWithSplitNodes[slaveNodeIdsDict[key],1], marker='*', s=0.003, color='blue', zorder=2)
-#plt.savefig('mesh.png', dpi=600)
 if debugMode==True:
+    # check and plot ft nodes with split nodes
+    fig, ax = plt.subplots(figsize=(15, 10), dpi=600)
+    plt.scatter(points[:, 0], points[:, 1], s=0.01, color='red', zorder=1)
+    for key in ftNames:
+        plt.scatter(pointsWithSplitNodes[ftNodeIdsDict[key],0], pointsWithSplitNodes[ftNodeIdsDict[key],1], s=0.03, color='black', zorder=2)
+        plt.scatter(pointsWithSplitNodes[slaveNodeIdsDict[key],0], pointsWithSplitNodes[slaveNodeIdsDict[key],1], marker='*', s=0.003, color='blue', zorder=2)
+    plt.close()
     plt.show()
 
 
