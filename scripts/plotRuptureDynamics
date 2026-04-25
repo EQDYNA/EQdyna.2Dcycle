@@ -34,17 +34,20 @@ def readFEGlobal(fname='FE_Global.txt'):
             break
     return icstart, icend, C_mesh
 
+CATALOG_ONLY = bool(os.environ.get('CATALOG'))
+
 def plotRuptureDynamicsForOneEq(eqId, icstart, nsmp, points, nsmpnv,
                                  numOfFts, numOfFtNodes, maxNumOfFtNodes, ftNodeIndexArr,
                                  allRes, totftnode, pts_scale=1.0e-3, length_scale=1.0):
     plotPath = './aPlots/'
-    if not os.path.exists(plotPath):
-        os.mkdir(plotPath)
+    if not CATALOG_ONLY:
+        if not os.path.exists(plotPath):
+            os.mkdir(plotPath)
     outputFname = plotPath + 'cRuptureDynamics' + str(eqId) + '.png'
 
     # Skip cycles already plotted (massive speedup when re-running with many cycles).
-    # Set FORCE_REPLOT=1 to override.
-    if os.path.exists(outputFname) and not os.environ.get('FORCE_REPLOT'):
+    # Set FORCE_REPLOT=1 to override. CATALOG mode never skips — always print.
+    if not CATALOG_ONLY and os.path.exists(outputFname) and not os.environ.get('FORCE_REPLOT'):
         return
 
     # each cycle is totftnode rows stacked in allRes; eqId is 1-based, icstart-based
@@ -57,14 +60,45 @@ def plotRuptureDynamicsForOneEq(eqId, icstart, nsmp, points, nsmpnv,
     vs  = 3464.0
     rigidity = rou * vs * vs
 
-    fig, ax = plt.subplots(4, 1, figsize=(10, 15))
+    if not CATALOG_ONLY:
+        fig, ax = plt.subplots(4, 1, figsize=(10, 15))
+
+    # Nucleation = node with smallest positive rupture_time, across all faults.
+    nuc_t   = np.inf
+    nuc_x   = nuc_y = 0.0
+    nuc_ft  = -1
+    peak_slip = 0.0
+    rup_end   = 0.0
 
     for iFt in range(numOfFts):
         slaveRows  = np.arange(iFt * maxNumOfFtNodes + 1,
                                iFt * maxNumOfFtNodes + numOfFtNodes[iFt] - 1)
         resRows    = np.arange(ftNodeIndexArr[iFt] + 1, ftNodeIndexArr[iFt + 1] - 1)
-        xcoord     = points[nsmp[slaveRows, 0], 0] * pts_scale   # km
 
+        # Vectorised moment integral (slip · segment-length · depth · rigidity).
+        seg_len = nsmpnv[iFt * maxNumOfFtNodes + (resRows - ftNodeIndexArr[iFt]), 2]
+        moment += float(np.sum(res[resRows, 2] * seg_len) * length_scale * seismoDepth * rigidity)
+
+        # Catalog stats
+        slip_ft   = res[resRows, 2]
+        rup_t_ft  = res[resRows, 4]
+        peak_slip = max(peak_slip, float(np.max(slip_ft)) if slip_ft.size else 0.0)
+        # Unruptured nodes carry a large sentinel (~999); filter to a sane window.
+        valid     = (rup_t_ft > 0) & (rup_t_ft < 900)
+        if valid.any():
+            rup_end = max(rup_end, float(np.max(rup_t_ft[valid])))
+            local_min_idx = int(np.argmin(np.where(valid, rup_t_ft, np.inf)))
+            local_min_t   = float(rup_t_ft[local_min_idx])
+            if local_min_t < nuc_t:
+                nuc_t  = local_min_t
+                nuc_ft = iFt
+                nuc_x  = float(points[nsmp[slaveRows[local_min_idx], 0], 0]) * pts_scale
+                nuc_y  = float(points[nsmp[slaveRows[local_min_idx], 0], 1]) * pts_scale
+
+        if CATALOG_ONLY:
+            continue
+
+        xcoord = points[nsmp[slaveRows, 0], 0] * pts_scale   # km
         ax[0].plot(xcoord, res[resRows, 0] / 1e6, linewidth=2)
         ax[0].set_ylabel('Shear stress (MPa)', fontsize=fontSize)
         ax[0].tick_params(axis='both', which='major', labelsize=fontSize)
@@ -76,16 +110,6 @@ def plotRuptureDynamicsForOneEq(eqId, icstart, nsmp, points, nsmpnv,
         ax[2].plot(xcoord, res[resRows, 2], linewidth=2)
         ax[2].set_ylabel('Slip (m)', fontsize=fontSize)
         ax[2].tick_params(axis='both', which='major', labelsize=fontSize)
-        for i in resRows:
-            # C_mesh=3 stores node-associated fault length in km; convert here so
-            # seismic moment is always computed in SI units.
-            moment += (
-                res[i, 2]
-                * nsmpnv[iFt * maxNumOfFtNodes + (i - ftNodeIndexArr[iFt]), 2]
-                * length_scale
-                * seismoDepth
-                * rigidity
-            )
 
         ax[3].plot(xcoord, res[resRows, 4], linewidth=2)
         ax[3].set_ylabel('Rupture time (s)', fontsize=fontSize)
@@ -97,10 +121,23 @@ def plotRuptureDynamicsForOneEq(eqId, icstart, nsmp, points, nsmpnv,
         magnitude = 2. / 3. * log10(moment * 1.e7) - 10.7
     else:
         magnitude = 0.
-    ax[0].set_title('EQ ID ' + str(eqId) + '; Magnitude ' + "{:.2f}".format(magnitude), fontsize=fontSize)
+
+    if CATALOG_ONLY:
+        # CSV row: eqId, mag, moment, nuc_x_km, nuc_y_km, nuc_ft, rup_dur_s, peak_slip_m
+        nuc_t_out = 0.0 if nuc_t == float('inf') else nuc_t
+        rup_dur   = max(0.0, rup_end - nuc_t_out)
+        line = '{},{:.4f},{:.4e},{:.4f},{:.4f},{:d},{:.3f},{:.4f}'.format(
+            eqId, magnitude, moment, nuc_x, nuc_y, nuc_ft, rup_dur, peak_slip)
+        print(line)
+        global _CATALOG_FH
+        if '_CATALOG_FH' in globals() and _CATALOG_FH is not None:
+            _CATALOG_FH.write(line + '\n')
+            _CATALOG_FH.flush()
+        return
+
     print('EQ ID', eqId, '; Magnitude', "{:.2f}".format(magnitude),
           '; Moment', "{:.2e}".format(moment), 'N-m')
-
+    ax[0].set_title('EQ ID ' + str(eqId) + '; Magnitude ' + "{:.2f}".format(magnitude), fontsize=fontSize)
     if magnitude >= MIN_PLOT_MAGNITUDE:
         plt.savefig(outputFname, dpi=300)
     plt.close()
@@ -152,6 +189,13 @@ def plotRuptureDynamics():
     ncycles = allRes.shape[0] // totftnode
     print('Cycles available:', ncycles)
 
+    global _CATALOG_FH
+    _CATALOG_FH = None
+    if CATALOG_ONLY:
+        os.makedirs('aPlots', exist_ok=True)
+        _CATALOG_FH = open('aPlots/catalog.csv', 'w')
+        _CATALOG_FH.write('# eqId,magnitude,moment_Nm,nuc_x_km,nuc_y_km,nuc_ft,rup_dur_s,peak_slip_m\n')
+
     if mode == 1:
         for ic in range(icstart, icstart + ncycles):
             plotRuptureDynamicsForOneEq(ic, icstart, nsmp, points, nsmpnv,
@@ -161,6 +205,10 @@ def plotRuptureDynamics():
         plotRuptureDynamicsForOneEq(eqId, icstart, nsmp, points, nsmpnv,
                                     numOfFts, numOfFtNodes, maxNumOfFtNodes,
                                     ftNodeIndexArr, allRes, totftnode, pts_scale, length_scale)
+
+    if _CATALOG_FH is not None:
+        _CATALOG_FH.close()
+        print('Wrote aPlots/catalog.csv')
 
 def _main_func(description):
     plotRuptureDynamics()

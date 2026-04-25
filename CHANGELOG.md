@@ -2,6 +2,29 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [2.0.7-rc3] - 2026-04-24
+
+Pre-release of 2.0.7 (iteration on rc2). Adds catalog mode for
+plotRuptureDynamics and a catalog-analysis script (b-value, MFD,
+nucleation patterns). Strengthens the release.sh docs-lockstep gate.
+
+### Added
+- `CATALOG=1 plotRuptureDynamics` mode: fast (no figures), writes
+  `aPlots/catalog.csv` with eqId, magnitude, moment, nucleation x/y,
+  fault index of nucleation, rupture duration, peak slip per cycle.
+  ~1.6s for 438 cycles vs minutes for full plotting.
+- `scripts/analyze_catalog.py`: b-value (LSQ on user-windowed
+  magnitude range), magnitude-frequency distribution, magnitude vs
+  cycle, nucleation along strike vs cycle. Saves
+  `aPlots/catalog_analysis.png`.
+
+### Changed
+- `release.sh`: docs-lockstep is now the **first hard-fail gate** (was
+  last, soft warning). Detects new doc files via `git log --name-only`,
+  not just modifications. `--skip-doc-check` to bypass.
+- CLAUDE.md compset list now mentions `saf.gmsh.lite` (the lockstep
+  doc update missed in rc2).
+
 ## [2.0.7-rc2] - 2026-04-24
 
 Pre-release of 2.0.7 (iteration on rc1). Adds the gmsh-meshed

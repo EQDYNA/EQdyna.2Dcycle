@@ -126,6 +126,9 @@ python3 test_system/verify.test.py  # Compare results against reference data
 - `plot_saf_figure4_7_8.py`: Figure-4-style slip-distribution stacks. Default tstart auto-populates 0, D, 2D, … covering total simulated kyr (window duration D = 3 kyr by default).
 - `plot_saf_figure3.py`: Figure-3-style long-term slip-rate comparisons.
 - `compare_cycle_over_strike.py`: Overlay a chosen cycle's stress/slip/rupture-time curves from multiple cases (plus Pangaea reference) for direct comparison.
+- `plotRuptureDynamics`: per-cycle 4-panel plot. `MIN_PLOT_MAGNITUDE` env var (default 6.5) gates which cycles are saved as PNGs; `FORCE_REPLOT=1` re-renders existing plots; **`CATALOG=1`** runs in catalog-only mode (no figures, ~10× faster) and writes `aPlots/catalog.csv` with eqId, magnitude, moment, nucleation x/y, rupture duration, peak slip per cycle.
+- `analyze_catalog.py`: reads `aPlots/catalog.csv`, computes b-value (LSQ on user-windowed magnitude range; characteristic-fault MFDs need `--mmax 7.0` to exclude the bump), MFD, magnitude-vs-cycle, nucleation-vs-cycle. Saves `aPlots/catalog_analysis.png`.
+- `monitor_runs.sh`: periodic status + Figure 4 + rupture-dynamics re-plot for active `paper.saf.A.*` and `saflite` cases. Defaults to 600s polling; pass seconds as first arg to override.
 - `saf_result_utils.py`: Loader helpers used by the plot_saf_* scripts.
 - `meshGenLib.py`: Mesh generation utilities (C_mesh=3)
 - `defaultParameters.py`: Default simulation parameters
