@@ -26,3 +26,5 @@ compset/**/nsmpGeoPhys.txt
 compset/**/nsmpTanLen.txt
 compset/**/meshGeneralInfo.txt
 monitor.log
+monitor.log
+scripts/.nfs*
