@@ -17,7 +17,14 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 DRY_RUN=""
-[ "${1:-}" = "--dry-run" ] && DRY_RUN="(dry-run) "
+SKIP_SMOKE=""
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run)    DRY_RUN="(dry-run) " ;;
+        --skip-smoke) SKIP_SMOKE=1 ;;
+        *) echo "Unknown flag: $arg"; exit 1 ;;
+    esac
+done
 
 VERSION="$(cat VERSION)"
 TAG="v${VERSION}"
@@ -63,8 +70,10 @@ if [ -n "$PREV_TAG" ]; then
 fi
 
 # 5. smoke test
-echo "Running smoke test..."
-if [ -z "$DRY_RUN" ]; then
+if [ -n "$SKIP_SMOKE" ]; then
+    echo "WARNING: --skip-smoke given; smoke test bypassed."
+elif [ -z "$DRY_RUN" ]; then
+    echo "Running smoke test..."
     python3 test_system/smoke.py
 else
     echo "(dry-run) skipping smoke test"
