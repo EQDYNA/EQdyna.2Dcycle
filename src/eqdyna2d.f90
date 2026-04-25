@@ -6,10 +6,9 @@ PROGRAM eqdyna2d
 	integer (kind=4) :: ic, n,i,j,k,m,alloc_err
 	character (len = 30) :: mm
 	write(*,*) '====================================================================='
-	write(*,*) '================== Welcome to EQdyna 2D 2.0.0 ======================='
-	write(*,*) '===== Product of Earthquake Modeling Lab @ Texas A&M University ====='
-	write(*,*) '========== Website https://seismotamu.wixsite.com/emlam ============='
-	write(*,*) '=========== Contacts: dunyuliu@tamu.edu, bduan@tamu.edu ============='
+	write(*,*) '================== Welcome to EQdyna 2D ' // EQDYNA_VERSION // ' =================='
+	write(*,*) '= UT Austin (Inst. for Geophysics) & Texas A&M (Center for Tectono.) ='
+	write(*,*) '=========== Contacts: dliu@ig.utexas.edu, bduan@tamu.edu ============'
 	write(*,*) '=                                                                   ='
 	write(*,*) '=   EQdyna 2D uses FEM to simulate multicycle earthquake dynamics   ='
 	write(*,*) '=   dynamic ruptures on geometrically realistic fault systems.      ='
@@ -20,8 +19,9 @@ PROGRAM eqdyna2d
 	write(*,*) '=       FE_Fault_Geometry.txt.                                      ='
 	write(*,*) '=                                                                   ='
 	write(*,*) '=   Additional files required for earthquake cycle are              ='
-	write(*,*) '=       Rate_direction.txt, and                                     ='
-	write(*,*) '=       binaryop if this is not the first earthquake cylce          ='
+	write(*,*) '=       Rate_direction.txt   (C_mesh=2 loading), or                 ='
+	write(*,*) '=       nsmpGeoPhys.txt      (C_mesh=3 loading), and                ='
+	write(*,*) '=       binaryop if this is not the first earthquake cycle          ='
 	write(*,*) '====================================================================='
 	
 	call readglobal

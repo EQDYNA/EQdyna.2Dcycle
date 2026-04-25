@@ -4,6 +4,101 @@ import gmsh
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 
+def plotLoadingInputs(ftPhys, ftNames, xCoorDict, yCoorDict, out_path='aPlots/loading_inputs.png'):
+    """Plot per-fault loading inputs (γ, φ, ftLoadWt, ftVis) along arc-length.
+
+    Paper Fig. 2 style. Called at end of meshgen.py to verify the per-node
+    loading written to nsmpGeoPhys.txt looks right (smooth, paper-like).
+    """
+    import os
+    out_dir = os.path.dirname(out_path)
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+    colors = ['#1f77b4', '#d62728', '#222222', '#2ca02c']
+    fig, ax = plt.subplots(4, 1, figsize=(10, 12), sharex=False)
+
+    for ift, ftName in enumerate(ftNames):
+        rows = np.asarray(ftPhys[ftName])  # (n, 6) = [type, dip, γ, φ, wt, vis]
+        x_km = np.asarray(xCoorDict[ftName])
+        y_km = np.asarray(yCoorDict[ftName])
+        seg = np.hypot(np.diff(x_km), np.diff(y_km))
+        s_km = np.concatenate(([0.0], np.cumsum(seg)))
+
+        c = colors[ift % len(colors)]
+        ax[0].plot(s_km, rows[:, 2], color=c, label=f'{ftName} (n={len(rows)})')
+        ax[1].plot(s_km, rows[:, 3], color=c)
+        ax[2].plot(s_km, rows[:, 4], color=c)
+        ax[3].plot(s_km, rows[:, 5], color=c)
+
+    ax[0].set_ylabel('ftLoadMaxShear (s$^{-1}$)')
+    ax[1].set_ylabel('ftLoadAngle φ (deg)')
+    ax[2].set_ylabel('ftLoadWt (= 450·γ/str)')
+    ax[3].set_ylabel('ftVis (Pa·s)')
+    ax[3].set_xlabel('arc-length along fault (km)')
+    ax[0].legend(loc='best', fontsize=8)
+    ax[0].set_title('Per-node loading inputs written to nsmpGeoPhys.txt')
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def splineFaultFromControl(xs_km, ys_km, dxy_m):
+    """Mirror meshgen1.f90: natural cubic spline y(x) through .gmt control
+    points, sampled at uniform x spacing dxy_m.  Returns
+    (x_dense_km, y_dense_km, tx, ty) with y on the smooth curve and
+    tx, ty = analytical spline derivative at each sample.
+
+    Requires xs to be strictly monotonic (same constraint as meshgen1).
+    """
+    xs = np.asarray(xs_km, dtype=float)
+    ys = np.asarray(ys_km, dtype=float)
+    cs = CubicSpline(xs, ys, bc_type='natural')
+    n = max(2, int(round((xs[-1] - xs[0]) * 1.0e3 / dxy_m)) + 1)
+    x_dense = np.linspace(xs[0], xs[-1], n)
+    y_dense = cs(x_dense)                  # y on the smooth curve
+    slope   = cs(x_dense, 1)               # dy/dx, analytical
+    mag     = np.sqrt(slope * slope + 1.0)
+    tx      = 1.0 / mag                    # convention matches meshgen1 (line 441)
+    ty      = slope / mag
+    return x_dense, y_dense, tx, ty
+
+
+def loadPaperRateDirAlongArcLen(paper_root, fault_idx, n_active):
+    """Reconstruct paper.saf.A's per-fault arc-length and (γ, φ) by re-running
+    the meshgen1.f90-style natural cubic spline through control points
+    x{fault_idx}_1.txt, then sampling at n_active uniform x-positions.
+
+    Returns (s_paper [m], gamma [rad/s], phi [deg]) all length n_active.
+    Used to interpolate paper Rate_direction.txt loading onto a gmsh fault.
+
+    fault_idx: 1-based (1=fault 1, 2=fault 2, 3=fault 3 in paper indexing).
+    n_active: number of active rows for this fault in Rate_direction.txt.
+    """
+    import os
+    ctrl = np.loadtxt(os.path.join(paper_root, f'x{fault_idx}_1.txt'))
+    xs_km, ys_km = ctrl[:, 0], ctrl[:, 1]
+    xs, ys = xs_km * 1.0e3, ys_km * 1.0e3  # m, matches meshgen1
+
+    cs = CubicSpline(xs, ys, bc_type='natural')
+    x_paper = np.linspace(xs.min(), xs.max(), n_active)
+    y_paper = cs(x_paper)
+    seg = np.hypot(np.diff(x_paper), np.diff(y_paper))
+    s_paper = np.concatenate([[0.0], np.cumsum(seg)])
+
+    rd = np.loadtxt(os.path.join(paper_root, 'Rate_direction.txt'))
+    n_rows = len(rd)
+    ntotft = 3
+    maxftnode = n_rows // ntotft
+    start = (fault_idx - 1) * maxftnode
+    rd_fault = rd[start:start + n_active]
+    gamma = rd_fault[:, 0]
+    phi   = rd_fault[:, 1]
+    return s_paper, gamma, phi
+
+
 def loadFtLoc(ftName):
     
     with open(ftName, 'r') as f:

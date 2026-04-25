@@ -4,6 +4,39 @@ import gmsh
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 
+def loadPaperRateDirAlongArcLen(paper_root, fault_idx, n_active):
+    """Reconstruct paper.saf.A's per-fault arc-length and (γ, φ) by re-running
+    the meshgen1.f90-style natural cubic spline through control points
+    x{fault_idx}_1.txt, then sampling at n_active uniform x-positions.
+
+    Returns (s_paper [m], gamma [rad/s], phi [deg]) all length n_active.
+    Used to interpolate paper Rate_direction.txt loading onto the gmsh fault.
+
+    fault_idx: 1-based (1=sjfn, 2=sjfs, 3=ssaf in paper.saf.A indexing).
+    n_active: number of active rows for this fault in Rate_direction.txt.
+    """
+    import os
+    ctrl = np.loadtxt(os.path.join(paper_root, f'x{fault_idx}_1.txt'))
+    xs_km, ys_km = ctrl[:, 0], ctrl[:, 1]
+    xs, ys = xs_km * 1.0e3, ys_km * 1.0e3  # m, matches meshgen1
+
+    cs = CubicSpline(xs, ys, bc_type='natural')
+    x_paper = np.linspace(xs.min(), xs.max(), n_active)
+    y_paper = cs(x_paper)
+    seg = np.hypot(np.diff(x_paper), np.diff(y_paper))
+    s_paper = np.concatenate([[0.0], np.cumsum(seg)])
+
+    rd = np.loadtxt(os.path.join(paper_root, 'Rate_direction.txt'))
+    n_rows = len(rd)
+    ntotft = 3
+    maxftnode = n_rows // ntotft
+    start = (fault_idx - 1) * maxftnode
+    rd_fault = rd[start:start + n_active]
+    gamma = rd_fault[:, 0]
+    phi   = rd_fault[:, 1]
+    return s_paper, gamma, phi
+
+
 def loadFtLoc(ftName):
     
     with open(ftName, 'r') as f:

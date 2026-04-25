@@ -1,7 +1,38 @@
 #! /usr/bin/env python3
 
+import os
 import numpy as np
 from math import *
+
+
+def _read_version():
+    """Read VERSION file at repo root.
+
+    Search order: EQDYNA2DCYCLEROOT env var → walk up from __file__ looking
+    for a VERSION file (handles the case where defaultParameters.py was
+    copied into a case dir under work/<case>/).
+    """
+    candidates = []
+    root_env = os.environ.get('EQDYNA2DCYCLEROOT')
+    if root_env:
+        candidates.append(root_env)
+    here = os.path.abspath(os.path.dirname(__file__))
+    for _ in range(6):
+        candidates.append(here)
+        parent = os.path.dirname(here)
+        if parent == here:
+            break
+        here = parent
+    for d in candidates:
+        vf = os.path.join(d, 'VERSION')
+        if os.path.exists(vf):
+            try:
+                with open(vf) as f:
+                    return f.read().strip()
+            except Exception:
+                pass
+    return 'unknown'
+
 
 # default from test.tpv1053d
 class parameters:
@@ -41,6 +72,6 @@ class parameters:
     
     ftcn = [15, 10, 80]
 
-    exe = 'run_eqdyna2d_2.0.3'  # executable name in bin/
+    exe = 'run_eqdyna2d_' + _read_version()  # auto-tracks repo VERSION file
     
     

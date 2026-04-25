@@ -5,10 +5,22 @@ from math import *
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import sys, os
+import sys, os, re
+
+_FORTRAN_EXP_FIX = re.compile(r'(\d)([+-]\d{3,})')
+
+def loadtxt_robust(fname, dtype=float):
+    """np.loadtxt that tolerates Fortran 3-digit-exponent output ('0.83-101' -> '0.83E-101')."""
+    try:
+        return np.loadtxt(fname, dtype=dtype)
+    except ValueError:
+        with open(fname) as f:
+            text = _FORTRAN_EXP_FIX.sub(r'\1E\2', f.read())
+        from io import StringIO
+        return np.loadtxt(StringIO(text), dtype=dtype)
 
 fontSize = 18
-MIN_PLOT_MAGNITUDE = 6.5
+MIN_PLOT_MAGNITUDE = float(os.environ.get('MIN_PLOT_MAGNITUDE', 6.5))
 
 def readFEGlobal(fname='FE_Global.txt'):
     icstart, icend, C_mesh = 1, 1, 2
@@ -29,6 +41,11 @@ def plotRuptureDynamicsForOneEq(eqId, icstart, nsmp, points, nsmpnv,
     if not os.path.exists(plotPath):
         os.mkdir(plotPath)
     outputFname = plotPath + 'cRuptureDynamics' + str(eqId) + '.png'
+
+    # Skip cycles already plotted (massive speedup when re-running with many cycles).
+    # Set FORCE_REPLOT=1 to override.
+    if os.path.exists(outputFname) and not os.environ.get('FORCE_REPLOT'):
+        return
 
     # each cycle is totftnode rows stacked in allRes; eqId is 1-based, icstart-based
     cycIdx = eqId - icstart
@@ -84,7 +101,7 @@ def plotRuptureDynamicsForOneEq(eqId, icstart, nsmp, points, nsmpnv,
     print('EQ ID', eqId, '; Magnitude', "{:.2f}".format(magnitude),
           '; Moment', "{:.2e}".format(moment), 'N-m')
 
-    if magnitude > MIN_PLOT_MAGNITUDE:
+    if magnitude >= MIN_PLOT_MAGNITUDE:
         plt.savefig(outputFname, dpi=300)
     plt.close()
 
@@ -131,7 +148,7 @@ def plotRuptureDynamics():
 
     # all cycles are stacked in one file: totalop.txt{icstart}
     fname   = 'totalop.txt' + str(icstart)
-    allRes  = np.loadtxt(fname)
+    allRes  = loadtxt_robust(fname)
     ncycles = allRes.shape[0] // totftnode
     print('Cycles available:', ncycles)
 

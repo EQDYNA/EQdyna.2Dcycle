@@ -69,23 +69,32 @@ do ndt = 1, 1000000000
 			rs = rd(1,ida(i)) * cos(2.0d0*theta) * ant
 			rn = -rd(1,ida(i)) * sin(2.0d0*theta) * ant
 		else
-			! C_mesh=3: read from nsmpGeoPhys.txt
-			! nsmpgp cols (1-indexed): 1=tx,2=ty,3=len,4=ftType,5=ftDip,
-			!   6=ftLoadMaxShear,7=ftLoadAngle(-999=auto),8=ftLoadWt(default=450),9=ftVis
-			! Convention (from strbld.f90): ant = ftVis*450/ftLoadWt
-			!   rs = ftLoadMaxShear/450 * ftLoadWt * cos(2θ) * ant
-			!      = ftLoadMaxShear * cos(2θ) * ftVis  [ftLoadWt cancels in steady-state]
-			!   ftLoadWt only controls approach timescale, not steady-state loading.
+			! C_mesh=3: per-node loading from nsmpGeoPhys.txt
+			! cols (1-indexed): 1=tx,2=ty,3=len,4=ftType,5=ftDip,
+			!   6=ftLoadMaxShear (γ, s^-1, per node)
+			!   7=ftLoadAngle   (φ, deg, per node; -999 = auto from tangent)
+			!   8=ftLoadWt      (loading weight; 450 = paper-faithful baseline)
+			!   9=ftVis         (Pa·s, per node; = ant0·str/γ for paper-faithful)
+			!
+			! Paper-faithful encoding (saf.gmsh.lite, derived from
+			! paper.saf.A/Rate_direction.txt):
+			!   ftVis = ant0·str/γ → ant = ftVis (since ftLoadWt=450)
+			!   rs   = γ·cos(2θ)·ant = str·cos(2θ)·ant0  (γ cancels;
+			!          identical to C_mesh=2 paper interstress branch above).
+			! Generic encoding (test.subei, test.gulang): ftLoadWt may
+			! deviate from 450 to encode fractional loading; formula still
+			! holds.  Unified formula:
+			!   ant = ftVis · 450 / ftLoadWt
+			!   rs  =  γ · (ftLoadWt/450) · cos(2θ) · ant
+			!   rn  = -γ · (ftLoadWt/450) · sin(2θ) · ant
 			if (nsmpgp(7,ida(i)) > -998.0d0) then
-				! explicit angle in degrees
 				theta = nsmpgp(7,ida(i))/180.0d0*pi
 			else
-				! auto: angle of fault tangent from x-axis (loading along general strike = x)
 				theta = atan(nsmpgp(2,ida(i))/nsmpgp(1,ida(i)))
 			endif
 			if (theta >= 45.0d0/180.0d0*pi) theta = 45.0d0/180.0d0*pi
 			ant = nsmpgp(9,ida(i)) * 450.0d0 / nsmpgp(8,ida(i))
-			rs = nsmpgp(6,ida(i)) / 450.0d0 * nsmpgp(8,ida(i)) * cos(2.0d0*theta) * ant
+			rs =  nsmpgp(6,ida(i)) / 450.0d0 * nsmpgp(8,ida(i)) * cos(2.0d0*theta) * ant
 			rn = -nsmpgp(6,ida(i)) / 450.0d0 * nsmpgp(8,ida(i)) * sin(2.0d0*theta) * ant
 		endif
 		! --- debug: dump per-node loading/stress on first interseismic step ---

@@ -13,6 +13,9 @@ else
   LDFLAGS ?= -O3 -march=native -funroll-loops -ffree-line-length-none -std=legacy -fopenmp
 endif
 
+# Inject the VERSION string into the welcome banner via cpp.
+FCFLAGS += -cpp -DEQDYNA_VERSION='"$(VERSION)"'
+
 OPT = -c $(FCFLAGS)
 OPT1 = $(LDFLAGS)
 

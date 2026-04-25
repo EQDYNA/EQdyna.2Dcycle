@@ -2,6 +2,56 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [2.0.7-rc2] - 2026-04-24
+
+Pre-release of 2.0.7 (iteration on rc1). Adds the gmsh-meshed
+`saf.gmsh.lite` compset that reproduces paper.saf.A loading on a coarser
+mesh, monitor + plot improvements, and self-tracking version banner.
+
+### Added
+- `compset/saf.gmsh.lite/` — coarser-resolution (dxy=400m) gmsh compset
+  that reproduces Liu et al. 2022 Model A. Self-contained: ships with
+  paper.saf.A's `Rate_direction.txt + x{1,2,3}_1.txt`. Verified: cycle 1
+  first interval 473 yr (paper: 471 yr), M5.7 NW patch matches paper Fig 4.
+- `scripts/meshGenLib.py` helpers: `splineFaultFromControl` (natural cubic
+  spline y(x) sampled at dxy, mirrors meshgen1.f90), `loadPaperRateDirAlongArcLen`
+  (rebuilds paper per-fault arc-length and γ, φ from x*_1.txt + Rate_direction.txt),
+  `plotLoadingInputs` (paper-Fig-2-style γ/φ/wt/vis plot).
+- `scripts/monitor_runs.sh` — periodically tails progress + re-plots
+  Figure 4 and rupture dynamics for all `paper.saf.A.*` and saflite cases.
+- `scripts/plotRuptureDynamics`: `MIN_PLOT_MAGNITUDE` env var (default 6.5)
+  with `>=` comparison; skip-existing-plot optimization (set `FORCE_REPLOT=1`
+  to override); robust loader for Fortran 3-digit-exponent output.
+- `src/makefile` cpp macro `EQDYNA_VERSION` injects the VERSION file
+  string into the runtime banner — no more hardcoded `2.0.0`.
+
+### Changed
+- `src/interstress.f90` C_mesh=3 branch: comments document the
+  paper-faithful encoding (ftVis = ant0·str/γ per node) where
+  `ant = ftVis·450/ftLoadWt = ant0·str/γ` matches the C_mesh=2 paper formula.
+- `compset/saf.gmsh.lite/meshgen.py`:
+  - Single SAF control file (no more ssaf1+ssaf2+bridge split).
+  - Per-node ftLoadAngle, ftVis interpolated from paper Rate_direction.txt
+    instead of uniform constants.
+  - C¹-smooth tangent at every gmsh fault node via analytical spline
+    derivative (matches meshgen1.f90 lines 437-442).
+- `scripts/case.setup`: C_mesh=3 branch now exports
+  `GFORTRAN_UNBUFFERED_ALL=1` and `OMP_NUM_THREADS=${...:-1}` (was
+  C_mesh=2 only); 1-thread default replaces previous 16-thread default.
+- `scripts/defaultParameters.py exe`: walks up directory tree to find
+  `VERSION` file (handles case-dir invocation where `__file__/..` doesn't
+  resolve to repo root).
+- `install.sh`: `mv` (not `cp`) binary into `bin/` to leave `src/`
+  source-only; `rm src/*.o src/*.mod` after build to keep `src/` tidy.
+- Welcome banner: cleaned attribution (UT Austin + Texas A&M),
+  contact email updated, mentions `nsmpGeoPhys.txt` for C_mesh=3,
+  `cylce`→`cycle` typo fixed.
+
+### Fixed
+- `cp src/run_eqdyna2d_* bin/` failed with "Text file busy" when a
+  running simulation had the binary mmap'd → install.sh now `rm -f` the
+  old binary first (unlinks the inode; running procs keep their copy).
+
 ## [2.0.7-rc1] - 2026-04-24
 
 Pre-release of 2.0.7. First release on top of published `v2.0.6`. Surface-level changes (install, README, compsets, OMP, release process) are stabilized; soliciting feedback before final 2.0.7 tag. Test-system reference results not yet refreshed against the new compsets.
