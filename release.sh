@@ -18,10 +18,12 @@ cd "$(dirname "$0")"
 
 DRY_RUN=""
 SKIP_SMOKE=""
+SKIP_DOC_CHECK=""
 for arg in "$@"; do
     case "$arg" in
-        --dry-run)    DRY_RUN="(dry-run) " ;;
-        --skip-smoke) SKIP_SMOKE=1 ;;
+        --dry-run)        DRY_RUN="(dry-run) " ;;
+        --skip-smoke)     SKIP_SMOKE=1 ;;
+        --skip-doc-check) SKIP_DOC_CHECK=1 ;;
         *) echo "Unknown flag: $arg"; exit 1 ;;
     esac
 done
@@ -31,42 +33,43 @@ TAG="v${VERSION}"
 
 echo "${DRY_RUN}Releasing ${TAG}"
 
-# 1. clean tree
+# 1. docs lockstep — README.md / CLAUDE.md / sub-READMEs must be touched
+#    (modified or newly added) since the last tag. Hard-fail (with
+#    --skip-doc-check to bypass), so docs never silently fall behind code.
+PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+if [ -n "$PREV_TAG" ] && [ -z "$SKIP_DOC_CHECK" ]; then
+    DOC_PATHS="README.md CLAUDE.md test_system/README.md work/README.md"
+    DOC_PATHS="$DOC_PATHS $(find compset -maxdepth 2 -name 'README.md' 2>/dev/null)"
+    DOC_CHANGES="$(git log --name-only --pretty=format: "${PREV_TAG}..HEAD" -- $DOC_PATHS 2>/dev/null \
+                   | sort -u | grep -v '^$' || true)"
+    if [ -z "$DOC_CHANGES" ]; then
+        echo "ERROR: no doc files touched since ${PREV_TAG}." >&2
+        echo "       Update README.md / CLAUDE.md / sub-READMEs to reflect what" >&2
+        echo "       changed in this release, or pass --skip-doc-check to bypass." >&2
+        exit 1
+    fi
+    echo "Docs touched since ${PREV_TAG}:"
+    echo "$DOC_CHANGES" | sed 's/^/  /'
+fi
+
+# 2. clean tree
 if ! git diff --quiet || ! git diff --cached --quiet; then
     echo "ERROR: working tree is dirty. Commit or stash first." >&2
     git status -s
     exit 1
 fi
 
-# 2. tag must not exist
+# 3. tag must not exist
 if git rev-parse "$TAG" >/dev/null 2>&1; then
     echo "ERROR: tag $TAG already exists. Bump VERSION before releasing." >&2
     exit 1
 fi
 
-# 3. CHANGELOG must mention this version
+# 4. CHANGELOG must mention this version
 if ! grep -qE "^## \[${VERSION}\]" CHANGELOG.md; then
     echo "ERROR: CHANGELOG.md has no '## [${VERSION}] - YYYY-MM-DD' header." >&2
     echo "       Rename '## [Unreleased]' and add today's date." >&2
     exit 1
-fi
-
-# 4. docs checklist: README.md / CLAUDE.md must have been touched since last tag
-PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-if [ -n "$PREV_TAG" ]; then
-    DOC_CHANGES="$(git diff --name-only "${PREV_TAG}..HEAD" -- README.md CLAUDE.md test_system/README.md work/README.md 2>/dev/null || true)"
-    if [ -z "$DOC_CHANGES" ]; then
-        echo "WARNING: no doc files (README.md / CLAUDE.md / sub-READMEs) changed since ${PREV_TAG}."
-        echo "         Releases should keep docs in lockstep with code changes."
-        if [ -z "$DRY_RUN" ]; then
-            read -p "Continue anyway? [y/N] " ans
-            [ "$ans" = "y" ] || [ "$ans" = "Y" ] || { echo "Aborted."; exit 1; }
-        else
-            echo "(dry-run) would prompt for confirmation"
-        fi
-    else
-        echo "Docs touched since ${PREV_TAG}: $(echo "$DOC_CHANGES" | tr '\n' ' ')"
-    fi
 fi
 
 # 5. smoke test
