@@ -112,6 +112,7 @@ python3 test_system/verify.test.py  # Compare results against reference data
 ### Case Configuration
 - `compset/paper.saf.A/`: paper-faithful Liu et al. (2022) Model A reproduction (C_mesh=2). Uses the smooth per-node Rate_direction.txt recovered from the paper-era local archive.
 - `compset/saf.gmsh.lite/`: gmsh-meshed (C_mesh=3) paper-A reproduction at coarser dxy=400m. Self-contained — ships with paper.saf.A's Rate_direction.txt + x{1,2,3}_1.txt; meshgen.py interpolates per-node loading onto gmsh fault nodes via natural-cubic-spline analytical tangent. First cycle: 473 yr / M5.7 (paper-A: 471 yr / M5.74).
+- `compset/subei.gmsh.lite/`: gmsh-meshed (C_mesh=3) Subei fault system (atf, dxs, sbt). Same framework as saf.gmsh.lite but uses the default uniform-x loading mode (`uniformXLoadingAngle`) since no paper Rate_direction.txt is available. Multi-surface decomposition handles the connected fault junctions.
 - `compset/test.saf/`, `test.subei/`, `test.gulang/`: legacy C_mesh=3 (gmsh) test cases.
 - `user_defined_params.py`: Simulation parameters (inherits from defaultParameters.py)
 - `userDefinedFaultSysGeoPhys.py`: Fault geometry and physics
@@ -123,7 +124,7 @@ python3 test_system/verify.test.py  # Compare results against reference data
 - `case.setup`: Generates FE_*.txt input files + run.sh from user_defined_params.py
 - `create.newcase`: Creates new case from a compset (supports `--work_dir`, `--compset`, `--force`, `--list` flags; legacy positional form still accepted)
 - `plotRuptureDynamics`: Per-cycle shear/normal/slip/rupture-time plots from totalop.txt
-- `plot_saf_figure4_7_8.py`: Figure-4-style slip-distribution stacks. Default tstart auto-populates 0, D, 2D, … covering total simulated kyr (window duration D = 3 kyr by default).
+- `plot_event_slips_overtime_fig4.py`: Figure-4-style slip-distribution stacks. Default tstart auto-populates 0, D, 2D, … covering total simulated kyr (window duration D = 3 kyr by default).
 - `plot_saf_figure3.py`: Figure-3-style long-term slip-rate comparisons.
 - `compare_cycle_over_strike.py`: Overlay a chosen cycle's stress/slip/rupture-time curves from multiple cases (plus Pangaea reference) for direct comparison.
 - `plotRuptureDynamics`: per-cycle 4-panel plot. `MIN_PLOT_MAGNITUDE` env var (default 6.5) gates which cycles are saved as PNGs; `FORCE_REPLOT=1` re-renders existing plots; **`CATALOG=1`** runs in catalog-only mode (no figures, ~10× faster) and writes `aPlots/catalog.csv` with eqId, magnitude, moment, nucleation x/y, rupture duration, peak slip per cycle.

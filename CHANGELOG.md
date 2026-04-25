@@ -2,6 +2,28 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [2.0.7-rc4] - 2026-04-24
+
+Pre-release of 2.0.7 (iteration on rc3). Adds `subei.gmsh.lite` compset
+mirroring the saf.gmsh.lite framework, and the default uniform-x loading
+mode for compsets without a paper Rate_direction.txt source.
+
+### Added
+- `compset/subei.gmsh.lite/`: gmsh-meshed (C_mesh=3) Subei fault system
+  (atf, dxs, sbt) with multi-surface decomposition for connected
+  junctions, analytical-spline tangent at every gmsh node, and per-node
+  uniform-x loading angle. Bench: 221 events at this writing, M5.0–7.4,
+  b≈1.09 (LSQ on [5.0,7.0]), cycle 1 = M7.4 full-system rupture.
+- `scripts/meshGenLib.py uniformXLoadingAngle(tx, ty)`: default loading
+  model — compression along +x, ftLoadAngle = -atan2(ty,tx) per node.
+  Used when no paper Rate_direction.txt is available.
+- `scripts/plot_event_slips_overtime_fig4.py`: renamed from
+  `plot_saf_figure4_7_8.py` (script content unchanged in this rc;
+  generalisation deferred).
+
+### Changed
+- CLAUDE.md, scripts/monitor_runs.sh: updated for the rename.
+
 ## [2.0.7-rc3] - 2026-04-24
 
 Pre-release of 2.0.7 (iteration on rc2). Adds catalog mode for

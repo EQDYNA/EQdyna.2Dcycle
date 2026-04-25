@@ -27,7 +27,7 @@ while true; do
         echo "[$d]  cycles=$nint  totalop=${bytes}B  last: ${last_step:-no log yet}"
 
         if [ -s "$d/totalop.txt1" ]; then
-            python3 scripts/plot_saf_figure4_7_8.py "$d" --threshold 0 > /dev/null 2>&1 \
+            python3 scripts/plot_event_slips_overtime_fig4.py "$d" --threshold 0 > /dev/null 2>&1 \
                 && echo "    -> $d/aPlots/Figure4_7_8_slipdist_*.png" \
                 || echo "    plot_saf_figure4 failed (likely missing nsmp.txt or partial output)"
             ( cd "$d" && MIN_PLOT_MAGNITUDE=6.0 python3 "$ROOT/scripts/plotRuptureDynamics" > /dev/null 2>&1 ) \

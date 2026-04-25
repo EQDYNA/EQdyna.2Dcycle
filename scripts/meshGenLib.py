@@ -66,6 +66,19 @@ def splineFaultFromControl(xs_km, ys_km, dxy_m):
     return x_dense, y_dense, tx, ty
 
 
+def uniformXLoadingAngle(tx, ty):
+    """Default loading model: compression along the +x axis (uniform).
+
+    The on-fault loading angle (φ in paper conventions) is the angle
+    between the loading direction and the fault tangent. With loading
+    along x (= 0°), φ_node = -atan2(ty, tx) per node, in degrees.
+
+    Returns an array of φ values matching the input tx, ty length.
+    """
+    return -np.degrees(np.arctan2(np.asarray(ty, dtype=float),
+                                  np.asarray(tx, dtype=float)))
+
+
 def loadPaperRateDirAlongArcLen(paper_root, fault_idx, n_active):
     """Reconstruct paper.saf.A's per-fault arc-length and (γ, φ) by re-running
     the meshgen1.f90-style natural cubic spline through control points
