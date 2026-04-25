@@ -65,6 +65,8 @@ if [ -n "$MACH" ]; then
         # unlink keeps the in-use inode alive for running procs; cp lays a fresh file.
         rm -f bin/run_eqdyna2d_* 2>/dev/null || true
         cp src/run_eqdyna2d_* bin/
+        # Clean .o/.mod artifacts now that the binary is in bin/.
+        rm -f src/*.o src/*.mod
     fi
 
     chmod -R 755 scripts
