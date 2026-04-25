@@ -1,17 +1,19 @@
 #! /usr/bin/env python3
-import os, time
+import os, sys, time
 import numpy as np
 import xarray as xr
 try:
     from .testNameList import nameList
 except ImportError:
     from testNameList import nameList
+
+n_fail = 0
 #testIDList   = ['tpv8', 'tpv104','tpv1053d','tpv1053d.6c','meng2023a','meng2023cb']
 fileNameList = ['cyclelog.txt1','interval.txt1','totalop.txt1', 'totalop.txt2',
     'totalop.txt3', 'totalop.txt4', 'totalop.txt5', 'totalop.txt6', 'totalop.txt7',
     'totalop.txt8', 'totalop.txt9', 'totalop.txt10']
     
-refRoot  = 'test/reference.results'
+refRoot  = 'test_system/reference.results'
 testRoot = 'work/test_results'
 
 def compare_nc_files(fn1,fn2,threshold=1e-3):
@@ -40,7 +42,7 @@ def compare_nc_files(fn1,fn2,threshold=1e-3):
     except AssertionError as e:
         print(e)
     print(isTheSame)
-    
+
     return isTheSame
 
 def compare_txt_files(fn1,fn2,threshold=1e-3):
@@ -50,12 +52,13 @@ def compare_txt_files(fn1,fn2,threshold=1e-3):
         result2 = f2.read().split()
     if len(result1) != len(result2):
         isTheSame = 'FAIL '+fn1+' '+fn2
-    
+
     for num1,num2 in zip(result1,result2):
         fnum1, fnum2 = float(num1),float(num2)
         if abs(fnum1-fnum2) > threshold:
             isTheSame = 'FAIL '+fn1+' '+fn2
     print(isTheSame)
+    return isTheSame
 
     
 for testid in nameList:
@@ -67,13 +70,21 @@ for testid in nameList:
         if os.path.exists(refPath):
             if os.path.exists(testPath):
                 if 'nc' in filename:
-                    compare_nc_files(refPath, testPath, 1e-3)
+                    result = compare_nc_files(refPath, testPath, 1e-3)
                 elif 'frt' in filename:
-                    compare_txt_files(refPath, testPath, 1e-3)
+                    result = compare_txt_files(refPath, testPath, 1e-3)
                 else:
-                    compare_txt_files(refPath, testPath, 1e-3)
+                    result = compare_txt_files(refPath, testPath, 1e-3)
+                if result and result.startswith('FAIL'):
+                    n_fail += 1
             else:
                 print(f'WARNING: Test output not found: {testPath}')
+                n_fail += 1
         else:
             print(f'WARNING: Reference not found: {refPath}')
+
+if n_fail > 0:
+    print(f'\n❌ {n_fail} verification failure(s)')
+    sys.exit(1)
+print('\n✅ all verifications passed')
 

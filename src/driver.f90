@@ -5,28 +5,42 @@ SUBROUTINE driver
 	!### solution driver program
 	! As shown above, only fault arrays are transferred.
 	!
-	! Modify to explictly use central difference method as DYNA3D, 
+	! Modify to explictly use central difference method as DYNA3D,
 	!	rather than alpha-method. B.D. 7/21/05
 	!
 	logical :: lstr,lstrf
 	integer (kind=4) :: nsave,nsq,n,i,j,k,k1,l,nel,m, &
 	   ndprt1,nsprt1,nhplt1,niter1,ifault
-	
-    timeused(2) = timeused(2) + (time2 - time1) * 1.d-9   
+	integer (kind=8) :: tic, toc, clockrate
+	integer :: dt_vals(8)
+	character(len=23) :: ts
+	!   print interval (in steps) for the in-loop status line.
+	!   dt1=0.01 s, so 300 steps = every 3 simulated seconds.
+	integer, parameter :: print_every = 300
+
+    timeused(2) = timeused(2) + (time2 - time1) * 1.d-9
+    !...reset per-cycle wall-clock accumulators at start of each dynamic-rupture run
+    t_vd = 0.0d0; t_qdct3 = 0.0d0; t_hrglss = 0.0d0; t_faulting = 0.0d0; t_brhs = 0.0d0
+    call system_clock(count_rate=clockrate)
     !
     quitdriver = .false.
-    timedyna = 0.0d0	
+    timedyna = 0.0d0
     do n=1,nstep1
 		!
-		timedyna = timedyna + dt1	 	
-		!...print on screen for monitoring
-		if (mod(n,2000) == 1) then
-			write(*,*) '=                                                                   ='
-			write(*,*) '=     Current time in dynamic rupture                               ='
-			write(*,'(X,A,40X,f7.3,4X,A)') '=',timedyna, 's'
-			write(*,*) '=     Your earthquake is rampaging ... Be patient ...               ='
+		timedyna = timedyna + dt1
+		!...per-step progress line (one line per step by default; change print_every to thin out)
+		if (mod(n,print_every) == 0) then
+			call date_and_time(values=dt_vals)
+			write(ts,'(I4.4,"-",I2.2,"-",I2.2," ",I2.2,":",I2.2,":",I2.2,".",I3.3)') &
+				dt_vals(1),dt_vals(2),dt_vals(3),dt_vals(5),dt_vals(6),dt_vals(7),dt_vals(8)
+			write(*,'(A,A,A,I6,A,F7.3,A,F7.2,A,F7.2,A,F7.2,A,F7.2,A,F7.2,A)') &
+				'[',ts,']  n=',n,'  t=',timedyna,'s  vd=',t_vd, &
+				' qdct3=',t_qdct3,' hrglss=',t_hrglss,' flt=',t_faulting,' brhs=',t_brhs,' s'
+			flush(6)
 		endif
 
+		call system_clock(tic)
+		!$omp parallel do default(shared) private(l,j,k) schedule(static)
 		do l=1,numnp
 			do j=1,ndof
 				k=id(j,l)
@@ -36,6 +50,8 @@ SUBROUTINE driver
 				endif
 			enddo
 		enddo
+		!$omp end parallel do
+		call system_clock(toc); t_vd = t_vd + real(toc-tic, dp)/real(clockrate, dp)
 	!if (timedyna < 1.0d0) then
 	!	codetermination = .false.
 	!else
@@ -89,41 +105,25 @@ SUBROUTINE driver
 		!*** initialize for right hand force to use ***
 		!
 		brhs = 0.0d0	!initialize it every interation
-		
-		!      time1 = gethrtime()
-		call qdct3
-		!if (debug == 1) write(*,*) 'AFter qdct3'
-		!      time2 = gethrtime()
-		timeused(3) = timeused(3) + (time2 - time1) * 1.d-9 
-		!      time1 = gethrtime()
-		call hrglss
-		!if (debug == 1) write(*,*) 'AFter hrglss'
-		!      time2 = gethrtime()
-		timeused(4) = timeused(4) + (time2 - time1) * 1.d-9 
-		!
-		!*** call faulting subrotuine to revise residual force ***
-		!  This is main revision on general dynamic code to
-		!  study earthquke rupture problems. The main purpose
-		!  is to revise right-hand-side vector "brhs" by 
-		!  faulting boundary. B.D. 7/3/05
-		!
-		! if(n == 1) then !note: 1 time step advance of faulting results
-			! lstrf = .true.
-		! elseif (mod(n+1,nhplt1) == 0) then 	
-			! lstrf = .true.	!to store faulting results.
-		! else
-			! lstrf = .false.
-		! endif
-		!       time1 = gethrtime()
-		
-		call faulting(n)
-		if (debug == 1) write(*,*) 'AFter faulting'
-		!      time2 = gethrtime()
-		timeused(5) = timeused(5) + (time2 - time1) * 1.d-9 
 
-		do i = 1,neq
-			brhs(i) = brhs(i)/alhs(i)
+		call system_clock(tic); call qdct3;     call system_clock(toc)
+		t_qdct3    = t_qdct3    + real(toc-tic, dp)/real(clockrate, dp)
+
+		call system_clock(tic); call hrglss;    call system_clock(toc)
+		t_hrglss   = t_hrglss   + real(toc-tic, dp)/real(clockrate, dp)
+
+		!*** call faulting to revise residual force ***
+		call system_clock(tic); call faulting(n); call system_clock(toc)
+		t_faulting = t_faulting + real(toc-tic, dp)/real(clockrate, dp)
+		if (debug == 1) write(*,*) 'AFter faulting'
+
+		call system_clock(tic)
+		!$omp parallel do schedule(static)
+		do i = 1, neq
+			brhs(i) = brhs(i) * alhs_inv(i)
 		enddo
+		!$omp end parallel do
+		call system_clock(toc); t_brhs = t_brhs + real(toc-tic, dp)/real(clockrate, dp)
 		!
 		if (quitdriver .eqv. .TRUE.) then
 			exit

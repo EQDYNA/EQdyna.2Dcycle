@@ -17,7 +17,7 @@ ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 
 # ---- input paths ----
 mesh_dir  = os.path.join(ROOT, 'work', 'test.saf.2.0.2')
-pub_dir   = os.path.join(ROOT, 'compset', 'test.saf.published')
+pub_dir   = os.path.join(ROOT, 'compset', 'paper.saf.A')
 out_dir   = os.path.join(ROOT, 'compset', 'test.saf', 'user_fault_geometry_input')
 
 # ---- read 2.0.2 mesh ----

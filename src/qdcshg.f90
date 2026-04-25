@@ -66,7 +66,7 @@ SUBROUTINE qdcshg(xl,det,shg,nel,lquad,xs)
 			write(*,*) xl(1,2), x(2,2)
 			write(*,*) xl(1,3), x(2,3)
 			write(*,*) xl(1,4), x(2,4)
-			stop	!non-positive det results in termination
+			stop  ! non-positive det results in termination
 		endif
 		!......Jacobi matrix
 		do j=1,2

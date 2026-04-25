@@ -17,15 +17,15 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plot Figure 4/7/8 style SAF slip distributions directly from an EQdyna case."
     )
-    parser.add_argument("case_dir", nargs="?", default="work/safpub", help="Case directory to analyze")
+    parser.add_argument("case_dir", nargs="?", default=".", help="Case directory to analyze (default: cwd)")
     parser.add_argument(
         "--tstart",
         nargs="+",
         type=float,
-        default=[3.0, 6.0, 9.0, 12.0],
-        help="One or more window start times in kyr",
+        default=None,
+        help="Window start times in kyr. If omitted, auto-populate 0, 3, 6, ... up to total simulated kyr.",
     )
-    parser.add_argument("--duration", type=float, default=4.0, help="Window duration in kyr")
+    parser.add_argument("--duration", type=float, default=3.0, help="Window duration in kyr (default 3)")
     parser.add_argument("--threshold", type=float, default=1.0, help="Minimum event max-slip in meters")
     parser.add_argument("--scale", type=float, default=30.0, help="Slip scaling factor for filled polygons")
     parser.add_argument(
@@ -34,6 +34,27 @@ def parse_args() -> argparse.Namespace:
         help="Output directory. Defaults to <case_dir>/aPlots",
     )
     return parser.parse_args()
+
+
+def _auto_tstart_kyr(case_dir: Path, duration_kyr: float) -> list[float]:
+    """Auto-populate tstart=[0, duration, 2·duration, ...] covering all simulated years.
+
+    Reads interval.txt<icstart> (sum of interseismic durations in years) from the case
+    dir. One window if <= duration kyr of data. Ceil division for longer runs.
+    """
+    import math
+    total_yr = 0.0
+    # take the first interval.txt<icstart> we can find
+    candidates = sorted(case_dir.glob("interval.txt*")) + sorted((case_dir / "aRawSimuData").glob("interval.txt*")) if (case_dir / "aRawSimuData").exists() else sorted(case_dir.glob("interval.txt*"))
+    for f in candidates:
+        try:
+            vals = np.loadtxt(f)
+            total_yr += float(np.atleast_1d(vals).sum())
+        except Exception:
+            continue
+    total_kyr = total_yr / 1000.0
+    nwin = max(1, math.ceil(total_kyr / duration_kyr))
+    return [i * duration_kyr for i in range(nwin)]
 
 
 def plot_window(
@@ -112,8 +133,11 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     case_data = load_saf_case(case_dir)
 
+    tstart_list = args.tstart if args.tstart is not None else _auto_tstart_kyr(case_dir, args.duration)
+    print(f"tstart windows (kyr): {tstart_list}  duration={args.duration} kyr")
+
     outputs = []
-    for tstart_kyr in args.tstart:
+    for tstart_kyr in tstart_list:
         output = plot_window(
             case_data=case_data,
             case_dir=case_dir,

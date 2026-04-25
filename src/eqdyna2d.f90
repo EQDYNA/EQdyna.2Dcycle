@@ -3,7 +3,7 @@ PROGRAM eqdyna2d
 	implicit none
 
 	real (kind = dp) :: timebegin, timeover
-	integer (kind=4) :: ic, n,i,j,k,alloc_err
+	integer (kind=4) :: ic, n,i,j,k,m,alloc_err
 	character (len = 30) :: mm
 	write(*,*) '====================================================================='
 	write(*,*) '================== Welcome to EQdyna 2D 2.0.0 ======================='
@@ -27,6 +27,8 @@ PROGRAM eqdyna2d
 	call readglobal
 	call readmodelgeometry		
 	allocate(ftcn(ntotft), nfnode(ntotft))
+	ftcn   = 0
+	nfnode = 0
 	call readfaultgeometry
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     3 input files has been read in                                ='	
@@ -48,26 +50,84 @@ PROGRAM eqdyna2d
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     Building finite element mesh ...                              ='	
 	!if (debug==1) write(*,*) 'before meshgen'
-	if      (C_mesh == 1) then 
+	if      (C_mesh == 1) then
 		call meshgen
-	elseif 	(C_mesh == 2) then 
+	elseif 	(C_mesh == 2) then
 		call meshgen1
-	endif 
+	elseif  (C_mesh == 3) then
+		call loadGmshMesh
+	else
+		write(*,*) '= ERROR: Unknown C_mesh value:', C_mesh
+		stop
+	endif
 	!if (debug==1) write(*,*) 'after meshgen'
 	
 	totftnode = sum(nfnode)
 	maxftnode = maxval(nfnode)
 	
-	allocate(output4plot(5,totftnode), fistr(2,totftnode), x(nsd,numnp), &
-		rd(2,maxftnode*ntotft))
-		
-	
-	open(3,file='Rate_direction.txt',form = 'formatted',status = 'old')
+	allocate(output4plot(5,totftnode), fistr(2,totftnode), x(nsd,numnp))
+
+	if (C_mesh == 2) then
+		allocate(rd(2,maxftnode*ntotft))
+		open(3,file='Rate_direction.txt',form='formatted',status='old')
 			read(3,*) (rd(1,i),rd(2,i),i=1,maxftnode*ntotft)
-	close(3)	
-	write(*,*) '=                                                                   ='
-	write(*,*) '=     Rate_direction.txt is loaded                                  ='	
-	
+		close(3)
+		write(*,*) '=                                                                   ='
+		write(*,*) '=     Rate_direction.txt is loaded                                  ='
+	else
+		allocate(nsmpgp(9,maxftnode*ntotft))
+		nsmpgp = 0.0d0
+		open(3,file='nsmpGeoPhys.txt',form='formatted',status='old')
+			read(3,*) ((nsmpgp(j,i),j=1,9),i=1,maxftnode*ntotft)
+		close(3)
+		write(*,*) '=                                                                   ='
+		write(*,*) '=     nsmpGeoPhys.txt is loaded                                     ='
+		! Populate nsmpnv for faulting.f90 (dynamic rupture force calculation)
+		! faulting.f90 indexes nsmpnv with i=(ift-1)*maxftnode+jj (padded), same as nsmpgp
+		! nsmpnv(1)=-ty, nsmpnv(2)=tx (fault normal), nsmpnv(3)=segment length (m)
+		do j = 1, ntotft
+			do i = 1, nfnode(j)
+				k = (j-1)*maxftnode + i
+				nsmpnv(1,k) = -nsmpgp(2,k)          ! -ty -> fault normal x
+				nsmpnv(2,k) =  nsmpgp(1,k)          !  tx -> fault normal y
+				nsmpnv(3,k) =  nsmpgp(3,k)*1.0d3    ! segment length km->m
+			enddo
+		enddo
+		write(*,*) '=     nsmpnv populated from nsmpGeoPhys.txt                         ='
+	endif
+
+	! Write key input arrays for cross-comparison debugging
+	open(98, file='debug_nsmp0.txt', form='formatted', status='unknown')
+	open(99, file='debug_nsmpnv.txt', form='formatted', status='unknown')
+	if (C_mesh == 2) then
+		open(96, file='debug_rd.txt', form='formatted', status='unknown')
+	elseif (C_mesh == 3) then
+		open(97, file='debug_nsmpgp.txt', form='formatted', status='unknown')
+	endif
+	do j = 1, ntotft
+		do i = 1, nfnode(j)
+			k = (j-1)*maxftnode + i
+			write(98,'(3i10)') k, nsmp0(1,k), nsmp0(2,k)
+			write(99,'(i10,3e18.8)') k, nsmpnv(1,k), nsmpnv(2,k), nsmpnv(3,k)
+			if (C_mesh == 2) then
+				write(96,'(i10,2e18.8)') k, rd(1,k), rd(2,k)
+			elseif (C_mesh == 3) then
+				write(97,'(i10,9e18.8)') k, (nsmpgp(n,k), n = 1, 9)
+			endif
+		enddo
+	enddo
+	close(98)
+	close(99)
+	if (C_mesh == 2) close(96)
+	if (C_mesh == 3) close(97)
+	if (C_mesh == 2) then
+		write(*,*) '=     debug_nsmp0.txt, debug_nsmpnv.txt, and debug_rd.txt written    ='
+	elseif (C_mesh == 3) then
+		write(*,*) '=     debug_nsmp0.txt, debug_nsmpnv.txt, and debug_nsmpgp.txt written ='
+	else
+		write(*,*) '=     debug_nsmp0.txt and debug_nsmpnv.txt written                   ='
+	endif
+
 	do i = 1,nsd
 		do j = 1,numnp
 			x(i,j) = xnode0(i,j)
@@ -160,7 +220,17 @@ PROGRAM eqdyna2d
 		fric(1,(i-1)*maxftnode+nfnode(i)) = 1000.0d0
 	enddo 
 	call qdct2
-	!write(*,*) 'After qdct2'	
+	!write(*,*) 'After qdct2'
+	!*** precompute reciprocal of lumped effective mass (alhs never changes after qdct2) ***
+	!    enables the driver hot loop to use multiply instead of divide on every timestep.
+	allocate(alhs_inv(neq))
+	do i = 1, neq
+		if (alhs(i) /= 0.0d0) then
+			alhs_inv(i) = 1.0d0 / alhs(i)
+		else
+			alhs_inv(i) = 0.0d0
+		endif
+	enddo
 	
 	write(mm,'(i6)') icstart
 	mm=trim(adjustl(mm))	
@@ -188,6 +258,16 @@ PROGRAM eqdyna2d
 		write(*,*) '=     Calculating interseismic deformation ...                      ='	
 		
 		call interstress(ic)
+		open(94, file='debug_fistr_init.txt', form='formatted', position='append', status='unknown')
+		n = 0
+		do j = 1, ntotft
+			do i = 1, nfnode(j)
+				k = (j-1)*maxftnode + i
+				n = n + 1
+				write(94,'(3i10,2e18.8)') ic, k, n, fistr(1,n), fistr(2,n)
+			enddo
+		enddo
+		close(94)
 		
 		!write(*,*) 'After interstress and before driver'
 		
@@ -199,20 +279,26 @@ PROGRAM eqdyna2d
 		
 		call driver
 
-		write(*,*) 'DEBUG: driver returned'
 		do i = 1,totftnode
 			fistr(1,i) = output4plot(1,i)
 			fistr(2,i) = output4plot(2,i)
 		enddo
-		write(*,*) 'DEBUG: fistr updated, writing binaryop'
+		open(95, file='debug_output4plot.txt', form='formatted', position='append', status='unknown')
+		n = 0
+		do j = 1, ntotft
+			do i = 1, nfnode(j)
+				k = (j-1)*maxftnode + i
+				n = n + 1
+				write(95,'(3i10,5e18.8)') ic, k, n, (output4plot(m,n), m = 1, 5)
+			enddo
+		enddo
+		close(95)
 		open(5, file = 'binaryop', form = 'unformatted', status = 'unknown')
 			write(5) ((output4plot(i,j), i = 1,5), j = 1, totftnode)
 		close(5)
-		write(*,*) 'DEBUG: binaryop done, writing totalop.txt'
 		open(61, file = 'totalop.txt'//mm, position = 'append', status = 'unknown')
 			write(61,'(5e18.7)') ((output4plot(i,j), i = 1,5), j = 1, totftnode)
 		close(61)
-		write(*,*) 'DEBUG: totalop done, writing cyclelog'
 		open(4,file='cyclelog.txt'//mm,form = 'formatted', status = 'unknown')
 			write(4,*) icstart, ic
 		close(4)

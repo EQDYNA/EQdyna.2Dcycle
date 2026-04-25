@@ -1,12 +1,16 @@
 F90 ?= gfortran
 BUILD ?= release
 
+# Version is read from the single-line VERSION file at the repo root.
+VERSION := $(shell cat ../VERSION 2>/dev/null || echo unknown)
+EXE     := run_eqdyna2d_$(VERSION)
+
 ifeq ($(BUILD),debug)
-  FCFLAGS ?= -g -fcheck=all -fbacktrace
-  LDFLAGS ?= -g -fcheck=all -fbacktrace
+  FCFLAGS ?= -g -fcheck=all -fbacktrace -ffree-line-length-none -std=legacy
+  LDFLAGS ?= -g -fcheck=all -fbacktrace -ffree-line-length-none -std=legacy
 else
-  FCFLAGS ?= -O3 -march=native -funroll-loops
-  LDFLAGS ?= -O3 -march=native -funroll-loops
+  FCFLAGS ?= -O3 -march=native -funroll-loops -ffree-line-length-none -std=legacy -fopenmp
+  LDFLAGS ?= -O3 -march=native -funroll-loops -ffree-line-length-none -std=legacy -fopenmp
 endif
 
 OPT = -c $(FCFLAGS)
@@ -14,22 +18,22 @@ OPT1 = $(LDFLAGS)
 
 OBJ = eqdyna2d.o globalvar.o qdcshl.o prop2d.o formlm.o driver.o \
 	 qdct2.o qdcshg.o contm.o qdcb.o qdct3.o \
-	 contma.o qdckd.o faulting.o fric.o hrglss.o meshgen.o meshgen1.o interstress.o Read_Input_Files.o
+	 contma.o qdckd.o faulting.o fric.o hrglss.o meshgen.o meshgen1.o loadGmshMesh.o interstress.o Read_Input_Files.o
 
 .PHONY: all release debug clean
 
-all: run_eqdyna2d_2.0.2
+all: $(EXE)
 release:
-	$(MAKE) BUILD=release run_eqdyna2d_2.0.2
+	$(MAKE) BUILD=release $(EXE)
 
 debug:
-	$(MAKE) BUILD=debug run_eqdyna2d_2.0.2
+	$(MAKE) BUILD=debug $(EXE)
 
 clean:
-	rm -f *.o run_eqdyna2d_2.0.2
+	rm -f *.o *.mod run_eqdyna2d_*
 
-run_eqdyna2d_2.0.2: $(OBJ)
-	$(F90) $(OPT1) $(OBJ) -o run_eqdyna2d_2.0.2
+$(EXE): $(OBJ)
+	$(F90) $(OPT1) $(OBJ) -o $(EXE)
 
 eqdyna2d.o: eqdyna2d.f90 globalvar.o driver.o interstress.o Read_Input_Files.o
 	$(F90) $(OPT) eqdyna2d.f90
@@ -84,6 +88,9 @@ meshgen.o: meshgen.f90 globalvar.o
 
 meshgen1.o: meshgen1.f90 globalvar.o
 	$(F90) $(OPT) meshgen1.f90
+
+loadGmshMesh.o: loadGmshMesh.f90 globalvar.o
+	$(F90) $(OPT) loadGmshMesh.f90
 
 interstress.o: interstress.f90 globalvar.o
 	$(F90) $(OPT) interstress.f90

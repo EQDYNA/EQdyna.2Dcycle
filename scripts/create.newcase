@@ -1,7 +1,23 @@
-#! /usr/bin/env python3 
+#! /usr/bin/env python3
+"""Create a new EQdyna 2D cycle case from a compset template.
 
-import xml.etree.ElementTree as ET
-import shutil, sys, os
+Usage:
+  create.newcase --work_dir <path> --compset <name> [--force]
+  create.newcase --list
+  create.newcase <work_dir> <compset>            (legacy positional form)
+
+Flags:
+  -w, --work_dir PATH    Destination directory for the new case.
+  -m, --compset NAME     Compset template name under compset/.
+  -f, --force            Overwrite the destination if it already exists.
+  -l, --list             List available compsets and exit.
+  -h, --help             Show this help and exit.
+"""
+
+import argparse
+import os
+import shutil
+import sys
 
 SKIP_DIRS = {'fem_mesh_output', '__pycache__', 'archive', 'aRawSimuData', 'aRawSimuData.preFix', 'aPlots'}
 SKIP_FILES = {
@@ -12,44 +28,93 @@ SKIP_FILES = {
     'FE_Fault_Geometry.txt',
 }
 
+
 def case_copy(src, dst):
-    # copy files and directories from src to dst, skipping generated dirs
-    filenames = os.listdir(src)
-    for f in filenames:
-        if f in SKIP_DIRS:
-            continue
-        if f in SKIP_FILES:
+    """Copy files/dirs from src into dst, skipping generated artifacts."""
+    for f in os.listdir(src):
+        if f in SKIP_DIRS or f in SKIP_FILES:
             continue
         srcf = os.path.join(src, f)
         dstf = os.path.join(dst, f)
-
         if os.path.isdir(srcf):
-            # Copy directory recursively
             shutil.copytree(srcf, dstf, dirs_exist_ok=True)
         else:
-            # Copy file
             shutil.copy2(srcf, dst)
 
-def _main_func(description):
 
-    case_path = sys.argv[1]
-    compset = sys.argv[2]
-    print('Directory for newly created case is ', case_path)
-    print('Compset chosen is ', compset)
+def list_compsets(root):
+    cdir = os.path.join(root, 'compset')
+    if not os.path.isdir(cdir):
+        print(f'No compset directory at {cdir}', file=sys.stderr)
+        return 1
+    for name in sorted(os.listdir(cdir)):
+        if os.path.isdir(os.path.join(cdir, name)):
+            print(name)
+    return 0
 
-    env_var = os.environ
 
-    shutil.rmtree(str(case_path), ignore_errors=True)
-    os.makedirs(str(case_path), exist_ok=True)
-    
-    eqdyna2dcycleRoot = env_var['EQDYNA2DCYCLEROOT']
-    input_path = eqdyna2dcycleRoot + '/compset/' + str(compset) 
-    utils_path = eqdyna2dcycleRoot + '/scripts'
-    bin_path = eqdyna2dcycleRoot + '/bin'
-  
-    case_copy(input_path, case_path)
-    case_copy(utils_path, case_path)
-    case_copy(bin_path, case_path)
+def parse_args(argv):
+    # Legacy positional support: two bare args (not starting with '-') → work_dir, compset.
+    if len(argv) == 2 and not argv[0].startswith('-') and not argv[1].startswith('-'):
+        argv = ['--work_dir', argv[0], '--compset', argv[1]]
 
-if __name__ == "__main__":
-    _main_func(__doc__)
+    p = argparse.ArgumentParser(
+        prog='create.newcase',
+        description='Create a new EQdyna 2D cycle case from a compset template.',
+    )
+    p.add_argument('-w', '--work_dir', help='Destination directory for the new case')
+    p.add_argument('-m', '--compset',  help='Compset template name under compset/')
+    p.add_argument('-f', '--force', action='store_true',
+                   help='Overwrite the destination if it already exists')
+    p.add_argument('-l', '--list',  action='store_true',
+                   help='List available compsets and exit')
+    return p.parse_args(argv)
+
+
+def main(argv):
+    args = parse_args(argv)
+
+    root = os.environ.get('EQDYNA2DCYCLEROOT')
+    if not root:
+        print('ERROR: EQDYNA2DCYCLEROOT is not set.  source install.eqdyna.2dcycle.sh first.',
+              file=sys.stderr)
+        return 2
+
+    if args.list:
+        return list_compsets(root)
+
+    if not args.work_dir or not args.compset:
+        print('ERROR: --work_dir and --compset are both required (or pass two positional args).',
+              file=sys.stderr)
+        print('Run `create.newcase --help` for usage, or `create.newcase --list` for compsets.',
+              file=sys.stderr)
+        return 2
+
+    case_path = os.path.abspath(args.work_dir)
+    compset_path = os.path.join(root, 'compset', args.compset)
+
+    if not os.path.isdir(compset_path):
+        print(f'ERROR: compset {args.compset!r} not found at {compset_path}', file=sys.stderr)
+        print('Run `create.newcase --list` to see available compsets.', file=sys.stderr)
+        return 2
+
+    if os.path.exists(case_path):
+        if not args.force:
+            print(f'ERROR: case path already exists: {case_path}', file=sys.stderr)
+            print('Pass --force to overwrite.', file=sys.stderr)
+            return 2
+        shutil.rmtree(case_path)
+
+    os.makedirs(case_path, exist_ok=True)
+    print(f'Creating case: {case_path}')
+    print(f'From compset:  {compset_path}')
+
+    case_copy(compset_path, case_path)
+    case_copy(os.path.join(root, 'scripts'), case_path)
+    case_copy(os.path.join(root, 'bin'),     case_path)
+    print('Done.')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

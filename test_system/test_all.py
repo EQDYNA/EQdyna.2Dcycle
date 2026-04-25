@@ -13,7 +13,7 @@ print("🧪 EQdyna.2Dcycle Testing System")
 print("="*50)
 
 # Change to project root if we're in test subdirectory
-if os.path.basename(os.getcwd()) == 'test':
+if os.path.basename(os.getcwd()) in ('test', 'test_system'):
     os.chdir('..')
     print(f"📁 Changed to project root: {os.getcwd()}")
 
@@ -24,7 +24,7 @@ os.system('rm -rf bin/eqdyna.2dcycle')
 
 # Build fresh binary
 print("🔨 Building EQdyna.2Dcycle...")
-build_result = os.system('./install.eqdyna.2dcycle.sh -m macos')  # Changed to macos
+build_result = os.system('./install.sh -m macos')  # Changed to macos
 if build_result != 0:
     print("❌ Build failed! Exiting.")
     sys.exit(1)
@@ -95,7 +95,7 @@ os.chdir('../..')
 
 # Run validation
 print(f"\n🔍 Running result validation...")
-validation_result = os.system('python3 test/verify.test.py')
+validation_result = os.system('python3 test_system/verify.test.py')
 
 endTime = time.time()
 elapsed = endTime - startTime
@@ -103,12 +103,14 @@ elapsed = endTime - startTime
 # Summary
 print(f"\n📊 Test Summary:")
 print(f"   Tests run: {len(nameList)}")
-print(f"   Successful: {success_count}")  
+print(f"   Successful: {success_count}")
 print(f"   Failed: {len(nameList) - success_count}")
 print(f"   Time elapsed: {elapsed:.2f} seconds")
 
-if success_count == len(nameList):
-    print("✅ All tests passed!")
-else:
-    print("❌ Some tests failed!")
+if success_count != len(nameList):
+    print("❌ Some tests failed to run!")
     sys.exit(1)
+if validation_result != 0:
+    print("❌ Verification failed!")
+    sys.exit(1)
+print("✅ All tests passed and verified!")

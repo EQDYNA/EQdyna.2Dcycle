@@ -70,6 +70,8 @@ def create_run_sh():
             f.write("LOGFILE=\"run_$(date +%Y%m%d_%H%M%S).log\"\n")
             f.write("echo \"Logging to $LOGFILE\"\n")
             f.write("nohup bash -c '\n")
+            f.write("  export GFORTRAN_UNBUFFERED_ALL=1  # flush stdout in real time\n")
+            f.write("  export OMP_NUM_THREADS=${OMP_NUM_THREADS:-16}  # OpenMP threads for qdct3/hrglss\n")
             f.write("  echo \"=== Job started at $(date) ===\"\n")
             f.write("  mkdir -p aRawSimuData\n")
             f.write("  rm -f totalop.txt* cyclelog.txt* interval.txt* binaryop\n")

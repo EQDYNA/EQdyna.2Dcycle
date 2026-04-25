@@ -490,14 +490,9 @@ subroutine meshgen1
 		write(12,'(1x,4i15)') ((ien0(j,i),j=1,4),i=1,nelement)
 		close(12)
 
-		open(13,file='Mesh_general_info.txt',status='unknown')
+		open(13,file='meshGeneralInfo.txt',status='unknown')
 		write(13,'( 2i15)') nnode,nelement
 		write(13,'( 4i15)') (nfnode(k),k=1,nft)
-		! write(13,'( a60)') 'fault nodes'' x, y- xoor'
-		! write(13,'( a20)') 'fault #1'
-		! write(13,'( i10,2f12.1)') (nsmp(1,i,1),(xnode0(j,nsmp(1,i,1)),j=1,2),i=1,nfnode(1))
-		! write(13,'( a20)') 'fault #2'
-		! write(13,'( i10,2f12.1)') (nsmp(1,i,2),(xnode0(j,nsmp(1,i,2)),j=1,2),i=1,nfnode(2))
 		close(13)
 	endif
 
@@ -508,8 +503,8 @@ subroutine meshgen1
 		ntag = ntag + 1
 		nsmp0(1,ntag) = nsmp(1,j,i)
 		nsmp0(2,ntag) = nsmp(2,j,i)
-	enddo 
-  enddo 
+	enddo
+  enddo
   ntag = 0
   do i = 1, nft
 	do j = 1, ntemp
@@ -517,21 +512,25 @@ subroutine meshgen1
 		nsmpnv(1,ntag) = -dirvec(2,j,i)
 		nsmpnv(2,ntag) = dirvec(1,j,i)
 		nsmpnv(3,ntag) = dirvec(3,j,i)
-	enddo 
-  enddo  
-	if (plotmesh == 1) then  
-		open(14, file = 'nsmp.txt', form = 'formatted', status ='unknown')
-		do j = 1, nft 
-			 write(14,'(2i15)') (nsmp(1,i,j), nsmp(2,i,j), i = 1, ntemp)
-		enddo
-		close(14)
+	enddo
+  enddo
+  open(14, file = 'nsmp.txt', form = 'formatted', status ='unknown')
+  do j = 1, nft
+       write(14,'(2i15)') (nsmp(1,i,j), nsmp(2,i,j), i = 1, ntemp)
+  enddo
+  close(14)
 
-		open(14, file = 'nsmpnv.txt', form = 'formatted', status = 'unknown')
-		do j = 1, nft
-			write(14, '(3e21.14)') (-dirvec(2,i,j), dirvec(1,i,j), dirvec(3,i,j), i = 1, ntemp)
-		enddo
-		close(14)
-	endif
+  open(14, file = 'nsmpnv.txt', form = 'formatted', status = 'unknown')
+  do j = 1, nft
+      write(14, '(3e21.14)') (-dirvec(2,i,j), dirvec(1,i,j), dirvec(3,i,j), i = 1, ntemp)
+  enddo
+  close(14)
+
+  open(14, file = 'nsmpTanLen.txt', form = 'formatted', status = 'unknown')
+  do j = 1, nft
+      write(14, '(3e21.14)') (-dirvec(2,i,j), dirvec(1,i,j), dirvec(3,i,j), i = 1, ntemp)
+  enddo
+  close(14)
   numnp = nnode
   numel = nelement
 

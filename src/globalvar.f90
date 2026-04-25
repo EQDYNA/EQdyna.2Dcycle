@@ -10,6 +10,9 @@ MODULE globalvar
   integer (kind=4) :: gethrtime, time1, time2
   real (kind = dp) :: timedyna=0.0d0, cellmin
   external gethrtime	!this function in the SUN Fortran library
+  !...per-cycle wall-clock accumulators for dynamic-rupture hot loops
+  !   reset at start of driver(), printed by the mod(n,2000) status block
+  real (kind = dp) :: t_vd=0.0d0, t_qdct3=0.0d0, t_hrglss=0.0d0, t_faulting=0.0d0, t_brhs=0.0d0
   !...execution control parameters	   	   
   integer (kind=4) :: iexec,irank,numseq,ndout,nsd = 2,numnp,ndof = 2, &
            nlvect,nltftn,nptslf,numeg
@@ -24,7 +27,7 @@ MODULE globalvar
   real (kind = dp),allocatable,dimension(:,:) :: elemass
   real (kind = dp),allocatable,dimension(:,:,:) :: eleb
   !... equations,node mass,weight,solutions,coordinate,shape
-  real (kind = dp),allocatable,dimension(:) :: alhs,brhs,fnms,w
+  real (kind = dp),allocatable,dimension(:) :: alhs,alhs_inv,brhs,fnms,w
   real (kind = dp),allocatable,dimension(:,:) :: d,v
   real (kind = dp),allocatable,dimension(:,:) :: x
   real (kind = dp),allocatable,dimension(:,:,:) :: shl
@@ -54,7 +57,7 @@ MODULE globalvar
   integer (kind = 8) :: totftnode, maxftnode, loc, icstart, icend, debug, ftn, plotmesh
   real (kind = dp) :: xnode0(2,10000000), nsmpnv(3, 10000), fnft(10000), fric(50,10000)
   real (kind = dp) :: ambientnorm, minnorm = -10.0d6, vp, vs, lambda
-  real (kind = dp),allocatable, dimension(:,:) :: fistr, output4plot, rd! Shear, normal, slip, sliprate, miu
+  real (kind = dp),allocatable, dimension(:,:) :: fistr, output4plot, rd, nsmpgp ! rd: C_mesh=2; nsmpgp: C_mesh=3
   integer (kind=8),allocatable, dimension(:) :: nfnode, ftcn
   
 	     

@@ -19,9 +19,15 @@ SUBROUTINE qdct3
 	!real (kind = dp),dimension(nrowsh,nen) :: shg
 
 	!
-	!*** loop over elements ***
-	!
-	!!$omp parallel do default(shared) private(formkd,zerodl,formma,zeroal,nel,j,i,k,m,ntemp,k1,dl,vl,al,det,constk,elresf,eleffm)
+	!*** loop over elements (parallelized) ***
+	!   Matches hrglss.f90 pattern: $OMP ATOMIC on each brhs(k) update.
+	!   Element compute (qdckd) is heavy relative to atomic cost, so
+	!   contention overhead is hidden inside compute time.  No private
+	!   brhs copies, no merge phase.
+	!$omp parallel default(shared) &
+	!$omp   private(formkd,zerodl,formma,nel,j,i,k,m,ntemp,k1,dl,vl,al, &
+	!$omp           det,constk,elresf,eleffm)
+	!$omp do schedule(static)
 	do nel=1,numel
 		!
 		formma = .false.
@@ -36,27 +42,15 @@ SUBROUTINE qdct3
 				al(i,j) = 0.0d0
 			enddo
 		enddo
-		!...compute effective dl accounting for Rayleigh damping
+		!...compute effective dl accounting for Rayleigh stiffness damping
+		!   Rayleigh mass damping is disabled (rdampm(1)=0 set in eqdyna2d.f90),
+		!   so al stays zero and formma is never true — skip the test entirely.
+		!   formma is already initialized to .false. on line 27.
 		do j=1,nen
 			do i=1,ned
 				dl(i,j) = dl(i,j) + rdampk(m)*vl(i,j)
-				al(i,j) = al(i,j) + rdampm(m)*vl(i,j)
 			enddo
 		enddo
-		!...determine if element makes inertial contribution
-		zeroal = .true.
-		outer1: do j=1,nen	!Giving names to control constructs
-			inner1: do i=1,ned
-						k=id(i,j)
-						if(al(i,j) /= 0.0d0) then
-							zeroal = .false.
-							exit outer1
-						endif
-					enddo inner1
-				enddo outer1
-		if ( (.not.zeroal) .and. (imass /= 2) .and. (rho(m) /= 0.0d0) ) then
-			formma = .true.
-		endif
 		!...determine if element makes stiffness contribution
 		zerodl = .true.
 		outer2: do j=1,nen
@@ -118,6 +112,7 @@ SUBROUTINE qdct3
 					k=lm(j,i,nel)
 					k1=j+(i-1)*ned
 					if(k > 0) then
+						!$omp atomic
 						brhs(k) = brhs(k) + elresf(k1)
 					endif
 				enddo
@@ -125,7 +120,8 @@ SUBROUTINE qdct3
 		endif
 		!
 	enddo
-	!!$omp end parallel do
+	!$omp end do nowait
+	!$omp end parallel
 	!
 	!*** form surface force ***
 	!     note: assembly of surface loads is performed inside qdcsuf

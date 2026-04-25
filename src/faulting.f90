@@ -74,10 +74,15 @@ SUBROUTINE faulting(step)
 			! diagnoal mass matrix, because that's the effective mass, which takes 
 			! damping coefficient into accout. Instead, I computed nodal mass from 
 			! element mass and assembled in "qdct2.f90".B.D.7/3/05
-			mslav = fnms(nsmp0(1,i))		
+			mslav = fnms(nsmp0(1,i))
 			mmast = fnms(nsmp0(2,i))
 			mtotl = mslav + mmast
 			mtotl = mtotl * txy
+			if (mtotl == 0.0d0 .or. txy == 0.0d0) then
+				write(*,'(A,3i8,3f14.4)') '= NaN-guard: i,nsmp0(1),nsmp0(2),mslav,mmast,txy=', &
+					i, nsmp0(1,i), nsmp0(2,i), mslav, mmast, txy
+				stop '= ERROR: zero mtotl or txy causes NaN — check nsmp/nsmpnv'
+			endif
 			!
 			!...trial traction to enforce continuity. B.D. 11/23/06
 			ttao = (mslav*mmast*(fvd(4,1,2)-fvd(4,2,2))/dt1 + mmast*fvd(4,1,1) &
@@ -90,6 +95,24 @@ SUBROUTINE faulting(step)
 			! for slip-weakening:
 			slip = sqrt((fvd(1,2,3)-fvd(1,1,3))**2+(fvd(2,2,3)-fvd(2,1,3))**2) !slip mag
 			sliprate = sqrt((fvd(1,2,2)-fvd(1,1,2))**2+(fvd(2,2,2)-fvd(2,1,2))**2) !sliprate mag
+
+			! NaN check: report node, coordinates, fault membership
+			if (isnan(slip) .or. isnan(sliprate)) then
+				write(*,'(A,i8,A,2f14.2,A,i3,A,i8)') &
+					'= NaN at fault node kk=', kk, &
+					' x,y=', x(1,nsmp0(1,i)), x(2,nsmp0(1,i)), &
+					' fault=', ii, ' local_node=', jj
+				write(*,'(A,4e14.6)') &
+					'  vx1,vy1,vx2,vy2=', v(1,nsmp0(1,i)), v(2,nsmp0(1,i)), &
+					v(1,nsmp0(2,i)), v(2,nsmp0(2,i))
+				write(*,'(A,2e14.6)') &
+					'  shear_stress,normal_stress=', fistr(1,kk), fistr(2,kk)
+				write(*,'(A,2e14.6)') &
+					'  fric(1)=ini_slip, fric(2)=peak_str=', fric(1,kk), fric(2,kk)
+				write(*,'(A,2e14.6)') &
+					'  trial_ttao,tnrm=', ttao, tnrm
+				stop '= ERROR: NaN in slip/sliprate — simulation diverged'
+			endif
 
 			!... based on choices, call corresponding friction laws.
 			! B.D. 8/19/06
@@ -117,7 +140,9 @@ SUBROUTINE faulting(step)
 				endif
 			  endif
 			endif                          
-			if (ii == ift0.and.abs(x(1,nsmp0(1,i))-xcoor0)<0.1d0.and.abs(x(2,nsmp0(1,i))-ycoor0)<0.1d0.and.(step>1 .and. mod(step,2000)==1)) then
+			if (ii == ift0 .and. abs(x(1,nsmp0(1,i))-xcoor0)<0.1d0 .and. &
+				abs(x(2,nsmp0(1,i))-ycoor0)<0.1d0 .and. &
+				(step>1 .and. mod(step,2000)==1)) then
 				write(*,*) '=                                                                   ='
 				write(*,*) '=     Slipx at epicenter                                            ='
 				write(*,'(X,A,40X,E15.7)') '=',(fvd(1,2,3)-fvd(1,1,3))
@@ -138,7 +163,7 @@ SUBROUTINE faulting(step)
 			if(abs(ttao) >= taoc) then
 				if(ttao==0) then
 					write(*,*) 'ttao=0!! at nfn=',i, ftfault, fnfault
-					pause
+					stop
 				endif
 				ttao=taoc*ttao/abs(ttao)   !otherwise, no adjust
 				if(fnft(i)>900.d0 .and. sliprate>0.001d0) fnft(i)=timedyna  !failure time for time-weakening
