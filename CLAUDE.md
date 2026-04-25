@@ -72,7 +72,7 @@ bash run.sh          # launches the simulation in background via nohup
 
 The generated `run.sh` exports `GFORTRAN_UNBUFFERED_ALL=1` (flushes Fortran
 stdout immediately for real-time log tailing) and
-`OMP_NUM_THREADS=${OMP_NUM_THREADS:-16}` (can be overridden in the caller's
+`OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}` (default serial; can be overridden in the caller's
 env). Output goes to a timestamped `run_YYYYMMDD_HHMMSS.log`; raw results
 (`totalop.txt*`, `cyclelog.txt*`, `interval.txt*`, `binaryop`) are moved to
 `aRawSimuData/` after the binary exits.

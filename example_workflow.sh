@@ -3,7 +3,8 @@
 #
 # Reproduces Liu et al. (2022) JGR Solid Earth Model A (Southern San Andreas).
 # C_mesh=2 (Fortran structured quad), 4000 cycles, ~200 s dynamic-rupture window
-# per cycle. Full run is multi-day on 16 OMP threads — kill it with Ctrl-C
+# per cycle. Default is 1 OMP thread (set OMP_NUM_THREADS=8 or 16 before
+# running for faster wall-clock); kill with Ctrl-C
 # whenever you have enough cycles for what you're testing.
 #
 # Prereqs: gfortran, python3 (numpy, matplotlib, xarray).
@@ -27,7 +28,7 @@ python3 case.setup
 
 # 4. Launch. run.sh nohups the binary in the background, logs to
 #    run_<timestamp>.log, and moves outputs into aRawSimuData/ when done.
-#    OMP_NUM_THREADS defaults to 16; override before this line if needed.
+#    OMP_NUM_THREADS defaults to 1 (serial); override before this line if needed.
 bash run.sh
 
 echo
