@@ -2,6 +2,49 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [2.0.7-rc6] - 2026-04-25
+
+Pre-release of 2.0.7 (iteration on rc5). Drops the legacy test.*
+compsets, fixes the paper.saf.A binary pin, and adds a paper.saf.A
+README so all four compsets are documented.
+
+### Removed
+- `compset/test.saf`, `compset/test.subei`, `compset/test.gulang`:
+  legacy gmsh test cases superseded by the `.gmsh.lite` versions.
+- `compset/paper.saf.A/buildLoadingInput.py`: orphan after test.saf
+  removal (only consumer was test.saf input generation).
+- `test_system/reference.results/test.subei/`: no longer applicable;
+  verify.test.py warns (does not fail) on missing reference, so the
+  reference for `subei.gmsh.lite` can be regenerated at leisure.
+
+### Fixed
+- `compset/paper.saf.A/user_defined_params.py`: dropped
+  `par.exe = 'run_eqdyna2d_2.0.3'` override that pinned the demo to a
+  binary no longer in `bin/`. Now falls through to
+  `defaultParameters.py` which auto-tracks the repo `VERSION` file,
+  matching the other three compsets.
+
+### Added
+- `compset/paper.saf.A/README.md`: documents mesh mode (C_mesh=2),
+  loading source (`Rate_direction.txt`), run instructions, and
+  cross-link to `saf.gmsh.lite` as the C_mesh=3 companion.
+
+### Changed
+- `test_system/smoke.py`, `test_system/testNameList.py`: switched
+  smoke compset from `test.subei` to `subei.gmsh.lite`.
+- `test_system/test_all_quick.py`: dropped the three `test.*` entries;
+  COMPSETS now lists only `saf.gmsh.lite`, `subei.gmsh.lite`,
+  `gulang.gmsh.lite`. All 3 pass at icend=10 in ~3.5 min.
+- `CLAUDE.md`: dropped legacy test.* mentions from the compset
+  inventory and reference-cases list.
+- `example_workflow.sh`: added a comment block listing the four
+  compsets and explaining the optional `python3 meshgen.py` step
+  needed for C_mesh=3 cases.
+- `scripts/case.setup`: generated `run.sh` now invokes the binary as
+  `./<exe>` (case-dir-local) instead of bare `<exe>`. Removes the
+  hidden dependency on `install.sh` having been sourced in the caller
+  shell to put `bin/` on PATH.
+
 ## [2.0.7-rc5] - 2026-04-25
 
 Pre-release of 2.0.7 (iteration on rc4). Adds the `gulang.gmsh.lite`
