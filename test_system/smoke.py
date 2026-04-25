@@ -23,6 +23,14 @@ if subprocess.call(['python3', 'scripts/create.newcase',
     print("❌ create.newcase failed"); sys.exit(1)
 
 os.chdir(case)
+
+# Force a single cycle: smoke just verifies the binary runs end-to-end.
+import re
+with open('user_defined_params.py') as f: src = f.read()
+src = re.sub(r'par\.icstart\s*,\s*par\.icend\s*=.*',
+             'par.icstart, par.icend = 1, 1', src)
+with open('user_defined_params.py', 'w') as f: f.write(src)
+
 print("🌐 meshgen + case.setup...")
 if subprocess.call(['python3', 'meshgen.py']) != 0: sys.exit(1)
 if subprocess.call(['python3', 'case.setup']) != 0: sys.exit(1)
