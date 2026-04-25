@@ -66,16 +66,92 @@ def splineFaultFromControl(xs_km, ys_km, dxy_m):
     return x_dense, y_dense, tx, ty
 
 
-def uniformXLoadingAngle(tx, ty):
-    """Default loading model: compression along the +x axis (uniform).
+def plotFaults(xCoorDict, yCoorDict, ftPhys, ftNames, out_path='aPlots/faults.png',
+               loading_arrow=True):
+    """Plot fault traces in map view (x-y, km), colour-coded by ftType, with
+    optional loading-direction arrow (+x = along x).
 
-    The on-fault loading angle (φ in paper conventions) is the angle
-    between the loading direction and the fault tangent. With loading
-    along x (= 0°), φ_node = -atan2(ty, tx) per node, in degrees.
-
-    Returns an array of φ values matching the input tx, ty length.
+    Saves a PNG showing fault geometry as a sanity check before running.
     """
-    return -np.degrees(np.arctan2(np.asarray(ty, dtype=float),
+    import os
+    out_dir = os.path.dirname(out_path)
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+    type_colors = {1: '#1f77b4', -1: '#d62728', 2: '#ff7f0e', -2: '#2ca02c'}
+    type_labels = {1: 'left-strike (ftType=1)', -1: 'right-strike (ftType=-1)',
+                   2: 'thrust (ftType=2)', -2: 'normal (ftType=-2)'}
+
+    fig, ax = plt.subplots(figsize=(11, 7))
+    seen_types = set()
+    for ftName in ftNames:
+        x = np.asarray(xCoorDict[ftName], dtype=float)
+        y = np.asarray(yCoorDict[ftName], dtype=float)
+        ftType = int(ftPhys[ftName][0][0])
+        c = type_colors.get(ftType, 'k')
+        label = type_labels.get(ftType, f'ftType={ftType}') if ftType not in seen_types else None
+        seen_types.add(ftType)
+        ax.plot(x, y, '-', color=c, linewidth=2.0, label=label)
+        # endpoint markers + name
+        ax.plot([x[0], x[-1]], [y[0], y[-1]], 'o', color=c, markersize=4)
+        ax.annotate(ftName, (x[len(x)//2], y[len(y)//2]),
+                    fontsize=8, color=c, ha='center', va='bottom',
+                    xytext=(0, 4), textcoords='offset points')
+
+    if loading_arrow:
+        x_min, x_max = ax.get_xlim()
+        y_min, y_max = ax.get_ylim()
+        arrow_y = y_min + 0.05 * (y_max - y_min)
+        arrow_len = 0.15 * (x_max - x_min)
+        ax.annotate('', xy=(x_min + 0.30 * (x_max - x_min) + arrow_len, arrow_y),
+                    xytext=(x_min + 0.30 * (x_max - x_min), arrow_y),
+                    arrowprops=dict(arrowstyle='->', color='gray', lw=2))
+        ax.text(x_min + 0.30 * (x_max - x_min) + arrow_len / 2, arrow_y - 0.04 * (y_max - y_min),
+                'loading: max-shear along +x', color='gray', ha='center', fontsize=9)
+
+    ax.set_aspect('equal')
+    ax.set_xlabel('x (km)')
+    ax.set_ylabel('y (km)')
+    ax.set_title('Fault layout')
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='best', fontsize=9)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def decimateControlPoints(xs_km, ys_km, dx_km):
+    """Keep first + last control points; thin intermediate points so consecutive
+    kept points are at least dx_km apart in arc-length. Avoids over-resolving
+    fault traces that ship with dense (e.g. 1 m) control points, which would
+    otherwise let the spline derivative track sub-mesh-scale jaggedness."""
+    xs = np.asarray(xs_km, dtype=float)
+    ys = np.asarray(ys_km, dtype=float)
+    keep = [0]
+    last_x, last_y = xs[0], ys[0]
+    for i in range(1, len(xs) - 1):
+        if np.hypot(xs[i] - last_x, ys[i] - last_y) >= dx_km:
+            keep.append(i)
+            last_x, last_y = xs[i], ys[i]
+    keep.append(len(xs) - 1)
+    return xs[keep], ys[keep]
+
+
+def uniformXLoadingAngle(tx, ty):
+    """Default loading model: uniform max-shear strain rate along +x axis.
+
+    Paper convention: φ = fault_strike − max_shear_direction (degrees).
+    With max-shear along +x (= 0°), φ = α = atan2(ty, tx) per node.
+    Then `rs = γ·cos(2φ)·ant`:
+        horizontal fault (α=0):  cos(0)   = 1   → max positive shear
+        45° fault       (α=45):  cos(90°) = 0   → no shear
+        vertical fault  (α=90):  cos(180°) = -1 → max negative shear
+
+    The existing upper-clamp at 45° in interstress.f90 protects vertical
+    faults from runaway negative loading by capping any |α|>45° to 45°.
+    """
+    return np.degrees(np.arctan2(np.asarray(ty, dtype=float),
                                   np.asarray(tx, dtype=float)))
 
 
@@ -450,9 +526,10 @@ def writeFilesForEQdyna(pointsWithSplitNodes, cells, masterSlaveNodeIdRelation, 
     
     maxNumOfFtNodes = max(numOfFtNodes)
     
-    nsmp = np.zeros((maxNumOfFtNodes*3,2))
-    nsmpTanLen = np.zeros((maxNumOfFtNodes*3,3))
-    nsmpGeoPhys = np.zeros((maxNumOfFtNodes*3,9))
+    nFt = len(ftNames)
+    nsmp = np.zeros((maxNumOfFtNodes*nFt,2))
+    nsmpTanLen = np.zeros((maxNumOfFtNodes*nFt,3))
+    nsmpGeoPhys = np.zeros((maxNumOfFtNodes*nFt,9))
     
     string = ''
     for iFt, ftName in enumerate(ftNames):

@@ -18,22 +18,22 @@ from userDefinedFaultSysGeoPhys import *
 debugMode = False
 meshName = 'eqdynaMesh'
 
-ftNamesForGmsh = ['atf1', 'atf2', 'dxs', 'sbt']
-ftNames = ['atf', 'dxs', 'sbt']
+# 5 nearly end-to-end faults forming a chain from west to east.
+# Connected by auxiliary lines for mesh topology.
+ftNamesForGmsh = ['ft1', 'ft2', 'ft3', 'ft4', 'ft5']
+ftNames = ['ft1', 'ft2', 'ft3', 'ft4', 'ft5']
 
 
-system = "subei"
+system = "gulang"
 
-# length in meters
-dx = 0.5
+# length in km
+dx = 0.3
 dxAtBoundary = 20
-totalSimuTime = 15
+totalSimuTime = 30
 vp = 6000
 ext = 10 + totalSimuTime*vp/1e3
 
 tolerance = 1e-6
-
-supPt1 = np.array([-40, -15], dtype=float) 
 
 
 # In[2]:
@@ -44,9 +44,9 @@ gmsh.initialize()
 #gmsh.model.geo.setFactory("OpenCASCADE")
 gmsh.model.add(meshName)
 gmsh.option.setNumber("Geometry.Tolerance", 1e-3)
-modelRange={'xmin':0, 
-          'xmax':0, 
-          'ymin':0, 
+modelRange={'xmin':0,
+          'xmax':0,
+          'ymin':0,
           'ymax':0}
 
 ftEndNodeIdDict = {}
@@ -59,22 +59,19 @@ ftCtrlSpline = {}      # {ftName: (xs_km, CubicSpline_obj)} for analytical tange
 for ftName in ftNamesForGmsh:
     ftFileName = 'user_fault_geometry_input/' + ftName + '.gmt.txt'
     ftLoc = loadFtLoc(ftFileName)
-    ftCtrlSpline[ftName] = (ftLoc[:, 0].copy(), _CS(ftLoc[:, 0], ftLoc[:, 1], bc_type='natural'))
+    # Decimate control points to ~3*mesh-size spacing so gmsh has freedom to
+    # place fault nodes uniformly without colliding with control points; the
+    # spline derivative then reflects mesh-scale direction (not sub-meter
+    # jaggedness from the original .gmt).
+    xs_dec, ys_dec = decimateControlPoints(ftLoc[:, 0], ftLoc[:, 1], dx * 3.0)
+    ftLoc = np.column_stack([xs_dec, ys_dec])
+    ftCtrlSpline[ftName] = (xs_dec.copy(), _CS(xs_dec, ys_dec, bc_type='natural'))
     numOfControlPts, ftEndNodeId, ftRange = createFtPoints(ftLoc, numOfControlPts, dx)
     ftEndNodeIdDict[ftName] = ftEndNodeId
     modelRange = redefineModelRange(modelRange, ftRange)
     lineCount, ftEndLineId = createLinesForFt(ftEndNodeId, lineCount)
     ftEndLineIdDict[ftName] = ftEndLineId
 modelRange = extendModelRange(modelRange, ext)
-
-# Combined spline for the logical 'atf' fault (= atf1 + atf2 control points
-# concatenated in x-monotonic order). gmsh-fault nodes for 'atf' fall in
-# either segment; the unified spline gives smooth tangent everywhere in [xmin, xmax].
-_atf1_xy = loadFtLoc('user_fault_geometry_input/atf1.gmt.txt')
-_atf2_xy = loadFtLoc('user_fault_geometry_input/atf2.gmt.txt')
-_atf_xy  = np.vstack([_atf1_xy, _atf2_xy])
-_atf_xy  = _atf_xy[np.argsort(_atf_xy[:, 0])]
-ftCtrlSpline['atf'] = (_atf_xy[:, 0].copy(), _CS(_atf_xy[:, 0], _atf_xy[:, 1], bc_type='natural'))
 
 
 #print(ftRange)
@@ -88,15 +85,15 @@ numOfControlPts, boundaryNodeIdDict = createBoundaryNodes(numOfControlPts, model
 # linking faults to model boundary
 # this part always needs some customized design
 # all lines are defined counterclockwisely.
-numOfControlPts+=1
-supPt1Id = gmsh.model.geo.addPoint(supPt1[0], supPt1[1], 0, meshSize=dx, tag=numOfControlPts)
 
-atf1Curve = [i+ftEndLineIdDict['atf1'][0] for i in range(ftEndLineIdDict['atf1'][1]-ftEndLineIdDict['atf1'][0]+1)]
-atf2Curve = [i+ftEndLineIdDict['atf2'][0] for i in range(ftEndLineIdDict['atf2'][1]-ftEndLineIdDict['atf2'][0]+1)]
-dxsCurve = [i+ftEndLineIdDict['dxs'][0] for i in range(ftEndLineIdDict['dxs'][1]-ftEndLineIdDict['dxs'][0]+1)]
-sbtCurve = [i+ftEndLineIdDict['sbt'][0] for i in range(ftEndLineIdDict['sbt'][1]-ftEndLineIdDict['sbt'][0]+1)]
-#print(atf1Curve, atf2Curve, dxsCurve, sbtCurve)
+ft1Curve = [i+ftEndLineIdDict['ft1'][0] for i in range(ftEndLineIdDict['ft1'][1]-ftEndLineIdDict['ft1'][0]+1)]
+ft2Curve = [i+ftEndLineIdDict['ft2'][0] for i in range(ftEndLineIdDict['ft2'][1]-ftEndLineIdDict['ft2'][0]+1)]
+ft3Curve = [i+ftEndLineIdDict['ft3'][0] for i in range(ftEndLineIdDict['ft3'][1]-ftEndLineIdDict['ft3'][0]+1)]
+ft4Curve = [i+ftEndLineIdDict['ft4'][0] for i in range(ftEndLineIdDict['ft4'][1]-ftEndLineIdDict['ft4'][0]+1)]
+ft5Curve = [i+ftEndLineIdDict['ft5'][0] for i in range(ftEndLineIdDict['ft5'][1]-ftEndLineIdDict['ft5'][0]+1)]
+#print(ft1Curve, ft2Curve, ft3Curve, ft4Curve, ft5Curve)
 
+# boundary edges
 lineCount += 1
 T = gmsh.model.geo.addLine(boundaryNodeIdDict['right_top'], boundaryNodeIdDict['left_top'], tag=lineCount)
 lineCount += 1
@@ -106,42 +103,38 @@ L = gmsh.model.geo.addLine(boundaryNodeIdDict['left_top'], boundaryNodeIdDict['l
 lineCount += 1
 R = gmsh.model.geo.addLine(boundaryNodeIdDict['right_top'], boundaryNodeIdDict['right_bottom'], tag=lineCount)
 
+# fault chain to boundary
 lineCount += 1
-A_LT = gmsh.model.geo.addLine(ftEndNodeIdDict['atf1'][0], boundaryNodeIdDict['left_top'], tag=lineCount) # atf to left top
+FT_LT = gmsh.model.geo.addLine(ftEndNodeIdDict['ft1'][0], boundaryNodeIdDict['left_top'], tag=lineCount) # ft1 start to left top
 lineCount += 1
-A1_A2 = gmsh.model.geo.addLine(ftEndNodeIdDict['atf1'][1], ftEndNodeIdDict['atf2'][0], tag=lineCount) # atf1 to atf2
+FT_LB = gmsh.model.geo.addLine(ftEndNodeIdDict['ft1'][0], boundaryNodeIdDict['left_bottom'], tag=lineCount) # ft1 start to left bottom
 lineCount += 1
-A_RT = gmsh.model.geo.addLine(ftEndNodeIdDict['atf2'][1], boundaryNodeIdDict['right_top'], tag=lineCount)
+FT_RT = gmsh.model.geo.addLine(ftEndNodeIdDict['ft5'][1], boundaryNodeIdDict['right_top'], tag=lineCount) # ft5 end to right top
 lineCount += 1
-A_RD = gmsh.model.geo.addLine(ftEndNodeIdDict['atf2'][1], ftEndNodeIdDict['dxs'][1], tag=lineCount)
-lineCount += 1
-D_RB = gmsh.model.geo.addLine(ftEndNodeIdDict['dxs'][1], boundaryNodeIdDict['right_bottom'], tag=lineCount)
-lineCount += 1
-supP1_LD = gmsh.model.geo.addLine(supPt1Id, ftEndNodeIdDict['dxs'][0], tag=lineCount)
-lineCount += 1
-LD_RS = gmsh.model.geo.addLine(ftEndNodeIdDict['dxs'][0], ftEndNodeIdDict['sbt'][1], tag=lineCount)
-lineCount += 1
-A_supP1 = gmsh.model.geo.addLine(ftEndNodeIdDict['atf1'][0], supPt1Id, tag=lineCount)
-lineCount += 1
-A_LS = gmsh.model.geo.addLine(ftEndNodeIdDict['atf1'][1], ftEndNodeIdDict['sbt'][0], tag=lineCount)
-lineCount += 1
-S_LD = gmsh.model.geo.addLine(ftEndNodeIdDict['sbt'][1], ftEndNodeIdDict['dxs'][0], tag=lineCount)
-lineCount += 1
-supP1_LB = gmsh.model.geo.addLine(supPt1Id, boundaryNodeIdDict['left_bottom'], tag=lineCount)
+FT_RB = gmsh.model.geo.addLine(ftEndNodeIdDict['ft5'][1], boundaryNodeIdDict['right_bottom'], tag=lineCount) # ft5 end to right bottom
 
-# atf-top block
-surfaceCount = createSurface(atf1Curve+[A1_A2]+atf2Curve+[A_RT, T, -A_LT], surfaceCount)
-# atf1-sbt-dxs-supP1 block
-surfaceCount = createSurface(atf1Curve+[A_LS]+sbtCurve+[S_LD, -supP1_LD, -A_supP1], surfaceCount)
-# atf2-dxs-sbt block
-curveLoop = atf2Curve+[A_RD]+addMinusToList(dxsCurve[::-1])+[-S_LD]+addMinusToList(sbtCurve[::-1])+[-A_LS]+[A1_A2]
-surfaceCount = createSurface(curveLoop, surfaceCount)
-# dxs-supP1-bottom block
-surfaceCount = createSurface(dxsCurve+[D_RB, B, -supP1_LB, supP1_LD], surfaceCount)
-# atf-supP1-left block
-surfaceCount = createSurface([A_supP1, supP1_LB, -L, -A_LT], surfaceCount)
-# atf-dxs-right block
-surfaceCount = createSurface([A_RD, D_RB, -R, -A_RT], surfaceCount)
+# connecting adjacent faults
+lineCount += 1
+F1_F2 = gmsh.model.geo.addLine(ftEndNodeIdDict['ft1'][1], ftEndNodeIdDict['ft2'][0], tag=lineCount) # ft1 end to ft2 start
+lineCount += 1
+F2_F3 = gmsh.model.geo.addLine(ftEndNodeIdDict['ft2'][1], ftEndNodeIdDict['ft3'][0], tag=lineCount) # ft2 end to ft3 start
+lineCount += 1
+F3_F4 = gmsh.model.geo.addLine(ftEndNodeIdDict['ft3'][1], ftEndNodeIdDict['ft4'][0], tag=lineCount) # ft3 end to ft4 start
+lineCount += 1
+F4_F5 = gmsh.model.geo.addLine(ftEndNodeIdDict['ft4'][1], ftEndNodeIdDict['ft5'][0], tag=lineCount) # ft4 end to ft5 start
+
+# the fault chain as a single curve list
+faultChain = ft1Curve+[F1_F2]+ft2Curve+[F2_F3]+ft3Curve+[F3_F4]+ft4Curve+[F4_F5]+ft5Curve
+reversedFaultChain = addMinusToList(ft5Curve[::-1])+[-F4_F5]+addMinusToList(ft4Curve[::-1])+[-F3_F4]+addMinusToList(ft3Curve[::-1])+[-F2_F3]+addMinusToList(ft2Curve[::-1])+[-F1_F2]+addMinusToList(ft1Curve[::-1])
+
+# top block (above fault chain)
+surfaceCount = createSurface(faultChain+[FT_RT, T, -FT_LT], surfaceCount)
+# left block (triangle)
+surfaceCount = createSurface([FT_LB, -L, -FT_LT], surfaceCount)
+# bottom block (below fault chain)
+surfaceCount = createSurface(reversedFaultChain+[FT_LB, -B, -FT_RB], surfaceCount)
+# right block (triangle)
+surfaceCount = createSurface([FT_RB, -R, -FT_RT], surfaceCount)
 
 gmsh.model.geo.synchronize()
 
@@ -149,7 +142,7 @@ for iSur in range(surfaceCount):
     surfaceId = iSur+1
     print('recombining surface id ', surfaceId)
     gmsh.model.mesh.setRecombine(2, surfaceId)
-    
+
 #gmsh.model.mesh.coherence() not available in python
 gmsh.option.setNumber("Mesh.Smoothing", 2)
 gmsh.model.mesh.generate(2)
@@ -163,10 +156,12 @@ gmsh.write('fem_mesh_output/' + meshName+'.msh')
 
 
 ftTag = {}
-ftTag['atf'] = atf1Curve+[A1_A2]+atf2Curve
-ftTag['dxs'] = dxsCurve
-ftTag['sbt'] = sbtCurve
-if debugMode==True: 
+ftTag['ft1'] = ft1Curve
+ftTag['ft2'] = ft2Curve
+ftTag['ft3'] = ft3Curve
+ftTag['ft4'] = ft4Curve
+ftTag['ft5'] = ft5Curve
+if debugMode==True:
     print(ftTag)
 
 
@@ -251,7 +246,7 @@ for ftNameKey in ftNames:
 
 if debugMode==True:
     print(slaveNodeIdsDict)
-    print(ftNodeIdsDict)    
+    print(ftNodeIdsDict)
     print(' ')
     print(masterSlaveNodeIdRelation)
 
@@ -274,7 +269,7 @@ if debugMode==True:
 
 
 for ftNameKey in ftNames:
-    #print(masterSlaveNodeIdRelation[ftNameKey][1]) 
+    #print(masterSlaveNodeIdRelation[ftNameKey][1])
     cells = replaceMasterWithSlaveNodes(cells, masterSlaveNodeIdRelation[ftNameKey], elemIdsAboveFtDict[ftNameKey])
 
 
@@ -291,7 +286,7 @@ if debugMode==True:
 # In[13]:
 
 
-## testing if node orders are counterclockwise for cell id 1728 
+## testing if node orders are counterclockwise for cell id 1728
 #vertices = getCellNodeCoors(cells[1728], pointsWithSplitNodes)
 #showCellNodes(vertices)
 #isThisQuadCounterclockwise(vertices)
@@ -307,8 +302,7 @@ reorderedCells = reorderCellNodesCounterclockwise(cells, pointsWithSplitNodes)
 
 
 # Tangent = analytical derivative of natural cubic spline y(x) built from
-# .gmt control points (matches saf.gmsh.lite + meshgen1.f90). C¹-smooth at
-# every gmsh fault node — no chord kinks.
+# .gmt control points (matches saf.gmsh.lite + meshgen1.f90). C¹-smooth.
 ftNodeTanAndLen = {}
 for ftNameKey in ftNames:
     xs_ctrl, cs = ftCtrlSpline[ftNameKey]
@@ -367,4 +361,3 @@ plotFaults(xCoorDict, yCoorDict, ftPhys, ftNames)
 
 if debugMode==True:
     plotSystemPhys(ftPhys, ftNames, xCoorDict)
-

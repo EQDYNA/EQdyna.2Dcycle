@@ -70,7 +70,12 @@ def plot_window(
     event_indices, cycle_ids = select_time_window(case_data, tstart_kyr, tend_kyr)
 
     fig, ax = plt.subplots(figsize=(7, 7))
-    colors = {"sjfn": "#1f77b4", "sjfs": "#d62728", "ssaf": "#222222"}
+    saf_colors = {"sjfn": "#1f77b4", "sjfs": "#d62728", "ssaf": "#222222"}
+    cmap = plt.get_cmap("tab10")
+    colors = {
+        block.name: saf_colors.get(block.name, cmap(i % 10))
+        for i, block in enumerate(case_data.fault_blocks)
+    }
     x_label_anchor = max(block.x_km.max() for block in case_data.fault_blocks) - 35.0
     shown = 0
 

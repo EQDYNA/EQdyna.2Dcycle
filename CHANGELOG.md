@@ -2,6 +2,62 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [2.0.7-rc5] - 2026-04-25
+
+Pre-release of 2.0.7 (iteration on rc4). Adds the `gulang.gmsh.lite`
+compset, generalises the post-processing scripts to handle arbitrary
+`ntotft`, and ships a quick smoke-test runner.
+
+### Added
+- `compset/gulang.gmsh.lite/`: gmsh-meshed (C_mesh=3) Gulang fault
+  system (ft1..ft5, all left-strike vertical, uniform-x loading).
+  ftVis = 5e21 Pa·s (1e21 too low for nucleation, 8.4e21 gives tensile
+  normal at large strikes). ft3 trimmed to drop a sliver-element
+  overlap with ft4. First M=7.06 system-spanning event reproduced
+  cleanly; ~58 events in 250 yr at icend=4000.
+- `compset/gulang.gmsh.lite/preprocess_control_points.py`: resamples
+  the dense raw `.gmt` control-point digitisation (412 pts, median
+  ~30 m spacing — well below mesh dx=0.3 km) down to a SAF-like
+  39-pt set at >=3 km arc-length spacing via per-fault smoothing
+  splines (UnivariateSpline on x(s), y(s)). Originals preserved as
+  `*.gmt.txt.orig`; idempotent.
+- `scripts/meshGenLib.py decimateControlPoints(xs, ys, dx)`: thin a
+  control-point series so consecutive kept points are >=dx apart in
+  arc length. Avoids spline derivatives tracking sub-mesh jaggedness.
+- `scripts/meshGenLib.py plotFaults(...)`: map-view fault layout
+  sanity-check plot, colour-coded by ftType with optional loading
+  arrow. Saved by saf/subei/gulang.gmsh.lite meshgen.py to
+  `aPlots/faults.png`.
+- `test_system/test_all_quick.py`: quick smoke-test runner. Builds,
+  then for every compset *except* paper.saf.A: runs at icend=10,
+  waits for completion, runs the full post-processing suite (catalog
+  + b-value + rupture-dynamics + Figure 4).
+
+### Changed
+- `scripts/saf_result_utils.py load_fault_blocks`: auto-detects ntotft
+  from `meshGeneralInfo.txt` line 2 and falls back to generic names
+  `ft1..ftN` when the count differs from the SAF triple. Previously
+  hardcoded to 3 SAF blocks, silently mis-slicing totalop rows for
+  non-SAF cases.
+- `scripts/plot_event_slips_overtime_fig4.py`: per-fault colours now
+  auto-fill from `tab10` for non-SAF blocks; SAF colour mapping
+  preserved when names match.
+- `scripts/meshGenLib.py uniformXLoadingAngle`: sign convention
+  corrected to `phi = alpha = atan2(ty, tx)` (paper convention
+  `phi = fault_strike - max_shear_direction`, with max-shear along +x
+  so max_shear_direction = 0). Was `-atan2(ty, tx)`.
+- `scripts/meshGenLib.py writeFilesForEQdyna`: `nsmp/nsmpTanLen/
+  nsmpGeoPhys` row counts generalised from hardcoded `x3` to `xnFt`,
+  enabling >3 fault systems (gulang has 5).
+- `scripts/case.setup`: generated `run.sh` now runs
+  `plotRuptureDynamics` BEFORE moving outputs to `aRawSimuData/`
+  (was after; the move broke per-cycle plotting).
+- `compset/saf.gmsh.lite/meshgen.py`,
+  `compset/subei.gmsh.lite/meshgen.py`: call `plotFaults(...)` after
+  geometry setup.
+- `README.md`: added Outputs and Post-processing sections (file table,
+  script table, catalog/analyze quick-start).
+
 ## [2.0.7-rc4] - 2026-04-24
 
 Pre-release of 2.0.7 (iteration on rc3). Adds `subei.gmsh.lite` compset

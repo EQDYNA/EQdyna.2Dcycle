@@ -285,6 +285,7 @@ os.chdir(original_dir)
 
 # Save a paper-Fig.2 style plot of per-node loading inputs for visual sanity check.
 plotLoadingInputs(ftPhys, ftNamesForOutput, xCoorDict, yCoorDict)
+plotFaults(xCoorDict, yCoorDict, ftPhys, ftNamesForOutput)
 
 if debugMode:
     plotSystemPhys(ftPhys, ftNames, xCoorDict)

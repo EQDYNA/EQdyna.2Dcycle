@@ -37,7 +37,43 @@ python3 case.setup
 bash run.sh
 ```
 
-Available compsets: `create.newcase --list`. Results appear in `aRawSimuData/` (raw) and `aPlots/` (figures).
+Available compsets: `create.newcase --list`.
+
+## Outputs
+
+After a run finishes, `run.sh` moves raw outputs into `aRawSimuData/`:
+
+| File | Content |
+|---|---|
+| `totalop.txt<N>` | per-cycle stack: shear, normal, slip, slip-rate, rupture-time per fault node, for cycles starting at icstart=N |
+| `cyclelog.txt<N>` | one line per cycle: `cycle_id  nucleation_node` |
+| `interval.txt<N>` | one value per cycle: interseismic duration (yr) |
+| `binaryop` | restart state for resuming with `icstart > 1` |
+
+Plus the input/mesh files used by the run (`vert.txt`, `fac.txt`, `nsmp.txt`, `nsmpGeoPhys.txt`, `meshGeneralInfo.txt`, `Rate_direction.txt`, `FE_*.txt`).
+
+Plots go to `aPlots/`.
+
+## Post-processing
+
+All scripts live in `scripts/` (and are on `PATH` after install). Run from inside a case dir.
+
+| Script | What it does |
+|---|---|
+| `plotRuptureDynamics` | Per-cycle 4-panel plot (shear, normal, slip, rupture-time vs along-strike). Defaults: only saves cycles with M ≥ `MIN_PLOT_MAGNITUDE` (env var, default 6.5). Set `FORCE_REPLOT=1` to redo existing plots. |
+| `CATALOG=1 plotRuptureDynamics` | **Catalog mode**: no figures, ~10× faster. Writes `aPlots/catalog.csv` with columns: `eqId, magnitude, moment_Nm, nuc_x_km, nuc_y_km, nuc_ft, rup_dur_s, peak_slip_m`. |
+| `analyze_catalog.py [case_dir] [--mc M] [--mmax M]` | Reads `aPlots/catalog.csv`. Outputs b-value (LSQ on `[Mc, Mmax]` window), magnitude-frequency distribution, magnitude-vs-cycle scatter, nucleation-along-strike-vs-cycle scatter. Saves `aPlots/catalog_analysis.png`. For characteristic-fault MFDs use `--mmax 7.0` to exclude the bump. |
+| `plot_event_slips_overtime_fig4.py [case_dir]` | Paper Figure-4 style slip-distribution stacks (slip vs along-strike, vertically offset by event time). `--duration` = window in kyr (default 3); `--threshold` = min event slip (m). |
+| `monitor_runs.sh [seconds]` | Background poller (default 600s). Tails progress for all `paper.saf.A.*` and `saflite` cases under `work/`, re-runs Figure 4 + rupture-dynamics plots each tick. |
+| `compare_cycle_over_strike.py` | Overlay a chosen cycle's stress/slip/rupture-time curves from multiple cases (e.g. saf.gmsh.lite vs paper.saf.A) for direct comparison. |
+
+Quick example: catalog + analyze on a finished case:
+
+```bash
+cd work/my_case
+CATALOG=1 plotRuptureDynamics      # writes aPlots/catalog.csv
+analyze_catalog.py . --mmax 7.0    # writes aPlots/catalog_analysis.png
+```
 
 ## Authors
 

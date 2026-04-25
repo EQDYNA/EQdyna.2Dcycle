@@ -97,7 +97,7 @@ def discover_cycle_tags(case_dir: Path) -> tuple[Path, tuple[int, ...]]:
     return best_dir, best_tags
 
 
-def load_fault_blocks(case_dir: Path, fault_names: tuple[str, ...] = FAULT_NAMES) -> tuple[FaultBlock, ...]:
+def load_fault_blocks(case_dir: Path, fault_names: tuple[str, ...] | None = None) -> tuple[FaultBlock, ...]:
     nsmp = np.loadtxt(case_dir / "nsmp.txt", dtype=int)
     vert = np.loadtxt(case_dir / "vert.txt")
     fe_global = case_dir / "FE_Global.txt"
@@ -112,15 +112,20 @@ def load_fault_blocks(case_dir: Path, fault_names: tuple[str, ...] = FAULT_NAMES
     if nsmp.ndim != 2 or nsmp.shape[1] < 1:
         raise ValueError(f"Unexpected nsmp.txt shape: {nsmp.shape}")
 
-    max_fault_nodes = nsmp.shape[0] // len(fault_names)
     mesh_info = case_dir / "meshGeneralInfo.txt"
     declared_counts: list[int] | None = None
     if mesh_info.exists():
         with open(mesh_info, "r") as f:
             next(f)
             declared_counts = list(map(int, f.readline().split()))
-        if len(declared_counts) != len(fault_names):
-            declared_counts = None
+
+    if fault_names is None:
+        ntotft = len(declared_counts) if declared_counts else len(FAULT_NAMES)
+        fault_names = FAULT_NAMES if ntotft == len(FAULT_NAMES) else tuple(f"ft{i+1}" for i in range(ntotft))
+
+    if declared_counts is not None and len(declared_counts) != len(fault_names):
+        declared_counts = None
+    max_fault_nodes = nsmp.shape[0] // len(fault_names)
 
     blocks = []
     running_start = 0
