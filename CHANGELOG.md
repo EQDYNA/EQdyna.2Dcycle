@@ -57,6 +57,11 @@ compset, generalises the post-processing scripts to handle arbitrary
   geometry setup.
 - `README.md`: added Outputs and Post-processing sections (file table,
   script table, catalog/analyze quick-start).
+- `test_system/smoke.py`: poll `run_*.log` for "Job finished" with a
+  600s timeout instead of assuming `bash run.sh` is synchronous (it
+  has been backgrounded via nohup since rc1, which silently broke
+  the gating). Also switched the build flag from `-m macos` to
+  `-m ubuntu` so the gate works on Linux release hosts.
 
 ## [2.0.7-rc4] - 2026-04-24
 
