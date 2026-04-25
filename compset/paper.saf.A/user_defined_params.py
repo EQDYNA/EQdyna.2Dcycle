@@ -40,5 +40,3 @@ par.rat = 1.025
 par.dxy = 200.0         # m
 
 par.ftcn = [15, 10, 80]
-
-par.exe = 'run_eqdyna2d_2.0.3'
