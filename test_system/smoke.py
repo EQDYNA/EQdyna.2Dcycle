@@ -19,7 +19,7 @@ case = 'work/smoke_case'
 subprocess.call(['rm', '-rf', case])
 print(f"🏗️  Creating case at {case}...")
 if subprocess.call(['python3', 'scripts/create.newcase',
-                    '--work_dir', case, '--compset', 'test.subei', '--force']) != 0:
+                    '--work_dir', case, '--compset', 'subei.gmsh.lite', '--force']) != 0:
     print("❌ create.newcase failed"); sys.exit(1)
 
 os.chdir(case)

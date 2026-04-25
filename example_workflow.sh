@@ -18,15 +18,29 @@ set -euo pipefail
 source ./install.sh -m ubuntu          # use -m macos on a Mac, or -e ubuntu / -e macos to also install python deps
 
 # 2. Create a fresh work dir from the compset.
+#
+#    To use a different compset, change CASE and COMPSET below. List
+#    available compsets with:  create.newcase --list
+#    Common choices:
+#      COMPSET=paper.saf.A         # C_mesh=2 (Fortran mesh), Liu et al. 2022 Model A — DEFAULT
+#      COMPSET=saf.gmsh.lite       # C_mesh=3 (gmsh mesh), paper-A reproduction
+#      COMPSET=subei.gmsh.lite     # C_mesh=3, Subei fault system (atf, dxs, sbt)
+#      COMPSET=gulang.gmsh.lite    # C_mesh=3, Gulang 5-fault system
+#    For shorter runs, edit user_defined_params.py inside $CASE after
+#    create.newcase to lower icend (default 4000).
 CASE=work/paper.saf.A.demo
-create.newcase --work_dir "$CASE" --compset paper.saf.A --force
+COMPSET=paper.saf.A
+create.newcase --work_dir "$CASE" --compset "$COMPSET" --force
 cd "$CASE"
 
-# 3. Generate FE_*.txt + run.sh from user_defined_params.py.
-python3 case.setup
-# (No meshgen.py step — paper.saf.A is C_mesh=2; mesh is built inside Fortran.)
+# 3. C_mesh=3 compsets (the .gmsh.lite ones) need an extra mesh step here:
+#      python3 meshgen.py
+#    paper.saf.A is C_mesh=2 so its mesh is built inside Fortran — skip.
 
-# 4. Launch. run.sh nohups the binary in the background, logs to
+# 4. Generate FE_*.txt + run.sh from user_defined_params.py.
+python3 case.setup
+
+# 5. Launch. run.sh nohups the binary in the background, logs to
 #    run_<timestamp>.log, and moves outputs into aRawSimuData/ when done.
 #    OMP_NUM_THREADS defaults to 1 (serial); override before this line if needed.
 bash run.sh

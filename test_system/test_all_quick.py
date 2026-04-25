@@ -22,9 +22,6 @@ COMPSETS = [
     "saf.gmsh.lite",
     "subei.gmsh.lite",
     "gulang.gmsh.lite",
-    "test.saf",
-    "test.subei",
-    "test.gulang",
 ]
 
 print("EQdyna.2Dcycle quick smoke test")
