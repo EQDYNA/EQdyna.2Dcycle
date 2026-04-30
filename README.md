@@ -39,6 +39,25 @@ bash run.sh
 
 Available compsets: `create.newcase --list`.
 
+## Restart from a previous run
+
+Every cycle the binary refreshes a `binaryop` file holding the full restart state. To extend a finished run from cycle N+1 → M:
+
+```bash
+cd work/my_case
+# 1. Bump icstart to last_cycle + 1, raise icend.
+sed -i 's/par\.icstart, par\.icend = .*/par.icstart, par.icend = N+1, M/' user_defined_params.py
+# 2. Regenerate FE_Global.txt + run.sh from the new params.
+python3 case.setup
+# 3. Launch — binary loads binaryop and resumes at cycle N+1.
+bash run.sh
+```
+
+Notes:
+- For C_mesh=3 (.gmsh.lite) cases `binaryop` already lives in the case dir. For C_mesh=2 (paper.saf.A) it gets moved to `aRawSimuData/` after a finished run — copy it back to the case dir before step 3.
+- The new outputs land as `totalop.txt<icstart>` / `cyclelog.txt<icstart>` / `interval.txt<icstart>` (separate from the original `*.txt1`), and run.sh's `rm -f totalop.txt*` only wipes the case dir, so `aRawSimuData/` keeps the previous output safe.
+- Post-processing scripts (`plotRuptureDynamics`, `analyze_catalog.py`, `plot_event_slips_overtime_fig4.py`) auto-discover all `totalop.txt*` files via `saf_result_utils.discover_cycle_tags` and stitch them into one continuous catalog.
+
 ## Outputs
 
 After a run finishes, `run.sh` moves raw outputs into `aRawSimuData/`:
