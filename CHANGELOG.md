@@ -2,6 +2,19 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [2.0.7-rc7] - 2026-04-29
+
+Pre-release of 2.0.7 (iteration on rc6). Documents the
+restart-from-binaryop workflow.
+
+### Added
+- `README.md`: new "Restart from a previous run" section. Describes
+  the icstart bump + `case.setup` + `bash run.sh` flow, the
+  C_mesh=2 vs C_mesh=3 binaryop-location difference, the
+  icstart-keyed output naming (`totalop.txt<icstart>`), and how the
+  post-processing scripts auto-discover and stitch the multi-segment
+  catalog via `saf_result_utils.discover_cycle_tags`.
+
 ## [2.0.7-rc6] - 2026-04-25
 
 Pre-release of 2.0.7 (iteration on rc5). Drops the legacy test.*
