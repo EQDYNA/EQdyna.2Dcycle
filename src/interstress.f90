@@ -10,6 +10,8 @@ real (kind = dp) :: ant, dtinter, tinter, tcon, rn, rs
 real (kind = dp) :: theta, minstrengthexcess
 real (kind = dp),allocatable,dimension(:) :: theta1,theta2,rn1,rt1,rn2,rt2
 integer (kind = 4)::nuci(300), nucntag = 0
+integer (kind = 4)::iFtLoop, iNodeAcc
+logical :: isFtEnd, isFtInterior
 character (len = 30) :: m1
 logical :: quit 
 
@@ -110,19 +112,35 @@ do ndt = 1, 1000000000
 		ns(i) = (ns0(i) - ambientnorm - rn) * exp(-tinter*amu/ant) + rn + ambientnorm
 		shs(i) = (ss0(i) - rs) * exp(-tinter*amu/ant) + rs
 		strengthexcess(i) = (abs(ns(i))*fric_fs - shs(i))
-		if (i==1 .or. i==nfnode(1) .or. i==1+nfnode(1) .or. &
-			i==nfnode(1)+nfnode(2) .or. i==(nfnode(1)+nfnode(2)+1) .or. &
-			i==(nfnode(1)+nfnode(2)+nfnode(3))) then
-			strengthexcess(i) = 100.0d6
-		endif
+		! Fault endpoints are excluded from nucleation: slip tapers to zero
+		! at a tip, so the stress state there is not meaningful. Generic over
+		! ntotft -- this was hardcoded to the first THREE faults, which
+		! silently excluded nothing on faults 4+ and, worse, left them out of
+		! the nucleation search below entirely.
+		isFtEnd = .false.
+		iNodeAcc = 0
+		do iFtLoop = 1, ntotft
+			if (i == iNodeAcc + 1 .or. i == iNodeAcc + nfnode(iFtLoop)) isFtEnd = .true.
+			iNodeAcc = iNodeAcc + nfnode(iFtLoop)
+		enddo
+		if (isFtEnd) strengthexcess(i) = 100.0d6
 	enddo
 	minstrengthexcess = minval(strengthexcess)
 	loc = minloc(strengthexcess, dim = 1)
 	nucntag = 0
 	do i = 1, totftnode
-		if ((i>1 .and. i<nfnode(1)) .or. &
-			(i>(1+nfnode(1)) .and. i<(nfnode(1)+nfnode(2))) .or. &
-			(i>(nfnode(1)+nfnode(2)+1) .and. i<(nfnode(1)+nfnode(2)+nfnode(3)))) then
+		! Interior nodes of every fault, generic over ntotft. Previously this
+		! tested only faults 1-3, so with ntotft > 3 the remaining faults could
+		! never nucleate -- gulang.gmsh.lite (5 faults) and any 7-fault model
+		! were silently running with part of the system unable to host an
+		! earthquake.
+		isFtInterior = .false.
+		iNodeAcc = 0
+		do iFtLoop = 1, ntotft
+			if (i > iNodeAcc + 1 .and. i < iNodeAcc + nfnode(iFtLoop)) isFtInterior = .true.
+			iNodeAcc = iNodeAcc + nfnode(iFtLoop)
+		enddo
+		if (isFtInterior) then
 			if (shs(i) > fric_fs * abs(ns(i))) then 
 			nucntag = nucntag + 1
 			nuci(nucntag) = i
