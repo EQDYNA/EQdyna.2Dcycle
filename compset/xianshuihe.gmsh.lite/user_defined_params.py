@@ -35,6 +35,8 @@ par.plotmesh = 0 # 1/0, genearte/NOTgenearte mesh files.
 
 par.yext = 10.e3 # m, external range outside of uniform grid zone along both x & y.
 par.rat = 1.025 # enlarging ratio for quadralaterals.
-par.dxy = 400. # m, cell size
+par.dxy = 200.  # m, true element size: meshgen uses dx=0.4 km and gmsh
+                # SubdivisionAlgorithm halves it. Only consumed by cellmin in
+                # meshgen.f90, which is vestigial (assigned, never read).
 
 par.ftcn = [47, 19, 11, 12, 9, 14, 11]   # control points per fault, ft1..ft7
