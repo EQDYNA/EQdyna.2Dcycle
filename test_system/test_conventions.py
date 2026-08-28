@@ -306,3 +306,38 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def test_no_hardcoded_fault_counts_in_fortran() -> None:
+    """Fortran must never enumerate faults by hand -- loop over ntotft.
+
+    Three separate bugs came from hand-written per-fault branches:
+
+      interstress.f90  excluded fault tips and searched for nucleation on
+                       faults 1-3 only, so gulang (5 faults) ran with ft4/ft5
+                       unable to host an earthquake at all.
+      faulting.f90     resolved the nucleation point with four if/elseif
+                       branches and NO else, so a nucleation on fault 5+ left
+                       ift0/xcoor0/ycoor0 uninitialised. The forced-rupture
+                       patch was then never applied: the nucleating node crept
+                       a few microns, stayed above failure, and every later
+                       interseismic period collapsed to the 1-year floor. No
+                       error, no warning -- just no earthquakes.
+
+    Both were silent on 3-fault cases and only surfaced on 5- and 7-fault
+    compsets. The mechanical guard is to ban the syntactic pattern: any
+    expression summing three or more literal nfnode(<digit>) terms.
+    """
+    import re, glob
+    pattern = re.compile(r"nfnode\(\d\)(\s*\+\s*nfnode\(\d\)){2,}")
+    offenders = []
+    for f in sorted(glob.glob(os.path.join(ROOT, "src", "*.f90"))):
+        with open(f) as fh:
+            for n, line in enumerate(fh, 1):
+                if line.lstrip().startswith("!"):
+                    continue
+                if pattern.search(line):
+                    offenders.append(f"{os.path.relpath(f, ROOT)}:{n}: {line.strip()[:90]}")
+    assert not offenders, (
+        "hardcoded per-fault branching in Fortran (loop over ntotft instead):\n  "
+        + "\n  ".join(offenders))

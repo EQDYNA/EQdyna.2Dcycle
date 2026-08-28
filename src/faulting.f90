@@ -4,28 +4,41 @@ SUBROUTINE faulting(step)
 
 	logical :: lstr
 	integer (kind=4)::ifault,i,j,k, ii, jj, kk, step
+	integer (kind=4)::iFtLoop, iNodeAcc, iLocal
 	real (kind = dp)::nx,ny,tx,ty,txy,mmast,mslav,mtotl,ttao,tnrm,taoc, &
 		taox,taoy,ftix, ftiy, fnfault, ftfault, slip,sliprate,xmu,trupt,tr,temp1, maxslip, maxsliprate
 	real (kind = dp),dimension(4,2,3)::fvd=0.0d0 
 	real (kind = dp):: xcoor0, ycoor0, ift0, radi
 	real (kind = dp),dimension(totftnode) :: maxslip_arr, maxsliprate_arr
 	!
-	if (loc < nfnode(1)+1) then
-		ift0 = 1
-		xcoor0 = x(1, nsmp0(1, loc))
-		ycoor0 = x(2, nsmp0(1, loc))
-	elseif ((loc < nfnode(1) + nfnode(2) + 1).and.(loc > nfnode(1))) then
-		ift0 =2
-		xcoor0 = x(1, nsmp0(1, loc-nfnode(1)+maxftnode))
-		ycoor0 = x(2, nsmp0(1, loc-nfnode(1)+maxftnode))
-	elseif ((loc < nfnode(1) + nfnode(2) + nfnode(3) + 1).and.(loc > nfnode(1) + nfnode(2))) then	
-		ift0 =3
-		xcoor0 = x(1,nsmp0(1,loc-nfnode(1)-nfnode(2)+ 2*maxftnode))
-		ycoor0 = x(2,nsmp0(1,loc-nfnode(1)-nfnode(2)+ 2*maxftnode))
-	elseif ((loc < nfnode(1) + nfnode(2) + nfnode(3) + nfnode(4) + 1).and.(loc > nfnode(1) + nfnode(2) + nfnode(3))) then	
-		ift0 =4
-		xcoor0 = x(1,nsmp0(1,loc-nfnode(1)-nfnode(2)-nfnode(3)+3*maxftnode))
-		ycoor0 = x(2,nsmp0(1,loc-nfnode(1)-nfnode(2)-nfnode(3)+3*maxftnode))
+	! Locate the fault and the on-fault node index that interstress chose as
+	! the nucleation point, then take its coordinates for the forced-rupture
+	! patch below. Generic over ntotft.
+	!
+	! This was hardcoded as four if/elseif branches (faults 1-4) with NO else.
+	! With ntotft > 4, a nucleation point on fault 5+ left ift0/xcoor0/ycoor0
+	! UNINITIALISED, so the forced-rupture patch was placed at an undefined
+	! location and the event never propagated -- the nucleating node slipped a
+	! few microns, stayed above failure, and every subsequent interseismic
+	! period collapsed to the 1-year minimum. Silent: no error, just no
+	! earthquakes. Affected xianshuihe.gmsh.lite (7 faults) and
+	! gulang.gmsh.lite (5 faults).
+	ift0   = 0
+	xcoor0 = 0.0d0
+	ycoor0 = 0.0d0
+	iNodeAcc = 0
+	do iFtLoop = 1, ntotft
+		if (loc > iNodeAcc .and. loc <= iNodeAcc + nfnode(iFtLoop)) then
+			ift0   = iFtLoop
+			iLocal = (iFtLoop - 1)*maxftnode + (loc - iNodeAcc)
+			xcoor0 = x(1, nsmp0(1, iLocal))
+			ycoor0 = x(2, nsmp0(1, iLocal))
+		endif
+		iNodeAcc = iNodeAcc + nfnode(iFtLoop)
+	enddo
+	if (ift0 == 0) then
+		write(*,*) 'faulting: nucleation node ', loc, ' is outside all faults'
+		stop 'faulting: bad nucleation node'
 	endif
 	!write(*,*) ift0
 	!*** loop over slave nodes ***
