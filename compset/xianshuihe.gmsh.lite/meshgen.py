@@ -239,6 +239,20 @@ for iSur in range(surfaceCount):
 # cleared every check was trimming the faults apart, reverted because it turns
 # the overlapping step-overs into end-to-end gaps. See issue #1.
 
+# Quad-oriented meshing. Without these gmsh uses Algorithm 6 (Frontal-Delaunay
+# for TRIANGLES) and RecombinationAlgorithm 1 (simple blossom), which is what
+# left stray triangles in the thin ft1/ft2 overlap: fac.txt exports quads only,
+# so they were dropped and the bordering split nodes orphaned (issue #1).
+#
+#   Algorithm 8              Frontal-Delaunay for quads: builds a triangulation
+#                            that recombines cleanly
+#   RecombinationAlgorithm 3 blossom full-quad: forces full recombination
+#   RecombineOptimizeTopology  extra topological clean-up passes
+gmsh.option.setNumber("Mesh.Algorithm", 8)
+gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 3)
+# Smoothing 20 / OptimizeTopology 10 was tried and is not better: it just
+# trades a >160 deg cell for an aspect>10 one. 2 / 5 is kept.
+gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
 gmsh.option.setNumber("Mesh.Smoothing", 2)
 gmsh.model.mesh.generate(2)
 #gmsh.model.mesh.removeUnusedEntities()
