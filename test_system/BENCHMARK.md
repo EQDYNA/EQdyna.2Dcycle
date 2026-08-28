@@ -78,11 +78,42 @@ the stitching for `analyze_catalog.py` and `plot_event_slips_overtime_fig4.py`.)
 ## paper.saf.A reference
 
 The `paper.saf.A` run (C_mesh=2, dxy=200 m — finer mesh than the lite
-compsets) is in progress. At cycle 1134 of icend=4000 after ~5 days
-of wall time the per-cycle cost is dominated by `qdct3` (~2 s of
-dynamic-rupture wall time per simulated millisecond, vs ~0.3 s for
-the lite compsets). Final timing + catalog will be appended to this
-file when the run completes.
+compsets) completed `icstart=1 .. icend=4000` in `work/paper.saf.A.demo`.
+
+| | |
+|---|---|
+| Binary | `run_eqdyna2d_2.0.7-rc6` |
+| Started | 2026-04-25 08:41:19 CDT |
+| Last cycle written | 2026-05-10 07:38:52 CDT |
+| Cycles | 4000 |
+| Wall time | 14 d 22 h 58 m (21 478 min) |
+| min / 1000 cycles | 5369 |
+
+That is ~134× the per-cycle cost of `saf.gmsh.lite` (40.2 min/1000), consistent
+with the 2× finer mesh (200 m vs 400 m) plus the C_mesh=2 structured-mesh
+domain being larger: per-cycle wall time is dominated by `qdct3` in the
+dynamic-rupture solve (~2 s per simulated millisecond vs ~0.3 s for the lite
+compsets).
+
+Catalog (`CATALOG=1 plotRuptureDynamics`, b-value from
+`analyze_catalog.py . --mmax 7.0`):
+
+| Compset | Cycle range | events | M range | Mc | b-value (Mc..7.0) |
+|---|---|---:|---|---:|---:|
+| paper.saf.A | 1..4000 | 4000 | 3.93 .. 8.23 | 3.90 | 0.585 ± 0.055 |
+
+The lower b-value than `saf.gmsh.lite` (0.86) reflects the finer mesh
+resolving more of the small-event tail *and* the characteristic M ~ 8 bump
+sitting just above the LSQ window — the fit is on `[3.9, 7.0]` in both cases.
+
+Note: the run's nohup wrapper was lost before the binary exited, so `run.sh`
+never executed its post-run steps. They were completed by hand afterwards
+(`plotRuptureDynamics`, then `mv totalop.txt* cyclelog.txt* interval.txt*
+binaryop aRawSimuData/`), so the case is now in the normal post-run layout and
+`analyze_catalog.py` / `plot_event_slips_overtime_fig4.py` resolve it via the
+`aRawSimuData/` search path. The cycle data is complete — `cyclelog.txt1`
+reaches 4000. Wall time above is `Job started` in the log to the mtime of the
+last-written output, since the log carries no `Job finished` timestamp.
 
 ## How to reproduce
 

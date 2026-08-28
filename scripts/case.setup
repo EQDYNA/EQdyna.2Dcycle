@@ -69,12 +69,17 @@ def create_run_sh():
             f.write("echo 'All required files found. Submitting simulation to background...'\n\n")
             f.write("LOGFILE=\"run_$(date +%Y%m%d_%H%M%S).log\"\n")
             f.write("echo \"Logging to $LOGFILE\"\n")
-            f.write("nohup bash -c '\n")
+            # setsid detaches the wrapper into its own session so a
+            # process-group kill cannot orphan the binary and skip the
+            # post-run steps. Not present on macOS, so fall back to plain
+            # nohup there.
+            f.write("SETSID=$(command -v setsid || true)\n")
+            f.write("$SETSID nohup bash -c '\n")
             f.write("  export GFORTRAN_UNBUFFERED_ALL=1  # flush stdout in real time\n")
             f.write("  export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}  # OpenMP threads (default serial; set in caller env to scale up)\n")
             f.write("  echo \"=== Job started at $(date) ===\"\n")
             f.write("  mkdir -p aRawSimuData\n")
-            f.write("  rm -f totalop.txt* cyclelog.txt* interval.txt* binaryop\n")
+            f.write("  rm -f totalop.txt* cyclelog.txt* interval.txt*  # keep binaryop: it is the restart state\n")
             f.write("  ./" + par.exe + "\n")
             f.write("  plotRuptureDynamics\n")
             f.write("  mv totalop.txt* cyclelog.txt* interval.txt* binaryop aRawSimuData 2>/dev/null\n")
@@ -106,7 +111,12 @@ def create_run_sh():
             f.write("echo 'All required files found. Submitting simulation to background...'\n\n")
             f.write("LOGFILE=\"run_$(date +%Y%m%d_%H%M%S).log\"\n")
             f.write("echo \"Logging to $LOGFILE\"\n")
-            f.write("nohup bash -c '\n")
+            # setsid detaches the wrapper into its own session so a
+            # process-group kill cannot orphan the binary and skip the
+            # post-run steps. Not present on macOS, so fall back to plain
+            # nohup there.
+            f.write("SETSID=$(command -v setsid || true)\n")
+            f.write("$SETSID nohup bash -c '\n")
             f.write("  export GFORTRAN_UNBUFFERED_ALL=1  # flush stdout in real time\n")
             f.write("  export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}  # OpenMP threads (default serial; set in caller env to scale up)\n")
             f.write("  echo \"=== Job started at $(date) ===\"\n")
