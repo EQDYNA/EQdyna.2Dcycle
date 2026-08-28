@@ -23,15 +23,32 @@ MAX_ASPECT = 10.0
 MIN_FAULT_GAP_ELEMENTS = 3.0
 
 
+def _find(root, name):
+    """Locate a mesh file in the case dir or in fem_mesh_output/.
+
+    meshgen.py writes to fem_mesh_output/ and only run.sh copies the files up
+    to the case directory, so a freshly meshed case has them in exactly one
+    place -- and it is not the case root. Reading the root unconditionally made
+    this script fail with a bare FileNotFoundError on any case that had been
+    meshed but not yet run, which is precisely when a mesh check is wanted.
+    The .msh and fac.txt lookups further down already searched both.
+    """
+    for d in (root, os.path.join(root, 'fem_mesh_output')):
+        cand = os.path.join(d, name)
+        if os.path.exists(cand):
+            return cand
+    raise SystemExit(f"error: {name} not found in {root} or {root}/fem_mesh_output")
+
+
 def _load_case(root):
-    v = np.loadtxt(os.path.join(root, 'vert.txt'))
-    f = np.loadtxt(os.path.join(root, 'fac.txt'), dtype=int)
+    v = np.loadtxt(_find(root, 'vert.txt'))
+    f = np.loadtxt(_find(root, 'fac.txt'), dtype=int)
     if f.min() == 1:
         f = f - 1
-    nsmp = np.loadtxt(os.path.join(root, 'nsmp.txt'), dtype=int)
+    nsmp = np.loadtxt(_find(root, 'nsmp.txt'), dtype=int)
     if nsmp.min() == 1:
         nsmp = nsmp - 1
-    with open(os.path.join(root, 'meshGeneralInfo.txt')) as fh:
+    with open(_find(root, 'meshGeneralInfo.txt')) as fh:
         next(fh)
         nfn = list(map(int, fh.readline().split()))
     return v, f, nsmp, nfn

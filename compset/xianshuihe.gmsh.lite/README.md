@@ -104,10 +104,14 @@ python3 <compset>/apply_strain_loading.py --case . --target-stress 100e6   # pat
 ```
 
 Trap: `--case`-less `strain_rate_loading.py` samples the 123 KML points, not
-the 2581 mesh nodes. Patch **both** `nsmpGeoPhys.txt` and
-`fem_mesh_output/nsmpGeoPhys.txt`, or use `run.sh` (keeps a working copy newer
-than its `fem_mesh_output` source; previously re-meshed every launch, silently
-reverting to uniform loading with no log trace).
+the 2581 mesh nodes.
+
+`apply_strain_loading.py` patches whichever copy of `nsmpGeoPhys.txt` it finds:
+`fem_mesh_output/` on a freshly meshed case, the case root once `run.sh` has
+copied the mesh up. Either is fine — `run.sh` keeps a working copy newer than
+its `fem_mesh_output` source rather than overwriting it. Before that fix it
+re-meshed on every launch and silently reverted the patch, and the run went
+ahead on default uniform loading with no trace in the log.
 
 | column | value |
 |---|---|
