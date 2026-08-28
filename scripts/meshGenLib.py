@@ -501,6 +501,63 @@ def isThisQuadCounterclockwise(vertices):
     #print('This quad cell is ordered counterclockwise ', isCounterClockwise)
     return isCounterClockwise
 
+def applyDistanceSizeField(ftLineIds, dx, dxAtBoundary,
+                          distMin=5.0, distMax=120.0, refineBoxes=None):
+    """Opt-in: express the mesh size law as gmsh fields instead of point sizes.
+
+        h(d) = dx                                          d <= distMin
+             = dx + (dxAtBoundary-dx)*(d-distMin)/(distMax-distMin)
+             = dxAtBoundary                                d >= distMax
+
+    with d the distance to the nearest fault curve -- linear between two
+    clamps (gmsh Threshold), which is what per-point sizing approximates.
+
+    refineBoxes is [(xmin, xmax, ymin, ymax, size), ...], applied as a Min
+    against the law, for refining a narrow fault-to-fault gap.
+
+    DEFAULT OFF, and measured as a REGRESSION on xianshuihe.gmsh.lite:
+
+        point sizes (default)   10 triangles,  2 orphans, 34602 cells,  5.7 s
+        per-point setSize       14 triangles,  4 orphans, 34866 cells,  ~6 s
+        this distance field     24 triangles,  6 orphans, 57249 cells,  3m27s
+
+    Refining a gap does not make Blossom recombination succeed there, it
+    multiplies the awkward transitions. Kept because the field form is the
+    right way to drive gmsh and may suit other geometries, but do not switch
+    a compset to it without re-running checkMeshQuality.
+
+    NOTE any background field overrides per-point sizes, so dxAtBoundary must
+    come from the field too, or the whole domain meshes at dx.
+    """
+    fdist = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(fdist, "CurvesList", list(ftLineIds))
+    gmsh.model.mesh.field.setNumber(fdist, "Sampling", 100)
+    fthr = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(fthr, "InField", fdist)
+    gmsh.model.mesh.field.setNumber(fthr, "SizeMin", dx)
+    gmsh.model.mesh.field.setNumber(fthr, "SizeMax", dxAtBoundary)
+    gmsh.model.mesh.field.setNumber(fthr, "DistMin", distMin)
+    gmsh.model.mesh.field.setNumber(fthr, "DistMax", distMax)
+    fields = [fthr]
+    for (xmin, xmax, ymin, ymax, size) in (refineBoxes or []):
+        fb = gmsh.model.mesh.field.add("Box")
+        gmsh.model.mesh.field.setNumber(fb, "VIn", size)
+        gmsh.model.mesh.field.setNumber(fb, "VOut", dxAtBoundary)
+        gmsh.model.mesh.field.setNumber(fb, "XMin", xmin)
+        gmsh.model.mesh.field.setNumber(fb, "XMax", xmax)
+        gmsh.model.mesh.field.setNumber(fb, "YMin", ymin)
+        gmsh.model.mesh.field.setNumber(fb, "YMax", ymax)
+        gmsh.model.mesh.field.setNumber(fb, "Thickness", 5.0)
+        fields.append(fb)
+    fmin = gmsh.model.mesh.field.add("Min")
+    gmsh.model.mesh.field.setNumbers(fmin, "FieldsList", fields)
+    gmsh.model.mesh.field.setAsBackgroundMesh(fmin)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+    return fmin
+
+
 def repairOrphanedSplitNodes(cells, masterSlaveNodeIdRelation, points, ftNodeIds):
     """Give back a cell to any split node left with none.
 

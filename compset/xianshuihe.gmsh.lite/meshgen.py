@@ -226,16 +226,18 @@ for iSur in range(surfaceCount):
 
 #gmsh.model.mesh.coherence() not available in python
 
-# NOTE: local refinement across the narrow ft1/ft2 gap was tried and REVERTED.
-# Refining the control points there to 0.107 km (3 elements across the 0.32 km
-# gap) made the mesh WORSE, not better: triangles went 10 -> 14 and orphaned
-# split nodes 2 -> 4. Refining the gap does not make Blossom recombination
-# succeed, it just moves the awkward transition. See issue #1.
+# Mesh size comes from the per-point sizes set in createFtPoints /
+# createBoundaryNodes. A gmsh field-based size law is available as
+# meshGenLib.applyDistanceSizeField(), OFF here because it measured as a
+# regression on this geometry:
 #
-# An earlier attempt used a background Box field, which is worse still: a
-# background field overrides the per-point sizes, and dxAtBoundary is applied
-# through those, so the whole 580 x 246 km domain gets meshed at dx and the
-# element count explodes (observed: >10 min, never finished).
+#   point sizes (this)     10 triangles,  2 orphans, 34602 cells,  5.7 s
+#   per-point setSize      14 triangles,  4 orphans, 34866 cells,  ~6 s
+#   distance size field    24 triangles,  6 orphans, 57249 cells,  3m27s
+#
+# All three refinement attempts made recombination WORSE. The only thing that
+# cleared every check was trimming the faults apart, reverted because it turns
+# the overlapping step-overs into end-to-end gaps. See issue #1.
 
 gmsh.option.setNumber("Mesh.Smoothing", 2)
 gmsh.model.mesh.generate(2)
