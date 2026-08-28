@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>
+	<name>鲜水河断裂100万</name>
+	<atom:link rel="app" href="https://www.google.com/earth/about/versions/#earth-pro" title="Google Earth Pro 7.3.7.1155"></atom:link>
+	<Schema name="%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87" id="S__E9_B2_9C_E6_B0_B4_E6_B2_B3_E6_96_AD_E8_A3_82100_E4_B8_87_SSSDDSSSSSSSD">
+		<SimpleField type="long" name="OBJECTID">
+			<displayName>&lt;b&gt;OBJECTID&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="ID">
+			<displayName>&lt;b&gt;ID&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="FractureZo">
+			<displayName>&lt;b&gt;FractureZo&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="Name">
+			<displayName>&lt;b&gt;Name&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="long" name="Feature">
+			<displayName>&lt;b&gt;Feature&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="long" name="Strike">
+			<displayName>&lt;b&gt;Strike&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="long" name="DipDir">
+			<displayName>&lt;b&gt;DipDir&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="long" name="DipAngle">
+			<displayName>&lt;b&gt;DipAngle&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="double" name="FaultLengt">
+			<displayName>&lt;b&gt;FaultLengt&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="long" name="TopDepth">
+			<displayName>&lt;b&gt;TopDepth&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="double" name="Width">
+			<displayName>&lt;b&gt;Width&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="long" name="Age">
+			<displayName>&lt;b&gt;Age&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="Photo_AIID">
+			<displayName>&lt;b&gt;Photo_AIID&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="Photo_ARWI">
+			<displayName>&lt;b&gt;Photo_ARWI&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="long" name="PhotoViewi">
+			<displayName>&lt;b&gt;PhotoViewi&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="Photograph">
+			<displayName>&lt;b&gt;Photograph&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="nsb1">
+			<displayName>&lt;b&gt;nsb1&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="nsb2">
+			<displayName>&lt;b&gt;nsb2&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="nsb3">
+			<displayName>&lt;b&gt;nsb3&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="long" name="ShowCode">
+			<displayName>&lt;b&gt;ShowCode&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="string" name="CommentInf">
+			<displayName>&lt;b&gt;CommentInf&lt;/b&gt;</displayName>
+		</SimpleField>
+		<SimpleField type="double" name="Shape_Leng">
+			<displayName>&lt;b&gt;Shape_Leng&lt;/b&gt;</displayName>
+		</SimpleField>
+	</Schema>
+	<Style id="style1">
+		<BalloonStyle>
+			<text><![CDATA[<table border="0">
+  <tr><td><b>OBJECTID</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/OBJECTID]</td></tr>
+  <tr><td><b>ID</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/ID]</td></tr>
+  <tr><td><b>FractureZo</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/FractureZo]</td></tr>
+  <tr><td><b>Name</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Name]</td></tr>
+  <tr><td><b>Feature</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Feature]</td></tr>
+  <tr><td><b>Strike</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Strike]</td></tr>
+  <tr><td><b>DipDir</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/DipDir]</td></tr>
+  <tr><td><b>DipAngle</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/DipAngle]</td></tr>
+  <tr><td><b>FaultLengt</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/FaultLengt]</td></tr>
+  <tr><td><b>TopDepth</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/TopDepth]</td></tr>
+  <tr><td><b>Width</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Width]</td></tr>
+  <tr><td><b>Age</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Age]</td></tr>
+  <tr><td><b>Photo_AIID</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Photo_AIID]</td></tr>
+  <tr><td><b>Photo_ARWI</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Photo_ARWI]</td></tr>
+  <tr><td><b>PhotoViewi</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/PhotoViewi]</td></tr>
+  <tr><td><b>Photograph</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Photograph]</td></tr>
+  <tr><td><b>nsb1</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/nsb1]</td></tr>
+  <tr><td><b>nsb2</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/nsb2]</td></tr>
+  <tr><td><b>nsb3</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/nsb3]</td></tr>
+  <tr><td><b>ShowCode</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/ShowCode]</td></tr>
+  <tr><td><b>CommentInf</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/CommentInf]</td></tr>
+  <tr><td><b>Shape_Leng</b></td><td>$[%E9%B2%9C%E6%B0%B4%E6%B2%B3%E6%96%AD%E8%A3%82100%E4%B8%87/Shape_Leng]</td></tr>
+</table>
+]]></text>
+		</BalloonStyle>
+		<PolyStyle>
+			<color>ff00ff00</color>
+		</PolyStyle>
+	</Style>
+	<Folder id="layer 0">
+		<name>鲜水河断裂100万</name>
+		<Placemark>
+			<name>鲜水河断裂</name>
+			<styleUrl>#style1</styleUrl>
+			<Style id="inline">
+				<IconStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</IconStyle>
+				<LineStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</LineStyle>
+				<PolyStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</PolyStyle>
+			</Style>
+			<ExtendedData>
+				<SchemaData schemaUrl="#S__E9_B2_9C_E6_B0_B4_E6_B2_B3_E6_96_AD_E8_A3_82100_E4_B8_87_SSSDDSSSSSSSD">
+					<SimpleData name="OBJECTID">2030</SimpleData>
+					<SimpleData name="ID">510100101####F396</SimpleData>
+					<SimpleData name="FractureZo"></SimpleData>
+					<SimpleData name="Name">鲜水河断裂</SimpleData>
+					<SimpleData name="Feature">0</SimpleData>
+					<SimpleData name="Strike">315</SimpleData>
+					<SimpleData name="DipDir">0</SimpleData>
+					<SimpleData name="DipAngle">0</SimpleData>
+					<SimpleData name="FaultLengt">0</SimpleData>
+					<SimpleData name="TopDepth">0</SimpleData>
+					<SimpleData name="Width">0</SimpleData>
+					<SimpleData name="Age">33320000</SimpleData>
+					<SimpleData name="Photo_AIID"></SimpleData>
+					<SimpleData name="Photo_ARWI"></SimpleData>
+					<SimpleData name="PhotoViewi">0</SimpleData>
+					<SimpleData name="Photograph"></SimpleData>
+					<SimpleData name="nsb1">F</SimpleData>
+					<SimpleData name="nsb2">207</SimpleData>
+					<SimpleData name="nsb3"></SimpleData>
+					<SimpleData name="ShowCode">0</SimpleData>
+					<SimpleData name="CommentInf"></SimpleData>
+					<SimpleData name="Shape_Leng">0.391525</SimpleData>
+				</SchemaData>
+			</ExtendedData>
+			<LineString>
+				<coordinates>
+					102.1451194320562,29.53061735278942,0 102.1348138579071,29.5574118619847,0 102.082646368941,29.6930474163538,0 102.0232969318221,29.83985916557604,0 102.0136934265113,29.8622673404566,0 102,29.89421866302557,0 
+				</coordinates>
+			</LineString>
+		</Placemark>
+		<Placemark>
+			<name>鲜水河断裂</name>
+			<styleUrl>#style1</styleUrl>
+			<Style id="inline">
+				<IconStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</IconStyle>
+				<LineStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</LineStyle>
+				<PolyStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</PolyStyle>
+			</Style>
+			<ExtendedData>
+				<SchemaData schemaUrl="#S__E9_B2_9C_E6_B0_B4_E6_B2_B3_E6_96_AD_E8_A3_82100_E4_B8_87_SSSDDSSSSSSSD">
+					<SimpleData name="OBJECTID">2031</SimpleData>
+					<SimpleData name="ID">510100101####F397</SimpleData>
+					<SimpleData name="FractureZo"></SimpleData>
+					<SimpleData name="Name">鲜水河断裂</SimpleData>
+					<SimpleData name="Feature">111100</SimpleData>
+					<SimpleData name="Strike">0</SimpleData>
+					<SimpleData name="DipDir">0</SimpleData>
+					<SimpleData name="DipAngle">0</SimpleData>
+					<SimpleData name="FaultLengt">0</SimpleData>
+					<SimpleData name="TopDepth">0</SimpleData>
+					<SimpleData name="Width">0</SimpleData>
+					<SimpleData name="Age">33320000</SimpleData>
+					<SimpleData name="Photo_AIID"></SimpleData>
+					<SimpleData name="Photo_ARWI"></SimpleData>
+					<SimpleData name="PhotoViewi">0</SimpleData>
+					<SimpleData name="Photograph"></SimpleData>
+					<SimpleData name="nsb1">F</SimpleData>
+					<SimpleData name="nsb2">207</SimpleData>
+					<SimpleData name="nsb3"></SimpleData>
+					<SimpleData name="ShowCode">0</SimpleData>
+					<SimpleData name="CommentInf"></SimpleData>
+					<SimpleData name="Shape_Leng">0.685289</SimpleData>
+				</SchemaData>
+			</ExtendedData>
+			<MultiGeometry>
+				<LineString>
+					<coordinates>
+						102.4366176823586,28.93027153988741,0 102.3803420568894,29.00491503989162,0 102.3755080570904,29.0196090400453,0 102.3663280566052,29.03993203977259,0 102.3635350573598,29.0456640395975,0 102.3619340573035,29.04934104002208,0 
+					</coordinates>
+				</LineString>
+				<LineString>
+					<coordinates>
+						102.3609960572325,29.05149204025042,0 102.3605470572195,29.05253703985798,0 102.345732056884,29.08297904018767,0 102.3454690573511,29.08352103999111,0 102.3448140568355,29.08447804003868,0 102.3380570574256,29.09986303966948,0 102.3250780571872,29.13804203961767,0 102.3174900572427,29.16848403994756,0 102.3149900571144,29.17723104025798,0 102.314873019039,29.17766401347758,0 102.3086230189322,29.19606899260913,0 102.3018750189674,29.21440401323285,0 102.3016110573232,29.2150760400984,0 102.2972270566838,29.22628903986918,0 102.2937210569472,29.23580104037007,0 102.2868160570104,29.25085003980088,0 102.2774610565521,29.26994104029379,0 102.2717770571411,29.27949704012498,0 102.2699759144692,29.28198004036888,0 102.2683690574254,29.28421403992658,0 102.2571000568717,29.30100104033293,0 102.2528030566456,29.30840603993579,0 102.2459860571679,29.32013404006388,0 102.2393750572935,29.33616203965731,0 102.2373240571783,29.34193803971176,0 102.2288870567685,29.35968504030409,0 102.2240430574079,29.36768604040079,0 102.2157320574104,29.37910203963668,0 102.1876896175763,29.40993841914321,0 102.1812210565727,29.41704104021282,0 102.1618360569165,29.44350603977888,0 102.1592290572518,29.44843797844486,0 102.154160057412,29.4637720413752,0 102.1492580571763,29.48359104125224,0 102.147930057114,29.49353504098245,0 102.1449610569502,29.50702604143983,0 102.1434570568688,29.51498004116873,0 102.1415140190784,29.52527301359971,0 102.1399320190519,29.53224901377023,0 102.138789018876,29.53772199264505,0 102.1383110570768,29.53954797757123,0 
+					</coordinates>
+				</LineString>
+			</MultiGeometry>
+		</Placemark>
+		<Placemark>
+			<name>鲜水河断裂</name>
+			<styleUrl>#style1</styleUrl>
+			<Style id="inline">
+				<IconStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</IconStyle>
+				<LineStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</LineStyle>
+				<PolyStyle>
+					<color>ff0000ff</color>
+					<colorMode>normal</colorMode>
+				</PolyStyle>
+			</Style>
+			<ExtendedData>
+				<SchemaData schemaUrl="#S__E9_B2_9C_E6_B0_B4_E6_B2_B3_E6_96_AD_E8_A3_82100_E4_B8_87_SSSDDSSSSSSSD">
+					<SimpleData name="OBJECTID">2468</SimpleData>
+					<SimpleData name="ID">542100101####F396</SimpleData>
+					<SimpleData name="FractureZo"></SimpleData>
+					<SimpleData name="Name">鲜水河断裂</SimpleData>
+					<SimpleData name="Feature">111102</SimpleData>
+					<SimpleData name="Strike">315</SimpleData>
+					<SimpleData name="DipDir">0</SimpleData>
+					<SimpleData name="DipAngle">0</SimpleData>
+					<SimpleData name="FaultLengt">0</SimpleData>
+					<SimpleData name="TopDepth">0</SimpleData>
+					<SimpleData name="Width">0</SimpleData>
+					<SimpleData name="Age">33320000</SimpleData>
+					<SimpleData name="Photo_AIID"></SimpleData>
+					<SimpleData name="Photo_ARWI"></SimpleData>
+					<SimpleData name="PhotoViewi">0</SimpleData>
+					<SimpleData name="Photograph"></SimpleData>
+					<SimpleData name="nsb1">F</SimpleData>
+					<SimpleData name="nsb2">207</SimpleData>
+					<SimpleData name="nsb3"></SimpleData>
+					<SimpleData name="ShowCode">0</SimpleData>
+					<SimpleData name="CommentInf"></SimpleData>
+					<SimpleData name="Shape_Leng">3.49759</SimpleData>
+				</SchemaData>
+			</ExtendedData>
+			<MultiGeometry>
+				<LineString>
+					<coordinates>
+						101.9006356815954,29.96930810277822,0 101.8775970566929,29.98732991639757,0 101.8515551188938,30.01637854134946,0 101.8265114941978,30.04342385363584,0 101.8217840263778,30.04916606341959,0 101.800033429446,30.07558538455713,0 101.7984728690388,30.0774809162834,0 101.7874544312938,30.09751447910816,0 101.7694989939354,30.12288922877939,0 101.7609946190172,30.14273272888639,0 101.7539076808379,30.16824585364108,0 
+					</coordinates>
+				</LineString>
+				<LineString>
+					<coordinates>
+						102,29.89421866302557,0 101.9930210506991,29.91050287502476,0 101.9764421191973,29.94918704131599,0 101.9684279080522,29.96788745827586,0 101.939975708082,30.03427802289114,0 101.9389582439164,30.03664935431864,0 101.8608668691571,30.13660629091602,0 101.795270180945,30.16784285394986,0 101.7484899262951,30.21115790338776,0 101.7319825923185,30.22644247147396,0 101.7109314939386,30.24593422870925,0 101.7007942493995,30.25596834062225,0 101.6426421807122,30.31352879138634,0 101.554763744212,30.43400735377305,0 
+					</coordinates>
+				</LineString>
+				<LineString>
+					<coordinates>
+						101.9545765573592,30.06788591555393,0 101.9469604284042,30.08592411318379,0 101.895227119341,30.20845035432773,0 101.8817018789165,30.22468064452458,0 101.8015174940914,30.32090191631846,0 101.7566819310176,30.37501379097164,0 101.7109314939386,30.4302298541117,0 101.7080671071347,30.43326273267623,0 101.6578293690667,30.48645560408046,0 101.6114594942625,30.52755535376688,0 101.5675203061397,30.53889454190825,0 101.5150766810455,30.53889454190825,0 
+					</coordinates>
+				</LineString>
+				<LineString>
+					<coordinates>
+						101.4985229935518,30.53643404180219,0 101.4516681809269,30.5864125415772,0 101.3517112443296,30.72385335435469,0 101.3234698859048,30.76285331660518,0 101.3219025510695,30.76501773112088,0 101.2205177428997,30.90502529170776,0 101.2185852484249,30.90828228352932,0 101.2102565739506,30.92231928337696,0 101.1944609312136,30.94894097874727,0 
+					</coordinates>
+				</LineString>
+				<LineString>
+					<coordinates>
+						101.1954626176736,30.89885704155826,0 101.1724872156481,30.91931950951089,0 101.1313551806617,30.95595272910836,0 101.071254493087,31.01505172932377,0 101.0306992625441,31.05456710499809,0 100.9931236183054,31.09117929233926,0 100.9270128677289,31.15228166727331,0 100.9187438275737,31.15834562677069,0 100.8669121810534,31.19635548030661,0 100.8168282429651,31.24143097979992,0 100.7637393057515,31.2965232917321,0 100.755627618383,31.30695259588855,0 100.7286805557447,31.34159879212461,0 100.683605055352,31.40069785529258,0 
+					</coordinates>
+				</LineString>
+				<LineString>
+					<coordinates>
+						100.6705832428885,31.36263404230864,0 100.6255077433952,31.40570623003588,0 100.5403650553001,31.48083210479271,0 100.449212368055,31.5519512301125,0 100.4029552609913,31.5832711312068,0 100.3863029182728,31.59454614946979,0 100.3669609553179,31.60764226388702,0 100.3530512431141,31.61706029332974,0 100.2629002432283,31.67816266826379,0 100.2288431796815,31.7012012931663,0 100.177757555133,31.73926504319784,0 
+					</coordinates>
+				</LineString>
+			</MultiGeometry>
+		</Placemark>
+	</Folder>
+</Document>
+</kml>
