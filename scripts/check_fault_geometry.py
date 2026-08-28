@@ -22,6 +22,11 @@ Checks, in the order they bite:
                surfaces -- they interact within a single element. Fix: merge,
                refine dxy locally, or accept and document.
 
+  DUPLICATE    repeated or non-increasing x along a fault. Merging two
+               polylines that share an endpoint leaves a duplicated node, and
+               meshgen.py's CubicSpline needs strictly increasing x. Fix: drop
+               the duplicate when exporting.
+
   STEP-OVER    junction separations above the cut-off are real structure
                (barriers, releasing/restraining bends) and should be
                preserved, not closed. Reported for information.
@@ -71,6 +76,20 @@ def check_geometry(faults: dict[str, np.ndarray], dxy_m: float) -> list[tuple[st
             findings.append(("DECIDE",
                              f"RESOLUTION  {name}: {L:.1f} km = {n} nodes at dxy={dxy_m:.0f} m "
                              f"(< {MIN_NODES}). Merge into a neighbour, or drop."))
+
+    for name, p in faults.items():
+        dx = np.diff(p[:, 0])
+        if np.any(dx == 0):
+            k = int(np.sum(dx == 0))
+            findings.append(("BLOCK",
+                             f"DUPLICATE   {name}: {k} repeated x value(s). meshgen.py's "
+                             f"CubicSpline needs strictly increasing x. Drop the "
+                             f"duplicate node(s) on export."))
+        elif np.any(dx < 0):
+            findings.append(("DECIDE",
+                             f"DUPLICATE   {name}: x is not monotonic (max backstep "
+                             f"{-dx.min():.3f} km). The spline parameterisation assumes "
+                             f"a single-valued trace along strike."))
 
     names = list(faults)
     for i, a in enumerate(names):

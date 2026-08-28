@@ -130,7 +130,13 @@ def chain(rotated: list[np.ndarray], indices: list[int]):
     pieces = []
     for i in ordered:
         seg = rotated[i]
-        pieces.append(seg[::-1] if seg[0, 0] > seg[-1, 0] else seg)
+        seg = seg[::-1] if seg[0, 0] > seg[-1, 0] else seg
+        # Drop a node that coincides with the previous piece's end. seg0 and
+        # seg4 share an endpoint exactly, so merging them would leave a
+        # duplicated x, which meshgen.py's CubicSpline rejects.
+        if pieces and np.hypot(*(seg[0] - pieces[-1][-1])) < 1e-9:
+            seg = seg[1:]
+        pieces.append(seg)
     gaps = []
     for a, b in zip(pieces, pieces[1:]):
         d = float(np.hypot(*(b[0] - a[-1])))
