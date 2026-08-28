@@ -4,6 +4,47 @@ All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https:/
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-08-28
+
+Documentation and test-infrastructure release. No change to the solver or to
+any simulation result.
+
+### Changed
+- Documentation slimmed from 1533 to 1173 lines across `PROJECT_RULES.md`,
+  `CLAUDE.md` and the six READMEs, with no facts removed and a consistent
+  78-column prose wrap so the reduction reflects content rather than reflow.
+  The fat was: rules stating a convention and then restating it under "Why:";
+  code blocks illustrating what a sentence already said; per-compset paragraphs
+  in `CLAUDE.md` duplicating each compset's own README; and the gmsh
+  mesh-and-loading workflow repeated near-identically in four compset READMEs,
+  now a single pointer to `README.md` section Run. All 29 rule ids keep their
+  incident history; a numeric-token diff against every README confirms no value
+  was lost.
+
+### Added
+- **R30 — results reproduce only at a fixed `OMP_NUM_THREADS`.** `qdct3` and
+  `hrglss` accumulate into `brhs` under `$OMP ATOMIC`, so summation order
+  follows thread scheduling and results differ in the last bit between thread
+  counts; a chaotic sequence turns that into a visibly different catalogue
+  within about four cycles. Verified on v2.1.0 against both meshing paths: at
+  one thread, `paper.saf.A` (C_mesh=2) and `saf.gmsh.lite` (C_mesh=3) reproduce
+  their stored `totalop.txt1` with max absolute difference 0.0 over 4 and 10
+  cycles; at two threads the same binary matches for 3-4 cycles then diverges
+  (cycle 5 interval 53 yr against the reference 128 yr). Documented so the next
+  person to meet this does not read it as a regression. `README.md` gains a
+  Reproducibility section.
+- `test_every_check_is_registered`: reflects over the module and fails if any
+  `test_*` function is missing from `main()`'s run list. Two checks had already
+  been added and left unregistered, so `python3 test_system/test_conventions.py`
+  silently skipped them and only pytest's auto-discovery ran them — a guard
+  that looks installed but is not. Checks now 38.
+
+### Fixed
+- `.gitignore` carried `monitor.log` twice and never `monitor*.log`, so
+  `monitor_xsh.log` stayed tracked and a `git add -A` swept the live background
+  log back into the v2.1.0 release commit.
+
+
 ## [2.1.0] - 2026-08-28
 
 First release off the 2.0.7 release-candidate chain, promoted to a minor
