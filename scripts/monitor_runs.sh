@@ -20,7 +20,14 @@ cd "$ROOT"
 INTERVAL=1200          # 20 minutes
 ONCE=0
 MINMAG="${MIN_PLOT_MAGNITUDE:-6.0}"
-STAGES="catalog figure4 analysis rupture"
+STAGES="catalog analysis rupture"
+# figure4 is run separately so its thresholds can be tuned per case. The
+# script's defaults (--threshold 1.0 m, --duration 3 kyr, --scale 30) are
+# tuned to the SAF, where events routinely exceed a metre of slip. On a case
+# whose events are mostly sub-metre every event is filtered out and the figure
+# comes out EMPTY -- axes, fault traces, scale bar, and nothing else, with no
+# warning. Override with FIG4_ARGS.
+FIG4_ARGS="${FIG4_ARGS:---threshold 0.5 --duration 2.0 --scale 12}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -54,6 +61,8 @@ while true; do
         if ! python3 scripts/snapshot_case.py "$d" "$snap" --quiet; then
             echo "[$d] snapshot failed"; continue
         fi
+        python3 scripts/plot_event_slips_overtime_fig4.py "$snap" $FIG4_ARGS \
+            > "$snap/fig4.log" 2>&1 || echo "[$d] figure4 failed (see $snap/fig4.log)"
         if python3 scripts/make_paper_figures.py "$snap" \
                --only $STAGES --min-magnitude "$MINMAG" >/dev/null 2>&1; then
             n=$(( $(wc -l < "$snap/aPlots/catalog.csv") - 1 ))

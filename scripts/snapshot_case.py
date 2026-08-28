@@ -102,9 +102,13 @@ def main() -> None:
             if not args.quiet:
                 print(f'  segment {tag}: {nb} complete cycles')
 
-    # cyclelog is only a counter; the loaders require the file to exist.
+    # cyclelog carries (first_cycle, last_cycle), and load_saf_case() derives
+    # expected_events = cyclelog[1] - cyclelog[0] + 1 from it, then truncates the
+    # slip array to that many events. Writing "total total" here therefore made
+    # every loader-based plot (figure3, figure4) see exactly ONE event while the
+    # catalogue-based ones saw all of them -- an empty Figure 4 with no error.
     with open(os.path.join(dest, 'cyclelog.txt1'), 'w') as f:
-        f.write(f' {total} {total}\n')
+        f.write(f' 1 {total}\n')
 
     # Point the metadata at the merged, single-segment sequence.
     fg = os.path.join(dest, 'FE_Global.txt')
