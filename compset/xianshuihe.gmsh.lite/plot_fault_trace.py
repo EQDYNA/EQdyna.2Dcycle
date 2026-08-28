@@ -142,51 +142,84 @@ def main() -> None:
         print(f"{i:>4} {len(s):>5} {polyline_length_km(p):>8.1f}   "
               f"({s[0,0]:.3f},{s[0,1]:.3f}) -> ({s[-1,0]:.3f},{s[-1,1]:.3f})")
 
-    plt.rcParams.update({"font.size": 14, "axes.titlesize": 16, "axes.labelsize": 15,
-                         "xtick.labelsize": 13, "ytick.labelsize": 13,
-                         "legend.fontsize": 12})
-    fig = plt.figure(figsize=(9.5, 15.0))
-    gs = fig.add_gridspec(2, 1, height_ratios=[2.3, 1.0], hspace=0.22)
+    # Publication settings: figure sized to a 190 mm double-column text width,
+    # with point sizes chosen to stay legible at that printed size.
+    MM = 1.0 / 25.4
+    plt.rcParams.update({
+        "font.size": 13, "axes.titlesize": 15, "axes.labelsize": 14,
+        "xtick.labelsize": 12.5, "ytick.labelsize": 12.5, "legend.fontsize": 12.5,
+        "axes.linewidth": 1.0, "xtick.major.width": 1.0, "ytick.major.width": 1.0,
+        "xtick.direction": "out", "ytick.direction": "out",
+        "savefig.bbox": "tight", "pdf.fonttype": 42, "ps.fonttype": 42,
+    })
+    fig = plt.figure(figsize=(190 * MM, 245 * MM))
+    gs = fig.add_gridspec(2, 1, height_ratios=[2.35, 1.0], hspace=0.30)
     ax_map, ax_loc = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
 
     colours = plt.cm.tab10(np.linspace(0, 1, 10))
     for i, s in enumerate(segs):
-        ax_map.plot(s[:, 0], s[:, 1], "-o", ms=4, lw=2, color=colours[i % 10])
+        ax_map.plot(s[:, 0], s[:, 1], "-o", ms=4.5, lw=2.2, color=colours[i % 10])
         ax_map.annotate(f"seg{i}", (s[len(s) // 2, 0], s[len(s) // 2, 1]),
                         fontsize=13, fontweight="bold", color=colours[i % 10],
-                        xytext=(6, 6), textcoords="offset points")
-    ax_map.set_xlabel("longitude (deg)")
-    ax_map.set_ylabel("latitude (deg)")
-    ax_map.set_title("Xianshuihe fault, 1:1M active-fault KML\n9 polylines as digitised")
+                        xytext=(7, 7), textcoords="offset points")
+    ax_map.set_xlabel("Longitude ($^\\circ$E)")
+    ax_map.set_ylabel("Latitude ($^\\circ$N)")
     ax_map.set_aspect(1.0 / np.cos(np.radians(lat0)))
-    ax_map.grid(alpha=0.3)
+    ax_map.grid(alpha=0.25, lw=0.7)
     ax_map.annotate("double strand\n(Yalahe / Selaha / Zheduotang)",
-                    (101.35, 30.10), xytext=(100.80, 29.80), fontsize=12, ha="center",
-                    bbox=dict(fc="w", ec="0.5", alpha=0.9),
-                    arrowprops=dict(arrowstyle="->", color="0.3"))
+                    (101.35, 30.10), xytext=(100.72, 29.72), fontsize=12.5, ha="center",
+                    bbox=dict(fc="w", ec="0.45", lw=1.0, alpha=0.95, pad=0.45),
+                    arrowprops=dict(arrowstyle="->", color="0.25", lw=1.3))
+    ax_map.text(0.015, 0.985, "(a)", transform=ax_map.transAxes, fontsize=16,
+                fontweight="bold", va="top", ha="left")
+    ax_map.set_title("Xianshuihe fault, 1:1M active-fault database", pad=10)
 
     print(f"\nfault decomposition (gaps wider than {GAP_TOLERANCE_KM} km are flagged):")
     for name, (indices, colour) in FAULT_DECOMPOSITION.items():
         pieces, gaps = chain(rotated, indices)
         total = sum(polyline_length_km(p) for p in pieces)
         for k, piece in enumerate(pieces):
-            ax_loc.plot(piece[:, 0], piece[:, 1], "-o", ms=4, lw=2, color=colour,
+            ax_loc.plot(piece[:, 0], piece[:, 1], "-o", ms=4.5, lw=2.2, color=colour,
                         label=f"{name}   {total:.0f} km" if k == 0 else None)
-        for a, b, d in gaps:
-            ax_loc.plot([a[0], b[0]], [a[1], b[1]], ":", lw=2, color=colour)
-            ax_loc.plot([a[0], b[0]], [a[1], b[1]], "x", ms=9, mew=2, color=colour)
+        # Stagger the labels: consecutive gaps sit close enough along strike
+        # that fixed-offset text overlaps at publication font sizes.
+        for k, (a, b, d) in enumerate(gaps):
+            ax_loc.plot([a[0], b[0]], [a[1], b[1]], ":", lw=2.2, color=colour)
+            ax_loc.plot([a[0], b[0]], [a[1], b[1]], "x", ms=10, mew=2.4, color=colour)
+            dy = 16 if k % 2 == 0 else -26
             ax_loc.annotate(f"{d:.0f} km gap", ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2),
-                            fontsize=11, color=colour, fontweight="bold",
-                            xytext=(0, 10), textcoords="offset points", ha="center")
+                            fontsize=12.5, color=colour, fontweight="bold",
+                            xytext=(0, dy), textcoords="offset points", ha="center")
         print(f"  {name:<42} {total:6.1f} km, {len(pieces)} piece(s), {len(gaps)} gap(s)"
               + ("".join(f"\n      gap {d:.1f} km at x={a[0]:.0f}" for a, b, d in gaps)))
-    ax_loc.set_xlabel(f"along-strike x (km), frame rotated {np.degrees(theta):.1f}$^\\circ$")
-    ax_loc.set_ylabel("fault-normal y (km)")
-    ax_loc.set_title("proposed EQdyna fault decomposition, local rotated frame")
-    ax_loc.legend(loc="upper center", bbox_to_anchor=(0.5, -0.28))
-    ax_loc.grid(alpha=0.3)
 
-    fig.savefig(args.output, dpi=130, bbox_inches="tight")
+    ax_loc.set_xlabel(f"Along-strike distance (km), frame rotated {np.degrees(theta):.1f}$^\\circ$")
+    ax_loc.set_ylabel("Fault-normal (km)")
+    ax_loc.grid(alpha=0.25, lw=0.7)
+    ax_loc.legend(loc="upper center", bbox_to_anchor=(0.5, -0.30), frameon=False,
+                  handlelength=2.4, borderaxespad=0.0)
+    ax_loc.text(0.015, 0.97, "(b)", transform=ax_loc.transAxes, fontsize=16,
+                fontweight="bold", va="top", ha="left")
+    ax_loc.set_title("Proposed EQdyna fault decomposition", pad=10)
+
+    # Fill panel (a) to the same width as panel (b) without distorting the map:
+    # keep the true geographic aspect and widen the longitude range to match the
+    # axes box, rather than letting the tall lat range squeeze the panel narrow.
+    # Use the slot the gridspec ALLOTTED the axes (original=True), not the box
+    # the equal-aspect constraint shrank it to -- the latter just reproduces the
+    # current narrow shape and the panel never widens.
+    fig.canvas.draw()
+    slot = ax_map.get_position(original=True)
+    fig_w, fig_h = fig.get_size_inches()
+    box_ratio = (slot.width * fig_w) / (slot.height * fig_h)
+    aspect = 1.0 / np.cos(np.radians(lat0))
+    y0, y1 = ax_map.get_ylim()
+    dx_needed = box_ratio * (y1 - y0) * aspect
+    lon_c = 0.5 * sum(ax_map.get_xlim())
+    ax_map.set_xlim(lon_c - dx_needed / 2, lon_c + dx_needed / 2)
+
+    fig.savefig(args.output, dpi=300)
+    fig.savefig(args.output.with_suffix(".pdf"))
     print(f"Wrote {args.output}")
 
 
