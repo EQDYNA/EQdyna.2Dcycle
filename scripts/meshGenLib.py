@@ -501,6 +501,62 @@ def isThisQuadCounterclockwise(vertices):
     #print('This quad cell is ordered counterclockwise ', isCounterClockwise)
     return isCounterClockwise
 
+def repairOrphanedSplitNodes(cells, masterSlaveNodeIdRelation, points, ftNodeIds):
+    """Give back a cell to any split node left with none.
+
+    replaceMasterWithSlaveNodes swaps master ids to slave ids in every cell
+    classified above the fault. Where a node's ENTIRE cell fan is classified
+    to one side, the other id ends up in no cell at all -- an orphan, with no
+    element to transmit traction.
+
+    R18 removed the commonest cause (side decided by global dy instead of the
+    fault normal), but it still happens at the second-to-last node of a fault,
+    where the trace ties into a connector line and the local fan is genuinely
+    one-sided.
+
+    This re-tests each cell touching the surviving id against the local fault
+    tangent and hands the first genuinely-other-side cell back. Returns
+    (cells, n_repaired). If no cell qualifies the node is left orphaned rather
+    than a cell being moved arbitrarily -- checkMeshQuality will still flag it.
+    """
+    master, slave = masterSlaveNodeIdRelation
+    n_repaired = 0
+    for k, (m, s) in enumerate(zip(master, slave)):
+        cellNodes = {}
+        for iElem, nodeIds in enumerate(cells):
+            for nid in nodeIds:
+                cellNodes.setdefault(nid, []).append(iElem)
+        m_cells = cellNodes.get(m, [])
+        s_cells = cellNodes.get(s, [])
+        if m_cells and s_cells:
+            continue
+        if not m_cells and not s_cells:
+            continue                      # node is in no cell at all; not ours to fix
+        orphan, present, wantAbove = ((m, s, False) if not m_cells else (s, m, True))
+        a = max(k - 1, 0)
+        b = min(k + 1, len(master) - 1)
+        tang = points[ftNodeIds[b], :] - points[ftNodeIds[a], :]
+        # Exclude EVERY fault node from the off-fault centroid, not just this
+        # one. A cell with an edge on the fault holds two consecutive fault
+        # nodes; leaving the second one in drags the centroid along the fault
+        # and the side test stops meaning anything.
+        ftAll = set(master) | set(slave)
+        for iElem in cellNodes.get(present, []):
+            onFt = [t for t in cells[iElem] if t in ftAll]
+            others = [t for t in cells[iElem] if t not in ftAll]
+            if not others or not onFt:
+                continue
+            quadrant = judgeElemDirect(calcCenterLoc([points[t, :] for t in onFt]),
+                                       calcCenterLoc([points[t, :] for t in others]),
+                                       ftTangent=tang)
+            isAbove = quadrant in (1, 2)
+            if isAbove == wantAbove:
+                cells[iElem][list(cells[iElem]).index(present)] = orphan
+                n_repaired += 1
+                break
+    return cells, n_repaired
+
+
 def reorderCellNodesCounterclockwise(cells, pointsWithSplitNodes):
     reorderedCells = cells.copy()
 

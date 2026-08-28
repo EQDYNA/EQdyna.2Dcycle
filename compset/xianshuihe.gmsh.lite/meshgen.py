@@ -78,7 +78,25 @@ for ftName in ftNamesForGmsh:
     # place fault nodes uniformly without colliding with control points; the
     # spline derivative then reflects mesh-scale direction (not sub-meter
     # jaggedness from the original .gmt).
-    xs_dec, ys_dec = decimateControlPoints(ftLoc[:, 0], ftLoc[:, 1], dx * 3.0)
+    # RESAMPLE ALONG THE SPLINE rather than decimating the digitised points.
+    #
+    # paper.saf.A (C_mesh=2) builds its faults with natural cubic splines in
+    # meshgen1.f90, so its nodes lie ON a smooth curve. The gmsh path joins
+    # control points with straight lines (createLinesForFt uses addLine), so
+    # nodes lie on chords. With the 1:1M digitisation the surviving control
+    # points are 2.7-9.1 km apart, far coarser than dx = 400 m, and the
+    # polyline then departs from the spline by up to 1185 m on ft2 -- about
+    # three element widths.
+    #
+    # Fitting the spline to the ORIGINAL points and resampling it at ~3*dx
+    # keeps the same control-point density gmsh wants while putting those
+    # points on the smooth curve, so the chord error drops to the sub-element
+    # level and the geometry matches the SAF construction.
+    _spline_all = _CS(ftLoc[:, 0], ftLoc[:, 1], bc_type='natural')
+    _x0, _x1 = ftLoc[0, 0], ftLoc[-1, 0]
+    _n = max(int(np.ceil(abs(_x1 - _x0) / (dx * 3.0))) + 1, 4)
+    xs_dec = np.linspace(_x0, _x1, _n)
+    ys_dec = _spline_all(xs_dec)
     ftLoc = np.column_stack([xs_dec, ys_dec])
     ftCtrlSpline[ftName] = (xs_dec.copy(), _CS(xs_dec, ys_dec, bc_type='natural'))
     numOfControlPts, ftEndNodeId, ftRange = createFtPoints(ftLoc, numOfControlPts, dx)
@@ -336,6 +354,12 @@ if debugMode==True:
 for ftNameKey in ftNames:
     #print(masterSlaveNodeIdRelation[ftNameKey][1])
     cells = replaceMasterWithSlaveNodes(cells, masterSlaveNodeIdRelation[ftNameKey], elemIdsAboveFtDict[ftNameKey])
+    # Hand a cell back to any split node whose whole fan landed on one side.
+    cells, nRepaired = repairOrphanedSplitNodes(
+        cells, masterSlaveNodeIdRelation[ftNameKey], pointsWithSplitNodes,
+        ftNodeIdsDict[ftNameKey])
+    if nRepaired:
+        print(f'repaired {nRepaired} orphaned split node(s) on {ftNameKey}')
 
 
 # In[12]:
