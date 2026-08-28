@@ -57,6 +57,25 @@ a repeated x and the spline rejects it.
 
 Run `scripts/check_fault_geometry.py` before meshing any new fault system.
 
+### R18 — Classify fault sides by the fault normal, never by global dy
+
+`judgeElemDirect` originally decided whether a cell sat above or below a
+fault from the **global sign of dy** between the on-fault and off-fault
+centroids. That is only valid where the fault runs gently. On a steep
+section, cells on BOTH sides have dy > 0, so both are labelled "above",
+`replaceMasterWithSlaveNodes` swaps every one of them to the slave, and the
+master node is left with no cell at all.
+
+Pass the local fault tangent and take the sign of the cross product.
+
+**Why:** this orphaned exactly one master node on the steep NE end of the
+Xianshuihe ft4, and silently misclassified 3 cells in `subei.gmsh.lite`
+(0.022% of its mesh) that never orphaned and so were never noticed --
+their traction was applied through the wrong side of the fault.
+
+An orphaned split node has no cell to transmit traction. `checkMeshQuality`
+reports orphans; run it on every new mesh.
+
 ---
 
 ## New fault system: decisions that cannot be inferred

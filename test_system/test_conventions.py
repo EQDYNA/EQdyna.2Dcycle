@@ -127,6 +127,33 @@ def test_geometry_checker() -> None:
           str(check_geometry(fine, 400.0)))
 
 
+# --- R18: fault side classification -----------------------------------------
+
+def test_side_classification_uses_normal() -> None:
+    try:
+        from meshGenLib import judgeElemDirect
+    except Exception as e:  # noqa: BLE001
+        check("R18", "judgeElemDirect importable", False, str(e))
+        return
+    # A steeply running fault: tangent mostly +y. Cells on either side both
+    # have dy > 0, so the old global-dy test called both "above" and the
+    # master node orphaned. With the tangent, they must land on opposite
+    # sides.
+    tang = (0.2, 1.0)
+    left = judgeElemDirect((0.0, 0.0), (-0.5, 0.6), ftTangent=tang)
+    right = judgeElemDirect((0.0, 0.0), (0.5, 0.6), ftTangent=tang)
+    above = {1, 2}
+    check("R18", "steep fault: opposite sides classified differently",
+          (left in above) != (right in above),
+          f"left->{left}, right->{right}; both on the same side orphans the master")
+    # Gentle fault along +x must agree with the historical convention.
+    flat = (1.0, 0.0)
+    check("R18", "gentle fault agrees with global-dy convention",
+          judgeElemDirect((0.0, 0.0), (0.1, 0.5), ftTangent=flat) in above
+          and judgeElemDirect((0.0, 0.0), (0.1, -0.5), ftTangent=flat) not in above,
+          "sign convention flipped for a gently sloping fault")
+
+
 # --- R11: dropped-E exponent rule -------------------------------------------
 
 def test_dropped_e_truncates() -> None:
@@ -208,6 +235,7 @@ def test_case_setup_run_sh() -> None:
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
     for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
+               test_side_classification_uses_normal,
                test_geometry_checker, test_dropped_e_truncates, test_observed_site_constants,
                test_magnitude_constants_documented, test_scripts_search_araw,
                test_case_setup_run_sh):

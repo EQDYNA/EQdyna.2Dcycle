@@ -322,9 +322,34 @@ def calcCenterLoc(coors):
     yCenterCoor = sum(yCoors)/len(yCoors)
     return [xCenterCoor, yCenterCoor]
 
-def judgeElemDirect(cxOnFt, cxOffFt):
-    quadrant = 0
+def judgeElemDirect(cxOnFt, cxOffFt, ftTangent=None):
+    """Which side of the fault a cell lies on. 1/2 = above, 3/4 = below.
+
+    With ftTangent, the side is the sign of the cross product of the local
+    fault tangent with the vector to the off-fault centroid -- the actual
+    fault normal. Fault points are ordered along +x, so "left of tangent"
+    is the +y side and the result agrees with the old global-quadrant test
+    wherever the fault is gently sloping.
+
+    The global test (sign of dy alone) is WRONG for a steeply running
+    fault: cells on BOTH sides can then have dy > 0, so both are called
+    "above", the master node loses its whole cell fan, and it orphans.
+    That produced exactly one orphaned master on the steep NE end of the
+    Xianshuihe ft4. ftTangent=None keeps the old behaviour for callers
+    that have not been updated.
+    """
     elemDirectVec = np.array(cxOffFt) - np.array(cxOnFt)
+    if ftTangent is not None:
+        t = np.asarray(ftTangent, dtype=float)
+        nrm = np.hypot(t[0], t[1])
+        if nrm > 0:
+            cross = t[0]*elemDirectVec[1] - t[1]*elemDirectVec[0]
+            if cross > 0:
+                return 1          # left of tangent -> above
+            elif cross < 0:
+                return 3          # right of tangent -> below
+            # cross == 0 (degenerate) falls through to the quadrant test
+    quadrant = 0
     if elemDirectVec[0]>0 and elemDirectVec[1]>0:
         quadrant = 1
     elif elemDirectVec[0]<0 and elemDirectVec[1]>0:
@@ -386,7 +411,8 @@ def extractIdsforFtElem(ftNodeIds, points, cells):
             coorsOffFt = [points[tag, :] for tag in otherTwoNodes]
             cxOnFt  = calcCenterLoc(coorsOnFt)
             cxOffFt = calcCenterLoc(coorsOffFt)
-            quadrant = judgeElemDirect(cxOnFt, cxOffFt)
+            quadrant = judgeElemDirect(cxOnFt, cxOffFt,
+                                       ftTangent=points[n1, :] - points[n0, :])
             if quadrant == 1 or quadrant == 2:
                 elemIdsAboveFt.append(iElem)
             if quadrant == 3 or quadrant == 4:
@@ -406,7 +432,12 @@ def extractIdsforFtElem(ftNodeIds, points, cells):
             otherThree = [tag for tag in nodeIds if tag != iFt]
             cxOnFt  = list(points[iFt, :])
             cxOffFt = calcCenterLoc([points[tag, :] for tag in otherThree])
-            quadrant = judgeElemDirect(cxOnFt, cxOffFt)
+            # local tangent from this fault node's neighbours along the fault
+            kFt = ftNodeIds.index(iFt) if isinstance(ftNodeIds, list) else int(np.where(np.asarray(ftNodeIds) == iFt)[0][0])
+            kPrev = max(kFt - 1, 0)
+            kNext = min(kFt + 1, len(ftNodeIds) - 1)
+            tang = points[ftNodeIds[kNext], :] - points[ftNodeIds[kPrev], :]
+            quadrant = judgeElemDirect(cxOnFt, cxOffFt, ftTangent=tang)
             if quadrant == 1 or quadrant == 2:
                 elemIdsAboveFt.append(iElem)
             if quadrant == 3 or quadrant == 4:
