@@ -14,6 +14,14 @@ import os
 import sys
 import numpy as np
 
+# Hard-failure thresholds. A mesh violating any of these must not drive a run.
+MIN_ANGLE_DEG = 20.0     # sliver corner
+MAX_ANGLE_DEG = 160.0    # near-flat corner; the old report never looked at this
+MAX_ASPECT = 10.0
+# Two faults closer than this many elements: gmsh cannot recombine between
+# them, leaves triangles, and fac.txt drops them (issue #1).
+MIN_FAULT_GAP_ELEMENTS = 3.0
+
 
 def _load_case(root):
     v = np.loadtxt(os.path.join(root, 'vert.txt'))
@@ -104,7 +112,7 @@ def _quad_geom(pts):
         b = p[(i + 1) % 4] - p[i]
         cos = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-30)
         angs.append(np.degrees(np.arccos(np.clip(cos, -1.0, 1.0))))
-    return area, aspect, min(angs)
+    return area, aspect, min(angs), max(angs)
 
 
 def checkCellGeometry(v, f):
@@ -112,11 +120,12 @@ def checkCellGeometry(v, f):
     areas = np.zeros(len(f))
     aspects = np.zeros(len(f))
     min_angs = np.zeros(len(f))
+    max_angs = np.zeros(len(f))
     degenerate = 0
     for i, cell in enumerate(f):
         pts = v[cell]
-        a, r, mn = _quad_geom(pts)
-        areas[i], aspects[i], min_angs[i] = a, r, mn
+        a, r, mn, mx = _quad_geom(pts)
+        areas[i], aspects[i], min_angs[i], max_angs[i] = a, r, mn, mx
         if a <= 0.0:
             degenerate += 1
     return {
@@ -129,10 +138,54 @@ def checkCellGeometry(v, f):
         'bad_angle_lt20': int((min_angs < 20).sum()),
         'bad_aspect_gt10': int((aspects > 10).sum()),
         'degenerate': degenerate,
+        # The MAXIMUM interior angle matters as much as the minimum: a cell
+        # with a near-180 deg corner is a sliver even when its smallest angle
+        # looks fine, and the old report never looked at it.
+        'max_angle_max': float(max_angs.max()),
+        'bad_angle_gt160': int((max_angs > MAX_ANGLE_DEG).sum()),
     }
 
 
+def checkElementCount(root):
+    """fac.txt must hold every 2D element the .msh does.
+
+    meshGenLib writes only quads. Where gmsh cannot recombine a region it
+    leaves triangles, and those are dropped without a word, leaving holes in
+    the FE mesh -- which is how split nodes end up orphaned (issue #1). This
+    is invisible to every other check here, because they all read fac.txt.
+    """
+    msh = None
+    for d in (root, os.path.join(root, 'fem_mesh_output')):
+        cand = os.path.join(d, 'eqdynaMesh.msh')
+        if os.path.exists(cand):
+            msh = cand
+            break
+    if msh is None:
+        return None
+    try:
+        import meshio
+    except ImportError:
+        return None
+    m = meshio.read(msh)
+    counts = {}
+    for cb in m.cells:
+        if cb.type in ('quad', 'triangle'):
+            counts[cb.type] = counts.get(cb.type, 0) + len(cb.data)
+    fac = None
+    for d in (root, os.path.join(root, 'fem_mesh_output')):
+        cand = os.path.join(d, 'fac.txt')
+        if os.path.exists(cand):
+            fac = cand
+            break
+    n_fac = sum(1 for _ in open(fac)) if fac else 0
+    return {'quad': counts.get('quad', 0), 'triangle': counts.get('triangle', 0),
+            'fac_rows': n_fac,
+            'dropped': counts.get('quad', 0) + counts.get('triangle', 0) - n_fac}
+
+
 def report(root):
+    """Print the report and return a list of hard failures."""
+    failures = []
     print(f'\n=== {root} ===')
     v, f, nsmp, nfn = _load_case(root)
     print(f'  {len(v)} nodes, {len(f)} cells, {len(nfn)} fault(s), nfnodes={nfn}')
@@ -140,6 +193,8 @@ def report(root):
     print('\n  [split-node classification per fault]')
     for r in checkSplitNodes(v, f, nsmp, nfn):
         flag = '' if r['mixed'] == 0 else '  **MIXED CELLS — BUG**'
+        if r['mixed']:
+            failures.append(f"Ft{r['fault']}: {r['mixed']} mixed cells")
         print(f"    Ft{r['fault']} (n={r['nfnodes']}): "
               f"edge m/s={r['m_edge']}/{r['s_edge']}  "
               f"corner m/s={r['m_corner']}/{r['s_corner']}  "
@@ -148,6 +203,11 @@ def report(root):
     print('\n  [fault-node coverage]')
     for r in checkFaultNodeCoverage(f, nsmp, nfn):
         flag = '' if (r['master_orphans'] + r['slave_orphans']) == 0 else '  **ORPHAN**'
+        if r['master_orphans'] or r['slave_orphans']:
+            failures.append(
+                f"Ft{r['fault']}: {r['master_orphans']} master / "
+                f"{r['slave_orphans']} slave orphan(s) - the split node has no "
+                f"element to transmit traction")
         print(f"    Ft{r['fault']}: master_orphans={r['master_orphans']}  "
               f"slave_orphans={r['slave_orphans']}{flag}")
 
@@ -159,16 +219,54 @@ def report(root):
           f"max={g['aspect_max']:.2f}")
     print(f"    min interior angle: min={g['min_angle_min']:.1f}  "
           f"med={g['min_angle_median']:.1f}")
-    print(f"    bad cells: angle<20°={g['bad_angle_lt20']}  "
+    print(f"    max interior angle: {g['max_angle_max']:.1f}")
+    print(f"    bad cells: angle<20°={g['bad_angle_lt20']}  angle>160°={g['bad_angle_gt160']}  "
           f"aspect>10={g['bad_aspect_gt10']}  degenerate={g['degenerate']}")
+    for key, label in (('degenerate', 'degenerate cells'),
+                       ('bad_angle_lt20', 'cells with an interior angle < 20 deg'),
+                       ('bad_angle_gt160', f'cells with an interior angle > {MAX_ANGLE_DEG:.0f} deg'),
+                       ('bad_aspect_gt10', 'cells with aspect ratio > 10')):
+        if g[key]:
+            failures.append(f"{g[key]} {label}")
+
+    ec = checkElementCount(root)
+    print('\n  [element export]')
+    if ec is None:
+        print('    no .msh or meshio unavailable, cannot verify export')
+    else:
+        print(f"    .msh: {ec['quad']} quads + {ec['triangle']} triangles;  "
+              f"fac.txt: {ec['fac_rows']} rows")
+        if ec['dropped']:
+            print(f"    **{ec['dropped']} ELEMENT(S) DROPPED FROM fac.txt**")
+            failures.append(
+                f"{ec['dropped']} element(s) present in the .msh but missing from "
+                f"fac.txt - the FE mesh has holes")
+        if ec['triangle']:
+            failures.append(
+                f"{ec['triangle']} triangle(s) in the mesh; gmsh could not "
+                f"recombine there, usually because two faults pass closer than "
+                f"one element - refine dxy in that region")
+
+    return failures
 
 
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
+    allFailures = []
     for case in sys.argv[1:]:
-        report(case)
+        for f in report(case):
+            allFailures.append(f'{case}: {f}')
+    print()
+    if allFailures:
+        print(f'FAILED: {len(allFailures)} mesh problem(s)')
+        for f in allFailures:
+            print(f'  - {f}')
+        print('\nThese are hard failures. A mesh with orphaned split nodes, '
+              'dropped\nelements or degenerate cells must not be used for a run.')
+        sys.exit(1)
+    print('PASS: no mesh problems found')
 
 
 if __name__ == '__main__':

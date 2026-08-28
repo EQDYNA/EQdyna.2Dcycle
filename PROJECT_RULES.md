@@ -92,6 +92,33 @@ already been thrown away.
 Compare the element count in `fac.txt` against the 2D element count in the
 `.msh` on every mesh. See issue #1.
 
+### R21 — Every mesh failure becomes a mechanical guard
+
+When a mesh defect is found, the fix is not only to repair that mesh. Add a
+check that makes the same defect impossible to ship unnoticed, and make it a
+**hard failure** with a non-zero exit, not a warning.
+
+`checkMeshQuality.py` is the place. It currently hard-fails on:
+
+| check | why it exists |
+|---|---|
+| orphaned master/slave split node | no element to transmit traction |
+| element count vs the `.msh` | `fac.txt` writes quads only; dropped triangles leave holes |
+| triangles present at all | gmsh could not recombine, usually a sub-element fault gap |
+| interior angle < 20 deg | sliver |
+| interior angle > 160 deg | near-flat corner; the report only checked the minimum before, so 164.8 deg passed |
+| aspect ratio > 10 | stretched cell |
+| degenerate cell | zero area |
+| mixed master/slave cells | split-node bug |
+
+**Why:** every one of these came from a defect that reached a mesh and was
+missed. The orphan hunt is the case in point -- the mesh reported
+`angle<20 deg = 0` while five such elements had already been silently
+deleted from `fac.txt`.
+
+Thresholds live at the top of `checkMeshQuality.py` as named constants
+(`MIN_ANGLE_DEG`, `MAX_ANGLE_DEG`, `MAX_ASPECT`, `MIN_FAULT_GAP_ELEMENTS`).
+
 ---
 
 ## New fault system: decisions that cannot be inferred
