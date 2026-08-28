@@ -66,7 +66,18 @@ def load_mesh_faults(case_dir: Path):
     rows = [l.split() for l in open(find("meshGeneralInfo.txt")) if l.strip()]
     nfn = [int(x) for x in rows[1]]
     mx = max(nfn)
-    return [(f"ft{i+1}", vert[nsmp[i * mx: i * mx + n, 0]]) for i, n in enumerate(nfn)]
+    # Take the fault tangent from nsmpGeoPhys columns 1-2, which meshGenLib
+    # writes from the analytical spline. Do NOT recompute it with np.gradient
+    # on the node positions: the trace is piecewise linear between decimated
+    # control points, so a finite difference is piecewise CONSTANT and the
+    # derived strike comes out as a staircase -- 18 distinct values across
+    # ft2's 307 nodes, against 287 from the file.
+    gp = np.loadtxt(find("nsmpGeoPhys.txt"))
+    out = []
+    for i, n in enumerate(nfn):
+        sl = slice(i * mx, i * mx + n)
+        out.append((f"ft{i+1}", vert[nsmp[sl, 0]], gp[sl, 0:2]))
+    return out
 
 SEC_PER_YR = 365.25 * 24 * 3600.0
 GSRM_UNIT = 1.0e-9           # GSRM values are 1e-9/yr
@@ -144,19 +155,21 @@ def main() -> None:
 
     if args.case:
         faults = load_mesh_faults(args.case)
-        source = f"mesh fault nodes ({args.case})"
+        source = f"mesh fault nodes ({args.case}), tangent from nsmpGeoPhys"
     else:
         faults = []
         for fid, group in assign_fault_ids(rotated):
             pieces, _ = chain(rotated, group)
-            faults.append((fid, np.vstack(pieces)))
-        source = "KML control points"
+            pts = np.vstack(pieces)
+            tg = np.gradient(pts, axis=0)
+            faults.append((fid, pts, tg / np.hypot(*tg.T)[:, None]))
+        source = "KML control points, tangent by finite difference"
 
     rows = []
     n_filled = 0
     print(f"\nsampling at {source}")
     print(f"{'fault':>6} {'nodes':>6} {'gamma_max (s^-1)':>18} {'load angle (deg)':>18}")
-    for fid, pts in faults:
+    for fid, pts, tang in faults:
         c = interp_c(pts)
         bad = ~np.isfinite(c[:, 0])
         if bad.any():
@@ -165,20 +178,18 @@ def main() -> None:
         exx_i, eyy_i, exy_i = c[:, 0], c[:, 1], c[:, 2]
         gam = np.hypot(0.5 * (exx_i - eyy_i), exy_i)
         thp = 0.5 * np.arctan2(2.0 * exy_i, exx_i - eyy_i) - theta
-        tang = np.gradient(pts, axis=0)
-        tang /= np.hypot(*tang.T)[:, None]
         tang_ang = np.arctan2(tang[:, 1], tang[:, 0])
         shear_dir = thp + np.pi / 4.0
         ang = np.degrees((shear_dir - tang_ang + np.pi / 2) % np.pi - np.pi / 2)
         print(f"{fid:>6} {len(pts):>6} {gam.mean():>18.3e} {ang.mean():>18.1f}")
-        rows.append((fid, pts, gam, ang))
+        rows.append((fid, pts, gam, ang, tang))
     if n_filled:
         print(f"  {n_filled} node(s) outside the GSRM hull, filled by nearest cell")
 
     csv = here / f"{args.out_prefix}_loading.csv"
     with open(csv, "w") as f:
         f.write("fault,node,x_km,y_km,gamma_max_per_s,load_angle_deg\n")
-        for fid, pts, gam, ang in rows:
+        for fid, pts, gam, ang, _t in rows:
             for i, (p, gm, a) in enumerate(zip(pts, gam, ang)):
                 f.write(f"{fid},{i},{p[0]:.4f},{p[1]:.4f},{gm:.6e},{a:.3f}\n")
     print(f"\nWrote {csv}")
@@ -201,10 +212,8 @@ def main() -> None:
     cols = plt.cm.tab10(np.linspace(0, 1, 10))
     letters = "abcde"
 
-    for k, (fid, pts, gam, ang) in enumerate(rows):
+    for k, (fid, pts, gam, ang, tang) in enumerate(rows):
         c = cols[k % 10]
-        tang = np.gradient(pts, axis=0)
-        tang /= np.hypot(*tang.T)[:, None]
         strike = np.degrees(np.arctan2(tang[:, 1], tang[:, 0]))
         shear_dir = strike + ang          # by construction of ang
         axes[0].plot(pts[:, 0], gam, "-", lw=2.0, color=c, label=fid)
