@@ -1,0 +1,8 @@
+monitoring: work/xsh_t100 work/xsh_t90
+interval 1200s, stages: catalog analysis rupture, M>=6.0
+================ 2026-08-28 11:32:20 ================
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t100_snap: 248 cycles
+[work/xsh_t100] 248 events over 3014 yr, Mmax 7.66, M>=6.5: 10  -> work/xsh_t100_snap/aPlots/
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t90_snap: 247 cycles
+[work/xsh_t90] 247 events over 3616 yr, Mmax 7.53, M>=6.5: 14  -> work/xsh_t90_snap/aPlots/
+sleeping 1200s...

@@ -37,3 +37,11 @@ strain_rate_input/GSRM_v2.1_xianshuihe_region.txt
 # changes, so neither belongs in the repo.
 compset/xianshuihe.gmsh.lite/strain_rate_input/GSRM_v2.1_*.txt
 compset/xianshuihe.gmsh.lite/xianshuihe_strain_loading.csv
+
+# Xianshuihe compset: only three figures are kept in the repo -- the fault
+# trace, the GSRM strain map, and the on-fault loading (Fig 2). Everything else
+# the scripts emit (vector duplicates, step-over maps, mesh views) is
+# regenerable and stays out.
+compset/xianshuihe.gmsh.lite/*.pdf
+compset/xianshuihe.gmsh.lite/xianshuihe_step_overs.*
+compset/xianshuihe.gmsh.lite/xianshuihe_mesh*.png
