@@ -287,6 +287,17 @@ def test_case_setup_run_sh() -> None:
     check("R17", "run wrapper is detached", "setsid" in src,
           "no setsid; a process-group kill orphans the binary")
     check("R17", "run.sh emits Job finished", "Job finished" in src, "marker missing")
+    # The generated run.sh used to re-run meshgen.py on every launch and then
+    # unconditionally `cp fem_mesh_output/<file> .`. That silently discarded
+    # per-node loading patched on top of the mesh (apply_strain_loading.py
+    # rewrites nsmpGeoPhys.txt in place), and the run proceeded with default
+    # uniform loading with nothing in the log to say so.
+    check("R18", "run.sh skips meshing when a mesh exists",
+          "FORCE_MESH" in src,
+          "meshgen.py runs unconditionally; a re-mesh discards per-node loading")
+    check("R18", "run.sh does not clobber newer mesh working copies",
+          '-nt' in src and 'not overwriting' in src,
+          "mesh files are copied unconditionally over locally patched versions")
 
 
 def main() -> None:

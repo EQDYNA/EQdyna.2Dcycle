@@ -88,15 +88,40 @@ def create_run_sh():
             f.write("echo \"Job PID: $!\"\n")
         else:
             # External gmsh-based meshing (C_mesh=3)
-            f.write("# Run meshgen.py to generate the mesh\n")
-            f.write("echo 'Running meshgen.py...'\n")
-            f.write("python3 meshgen.py\n\n")
-            f.write("# Copy mesh files from fem_mesh_output/\n")
+            # Re-meshing on every launch used to silently discard per-node
+            # loading applied on top of the mesh: apply_strain_loading.py
+            # patches nsmpGeoPhys.txt in place, then meshgen.py regenerated
+            # it and the copy loop below overwrote the patched file with the
+            # default. The run then went ahead with uniform default loading
+            # and nothing said so. Skip meshing when a mesh is already there,
+            # and never overwrite a working copy that is newer than its
+            # fem_mesh_output source.
+            mesh_files = ['vert.txt', 'fac.txt', 'nsmp.txt', 'nsmpGeoPhys.txt',
+                          'meshGeneralInfo.txt', 'nsmpTanLen.txt']
+            f.write("# Mesh generation. meshgen.py is SKIPPED when a mesh already exists:\n")
+            f.write("# re-meshing would discard per-node edits made on top of it (e.g.\n")
+            f.write("# nsmpGeoPhys.txt patched by apply_strain_loading.py). Set FORCE_MESH=1\n")
+            f.write("# to re-mesh deliberately.\n")
+            f.write("MESH_STAMP='fem_mesh_output/meshGeneralInfo.txt'\n")
+            f.write("if [ -n \"$FORCE_MESH\" ] || [ ! -f \"$MESH_STAMP\" ]; then\n")
+            f.write("  echo 'Running meshgen.py...'\n")
+            f.write("  python3 meshgen.py\n")
+            f.write("else\n")
+            f.write("  echo \"Mesh present ($MESH_STAMP); skipping meshgen.py.\"\n")
+            f.write("  echo 'Set FORCE_MESH=1 to re-mesh from scratch.'\n")
+            f.write("fi\n\n")
+            f.write("# Stage mesh files into the case directory. A working copy NEWER than\n")
+            f.write("# its fem_mesh_output source was edited on purpose -- keep it.\n")
             f.write("if [ -d 'fem_mesh_output' ]; then\n")
-            for mf in ['vert.txt', 'fac.txt', 'nsmp.txt', 'nsmpGeoPhys.txt',
-                       'meshGeneralInfo.txt', 'nsmpTanLen.txt']:
-                f.write("  cp fem_mesh_output/" + mf + " . 2>/dev/null || echo 'Warning: " + mf + " not found'\n")
-            f.write("  echo 'Mesh files copied from fem_mesh_output/'\n")
+            f.write("  for mf in " + " ".join(mesh_files) + "; do\n")
+            f.write("    src=\"fem_mesh_output/$mf\"\n")
+            f.write("    if [ ! -f \"$src\" ]; then echo \"Warning: $mf not found\"; continue; fi\n")
+            f.write("    if [ -f \"$mf\" ] && [ \"$mf\" -nt \"$src\" ]; then\n")
+            f.write("      echo \"Keeping local $mf (newer than $src -- not overwriting)\"\n")
+            f.write("    else\n")
+            f.write("      cp \"$src\" \"$mf\"\n")
+            f.write("    fi\n")
+            f.write("  done\n")
             f.write("fi\n\n")
             required = ['vert.txt', 'fac.txt', 'nsmp.txt', 'nsmpGeoPhys.txt',
                         'meshGeneralInfo.txt', 'FE_Global.txt', 'FE_Model_Geometry.txt', 'FE_Fault_Geometry.txt']

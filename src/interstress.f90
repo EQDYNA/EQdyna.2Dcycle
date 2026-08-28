@@ -111,7 +111,18 @@ do ndt = 1, 1000000000
 		endif
 		ns(i) = (ns0(i) - ambientnorm - rn) * exp(-tinter*amu/ant) + rn + ambientnorm
 		shs(i) = (ss0(i) - rs) * exp(-tinter*amu/ant) + rs
-		strengthexcess(i) = (abs(ns(i))*fric_fs - shs(i))
+		! Cap the effective normal stress the same way the dynamic solver does
+		! (faulting.f90: if (tnrm > minnorm) tnrm = minnorm). A fault cannot
+		! carry tension: it opens, and its strength is zero.
+		!
+		! This branch previously took abs(ns), so a node driven tensile by the
+		! interseismic loading (rn > |ambientnorm|, which happens wherever the
+		! angle of compression is sufficiently negative) was handed strength
+		! PROPORTIONAL TO HOW TENSILE IT WAS -- the more it opened, the stronger
+		! it got. Nodes near the sign change instead got strength ~0 and sat
+		! permanently above failure, which no rupture could relieve.
+		if (ns(i) > minnorm) ns(i) = minnorm
+		strengthexcess(i) = (-ns(i)*fric_fs - shs(i))
 		! Fault endpoints are excluded from nucleation: slip tapers to zero
 		! at a tip, so the stress state there is not meaningful. Generic over
 		! ntotft -- this was hardcoded to the first THREE faults, which
@@ -141,7 +152,7 @@ do ndt = 1, 1000000000
 			iNodeAcc = iNodeAcc + nfnode(iFtLoop)
 		enddo
 		if (isFtInterior) then
-			if (shs(i) > fric_fs * abs(ns(i))) then 
+			if (shs(i) > fric_fs * (-ns(i))) then 
 			nucntag = nucntag + 1
 			nuci(nucntag) = i
 			quit  = .TRUE.
