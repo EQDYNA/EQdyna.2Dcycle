@@ -128,6 +128,25 @@ gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
 gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
 gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 
+# Pure-quad meshing by SUBDIVISION rather than recombination.
+#
+# gmsh's default path triangulates and then recombines, and where it cannot
+# pair triangles it simply leaves them -- fac.txt exports quads only, so those
+# elements are dropped, the FE mesh gets holes, and the split nodes bordering
+# them orphan (issue #1). Around an embedded fault's free tip the mesher
+# closes the front wherever it lands, so that failure is routine there.
+#
+# SubdivisionAlgorithm 1 subdivides every element into quads instead, so the
+# mesh is all-quad BY CONSTRUCTION and recombination cannot fail. Measured on
+# this geometry:
+#
+#   recombination (default)  13511 quads,  8 triangles, 3 orphans, 0 bad, 6 s
+#   subdivision              54068 quads,  0 triangles, 0 orphans, 0 bad, 9 s
+#
+# It also halves the element size, so dx = 0.4 gives ~200 m elements and about
+# 4x the cell count. dx = 0.8 with subdivision was tried to recover 400 m and
+# is NOT clean -- 28890 quads but 1 badly shaped cell returns.
+gmsh.option.setNumber("Mesh.SubdivisionAlgorithm", 1)
 gmsh.option.setNumber("Mesh.Smoothing", 5)
 gmsh.model.mesh.setRecombine(2, 1)
 gmsh.model.mesh.generate(2)
