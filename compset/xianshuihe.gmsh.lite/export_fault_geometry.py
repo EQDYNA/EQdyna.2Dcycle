@@ -35,9 +35,11 @@ from plot_fault_trace import (assign_fault_ids, chain, polyline_length_km,
                               principal_frame, read_kml, rotate, to_local_km)
 
 # 7-fault id -> mesh name, for the through-going chain only.
-CHAIN = {"ft1": "mf1", "ft2": "mf2", "ft5": "mf3", "ft6": "mf4", "ft7": "mf5"}
-# Splay strands, written only with --all.
-STRANDS = {"ft3": "mf_splay_a", "ft4": "mf_splay_b"}
+# All seven faults, exported under their own ids. ft3 and ft4 are the splay
+# strands: ft3 runs above the chain, ft4 below it, so each divides one side
+# into a lens plus the outer block (see meshgen.py).
+CHAIN = {f"ft{i}": f"ft{i}" for i in range(1, 8)}
+STRANDS: dict[str, str] = {}
 
 
 def main() -> None:

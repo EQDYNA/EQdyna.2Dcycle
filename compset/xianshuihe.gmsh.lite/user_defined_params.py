@@ -5,7 +5,7 @@ from defaultParameters import parameters
 par = parameters()
 
 par.C_mesh = 3
-par.ntotft = 5
+par.ntotft = 7
 par.friclaw = 4 
 par.dt1 = 0.01 
 par.term = 200. 

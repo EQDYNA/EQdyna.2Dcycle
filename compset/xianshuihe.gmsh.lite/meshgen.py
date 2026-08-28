@@ -21,13 +21,15 @@ meshName = 'eqdynaMesh'
 # Xianshuihe through-going chain: 5 faults succeeding one another SE -> NW,
 # connected by auxiliary lines for mesh topology. Built by
 # export_fault_geometry.py from the 1:1M KML; see README for the mapping
-# mf1..mf5 -> ft1,ft2,ft5,ft6,ft7 and which polylines each merges.
+# ft1..ft7; see README for which polylines each fault merges.
 #
-# The two splay strands (seg3, seg5) are NOT here. They run parallel to mf2
-# rather than continuing it, so they need a hand-built multi-surface topology
-# like subei.gmsh.lite's, not this chain. Deferred deliberately.
-ftNamesForGmsh = ['mf1', 'mf2', 'mf3', 'mf4', 'mf5']
-ftNames = ['mf1', 'mf2', 'mf3', 'mf4', 'mf5']
+# Seven faults. Five form the through-going chain ft1 -> ft2 -> ft5 -> ft6 ->
+# ft7; ft3 and ft4 are the Kangding splay strands. ft3 runs ABOVE the chain
+# and ft4 BELOW it, so neither is embedded inside a block -- each divides one
+# side into a lens (between the splay and the chain) plus the outer block.
+# That gives six surfaces against gulang's four.
+ftNamesForGmsh = ['ft1', 'ft2', 'ft3', 'ft4', 'ft5', 'ft6', 'ft7']
+ftNames = ['ft1', 'ft2', 'ft3', 'ft4', 'ft5', 'ft6', 'ft7']
 
 
 system = "xianshuihe"
@@ -68,6 +70,7 @@ lineCount = 0
 surfaceCount = 0
 from scipy.interpolate import CubicSpline as _CS
 ftCtrlSpline = {}      # {ftName: (xs_km, CubicSpline_obj)} for analytical tangent
+ftDecimated = {}       # {ftName: decimated control points}
 for ftName in ftNamesForGmsh:
     ftFileName = 'user_fault_geometry_input/' + ftName + '.gmt.txt'
     ftLoc = loadFtLoc(ftFileName)
@@ -80,6 +83,11 @@ for ftName in ftNamesForGmsh:
     ftCtrlSpline[ftName] = (xs_dec.copy(), _CS(xs_dec, ys_dec, bc_type='natural'))
     numOfControlPts, ftEndNodeId, ftRange = createFtPoints(ftLoc, numOfControlPts, dx)
     ftEndNodeIdDict[ftName] = ftEndNodeId
+    # Keep the decimated control points and the id of the first one. gmsh
+    # numbers a fault's points consecutively, so interior point k has node id
+    # ftEndNodeId[0] + k -- needed to attach the splay auxiliaries to the
+    # nearest point ON the chain instead of to its far end.
+    ftDecimated[ftName] = ftLoc
     modelRange = redefineModelRange(modelRange, ftRange)
     lineCount, ftEndLineId = createLinesForFt(ftEndNodeId, lineCount)
     ftEndLineIdDict[ftName] = ftEndLineId
@@ -98,12 +106,13 @@ numOfControlPts, boundaryNodeIdDict = createBoundaryNodes(numOfControlPts, model
 # this part always needs some customized design
 # all lines are defined counterclockwisely.
 
-mf1Curve = [i+ftEndLineIdDict['mf1'][0] for i in range(ftEndLineIdDict['mf1'][1]-ftEndLineIdDict['mf1'][0]+1)]
-mf2Curve = [i+ftEndLineIdDict['mf2'][0] for i in range(ftEndLineIdDict['mf2'][1]-ftEndLineIdDict['mf2'][0]+1)]
-mf3Curve = [i+ftEndLineIdDict['mf3'][0] for i in range(ftEndLineIdDict['mf3'][1]-ftEndLineIdDict['mf3'][0]+1)]
-mf4Curve = [i+ftEndLineIdDict['mf4'][0] for i in range(ftEndLineIdDict['mf4'][1]-ftEndLineIdDict['mf4'][0]+1)]
-mf5Curve = [i+ftEndLineIdDict['mf5'][0] for i in range(ftEndLineIdDict['mf5'][1]-ftEndLineIdDict['mf5'][0]+1)]
-#print(mf1Curve, mf2Curve, mf3Curve, mf4Curve, mf5Curve)
+ft1Curve = [k+ftEndLineIdDict['ft1'][0] for k in range(ftEndLineIdDict['ft1'][1]-ftEndLineIdDict['ft1'][0]+1)]
+ft2Curve = [k+ftEndLineIdDict['ft2'][0] for k in range(ftEndLineIdDict['ft2'][1]-ftEndLineIdDict['ft2'][0]+1)]
+ft3Curve = [k+ftEndLineIdDict['ft3'][0] for k in range(ftEndLineIdDict['ft3'][1]-ftEndLineIdDict['ft3'][0]+1)]
+ft4Curve = [k+ftEndLineIdDict['ft4'][0] for k in range(ftEndLineIdDict['ft4'][1]-ftEndLineIdDict['ft4'][0]+1)]
+ft5Curve = [k+ftEndLineIdDict['ft5'][0] for k in range(ftEndLineIdDict['ft5'][1]-ftEndLineIdDict['ft5'][0]+1)]
+ft6Curve = [k+ftEndLineIdDict['ft6'][0] for k in range(ftEndLineIdDict['ft6'][1]-ftEndLineIdDict['ft6'][0]+1)]
+ft7Curve = [k+ftEndLineIdDict['ft7'][0] for k in range(ftEndLineIdDict['ft7'][1]-ftEndLineIdDict['ft7'][0]+1)]
 
 # boundary edges
 lineCount += 1
@@ -115,37 +124,79 @@ L = gmsh.model.geo.addLine(boundaryNodeIdDict['left_top'], boundaryNodeIdDict['l
 lineCount += 1
 R = gmsh.model.geo.addLine(boundaryNodeIdDict['right_top'], boundaryNodeIdDict['right_bottom'], tag=lineCount)
 
-# fault chain to boundary
+# chain ends to boundary
 lineCount += 1
-FT_LT = gmsh.model.geo.addLine(ftEndNodeIdDict['mf1'][0], boundaryNodeIdDict['left_top'], tag=lineCount) # ft1 start to left top
+FT_LT = gmsh.model.geo.addLine(ftEndNodeIdDict['ft1'][0], boundaryNodeIdDict['left_top'], tag=lineCount)
 lineCount += 1
-FT_LB = gmsh.model.geo.addLine(ftEndNodeIdDict['mf1'][0], boundaryNodeIdDict['left_bottom'], tag=lineCount) # ft1 start to left bottom
+FT_LB = gmsh.model.geo.addLine(ftEndNodeIdDict['ft1'][0], boundaryNodeIdDict['left_bottom'], tag=lineCount)
 lineCount += 1
-FT_RT = gmsh.model.geo.addLine(ftEndNodeIdDict['mf5'][1], boundaryNodeIdDict['right_top'], tag=lineCount) # ft5 end to right top
+FT_RT = gmsh.model.geo.addLine(ftEndNodeIdDict['ft7'][1], boundaryNodeIdDict['right_top'], tag=lineCount)
 lineCount += 1
-FT_RB = gmsh.model.geo.addLine(ftEndNodeIdDict['mf5'][1], boundaryNodeIdDict['right_bottom'], tag=lineCount) # ft5 end to right bottom
+FT_RB = gmsh.model.geo.addLine(ftEndNodeIdDict['ft7'][1], boundaryNodeIdDict['right_bottom'], tag=lineCount)
 
-# connecting adjacent faults
+# chain connectors
 lineCount += 1
-F1_F2 = gmsh.model.geo.addLine(ftEndNodeIdDict['mf1'][1], ftEndNodeIdDict['mf2'][0], tag=lineCount) # ft1 end to ft2 start
+C12 = gmsh.model.geo.addLine(ftEndNodeIdDict['ft1'][1], ftEndNodeIdDict['ft2'][0], tag=lineCount)
 lineCount += 1
-F2_F3 = gmsh.model.geo.addLine(ftEndNodeIdDict['mf2'][1], ftEndNodeIdDict['mf3'][0], tag=lineCount) # ft2 end to ft3 start
+C25 = gmsh.model.geo.addLine(ftEndNodeIdDict['ft2'][1], ftEndNodeIdDict['ft5'][0], tag=lineCount)
 lineCount += 1
-F3_F4 = gmsh.model.geo.addLine(ftEndNodeIdDict['mf3'][1], ftEndNodeIdDict['mf4'][0], tag=lineCount) # ft3 end to ft4 start
+C56 = gmsh.model.geo.addLine(ftEndNodeIdDict['ft5'][1], ftEndNodeIdDict['ft6'][0], tag=lineCount)
 lineCount += 1
-F4_F5 = gmsh.model.geo.addLine(ftEndNodeIdDict['mf4'][1], ftEndNodeIdDict['mf5'][0], tag=lineCount) # ft4 end to ft5 start
+C67 = gmsh.model.geo.addLine(ftEndNodeIdDict['ft6'][1], ftEndNodeIdDict['ft7'][0], tag=lineCount)
 
-# the fault chain as a single curve list
-faultChain = mf1Curve+[F1_F2]+mf2Curve+[F2_F3]+mf3Curve+[F3_F4]+mf4Curve+[F4_F5]+mf5Curve
-reversedFaultChain = addMinusToList(mf5Curve[::-1])+[-F4_F5]+addMinusToList(mf4Curve[::-1])+[-F3_F4]+addMinusToList(mf3Curve[::-1])+[-F2_F3]+addMinusToList(mf2Curve[::-1])+[-F1_F2]+addMinusToList(mf1Curve[::-1])
+# Splay auxiliaries. ft3 hangs above ft2, ft4 below it and on to ft5.
+#
+# Attach each auxiliary to the control point ON ft2 nearest the splay end,
+# not to ft2's far end. A straight line from ft3's end to ft2's end CROSSES
+# ft2 (ft2 is still at y ~ -10 under ft3 and only rises to -6.5 at its end),
+# which makes the lens loop self-intersecting; gmsh then spins instead of
+# failing. Short, near-perpendicular auxiliaries avoid it.
+def nearestOnFt2(pt):
+    """Index of the ft2 control point nearest pt, and its gmsh node id."""
+    k = int(np.argmin(np.hypot(*(ftDecimated['ft2'] - pt).T)))
+    return k, ftEndNodeIdDict['ft2'][0] + k
 
-# top block (above fault chain)
-surfaceCount = createSurface(faultChain+[FT_RT, T, -FT_LT], surfaceCount)
-# left block (triangle)
+k3s, n3s = nearestOnFt2(ftDecimated['ft3'][0])
+k3e, n3e = nearestOnFt2(ftDecimated['ft3'][-1])
+k4s, n4s = nearestOnFt2(ftDecimated['ft4'][0])
+k3s, k3e = min(k3s, k3e), max(k3s, k3e)
+print(f"splay attach points on ft2: ft3 [{k3s}, {k3e}], ft4 start [{k4s}]")
+
+lineCount += 1
+A3s = gmsh.model.geo.addLine(ftEndNodeIdDict['ft2'][0] + k3s, ftEndNodeIdDict['ft3'][0], tag=lineCount)
+lineCount += 1
+A3e = gmsh.model.geo.addLine(ftEndNodeIdDict['ft3'][1], ftEndNodeIdDict['ft2'][0] + k3e, tag=lineCount)
+lineCount += 1
+A4s = gmsh.model.geo.addLine(ftEndNodeIdDict['ft2'][0] + k4s, ftEndNodeIdDict['ft4'][0], tag=lineCount)
+lineCount += 1
+A4e = gmsh.model.geo.addLine(ftEndNodeIdDict['ft4'][1], ftEndNodeIdDict['ft5'][0], tag=lineCount)
+
+rev = addMinusToList
+# ft2's line ids are consecutive; line j joins control points j and j+1.
+ft2Pre  = ft2Curve[:k3s]
+ft2Mid  = ft2Curve[k3s:k3e]
+ft2Post = ft2Curve[k3e:]
+ft2ToF4 = ft2Curve[:k4s]
+ft2FromF4 = ft2Curve[k4s:]
+
+# Upper envelope: chain, routed over ft3 for the span the splay covers.
+upper = (ft1Curve + [C12] + ft2Pre + [A3s] + ft3Curve + [A3e] + ft2Post
+         + [C25] + ft5Curve + [C56] + ft6Curve + [C67] + ft7Curve)
+# Lower envelope, ft7 back to ft1, routed under ft4.
+lower = (rev(ft7Curve[::-1]) + [-C67] + rev(ft6Curve[::-1]) + [-C56]
+         + rev(ft5Curve[::-1]) + [-A4e] + rev(ft4Curve[::-1]) + [-A4s]
+         + rev(ft2ToF4[::-1]) + [-C12] + rev(ft1Curve[::-1]))
+
+# top block, above the upper envelope
+surfaceCount = createSurface(upper + [FT_RT, T, -FT_LT], surfaceCount)
+# lens between ft3 and the ft2 span beneath it
+surfaceCount = createSurface([A3s] + ft3Curve + [A3e] + rev(ft2Mid[::-1]), surfaceCount)
+# lens between ft4 and the chain above it (ft2 from the attach point, then C25)
+surfaceCount = createSurface([A4s] + ft4Curve + [A4e, -C25] + rev(ft2FromF4[::-1]), surfaceCount)
+# bottom block, below the lower envelope
+surfaceCount = createSurface(lower + [FT_LB, -B, -FT_RB], surfaceCount)
+# corner triangles
 surfaceCount = createSurface([FT_LB, -L, -FT_LT], surfaceCount)
-# bottom block (below fault chain)
-surfaceCount = createSurface(reversedFaultChain+[FT_LB, -B, -FT_RB], surfaceCount)
-# right block (triangle)
 surfaceCount = createSurface([FT_RB, -R, -FT_RT], surfaceCount)
 
 gmsh.model.geo.synchronize()
@@ -168,11 +219,13 @@ gmsh.write('fem_mesh_output/' + meshName+'.msh')
 
 
 ftTag = {}
-ftTag['mf1'] = mf1Curve
-ftTag['mf2'] = mf2Curve
-ftTag['mf3'] = mf3Curve
-ftTag['mf4'] = mf4Curve
-ftTag['mf5'] = mf5Curve
+ftTag['ft1'] = ft1Curve
+ftTag['ft2'] = ft2Curve
+ftTag['ft3'] = ft3Curve
+ftTag['ft4'] = ft4Curve
+ftTag['ft5'] = ft5Curve
+ftTag['ft6'] = ft6Curve
+ftTag['ft7'] = ft7Curve
 if debugMode==True:
     print(ftTag)
 
