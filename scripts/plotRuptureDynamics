@@ -183,8 +183,15 @@ def plotRuptureDynamics():
     for iFt in range(numOfFts):
         ftNodeIndexArr[iFt + 1] = np.sum(numOfFtNodes[:iFt + 1])
 
-    # all cycles are stacked in one file: totalop.txt{icstart}
-    fname   = 'totalop.txt' + str(icstart)
+    # all cycles are stacked in one file: totalop.txt{icstart}. run.sh moves the
+    # raw output into aRawSimuData/ once a run finishes, so look there too.
+    fname = 'totalop.txt' + str(icstart)
+    if not os.path.exists(fname):
+        moved = os.path.join('aRawSimuData', fname)
+        if os.path.exists(moved):
+            fname = moved
+        else:
+            sys.exit('error: %s not found in the case dir or aRawSimuData/' % fname)
     allRes  = loadtxt_robust(fname)
     ncycles = allRes.shape[0] // totftnode
     print('Cycles available:', ncycles)

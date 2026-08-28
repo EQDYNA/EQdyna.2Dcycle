@@ -119,23 +119,34 @@ actually computes (52) and flags the delta, rather than tuning to 49.
 """
 
 
-# --- gfortran 3-digit-exponent overflow repair ------------------------------
-# gfortran's E-format drops the 'E' when the exponent needs 3 digits, e.g.
+# --- gfortran 3-digit-exponent overflow ------------------------------------
+# gfortran's E-format drops the 'E' when the exponent needs 3 digits, so
 # "0.8384675E-101" is written as "0.8384675-101". np.loadtxt chokes on that.
-# Repair only tokens matching digit + sign + exactly 3 digits at end-of-token
-# with no 'E' already present (well-formed tokens always have 'E' before the
-# sign, so this pattern is unambiguous).
-_EXP_OVERFLOW = re.compile(rb"(\d)([+-]\d{3})$")
+#
+# We deliberately reproduce MATLAB's reading, NOT the value gfortran intended.
+# Verified against MATLAB R2024b: load() on a line "0.8384675-101 1.0 2.0"
+# returns [0.8384675, 1.0, 2.0] -- its ASCII scanner takes the longest valid
+# leading float and silently discards the trailing "-101". It does NOT
+# reinterpret the token as scientific notation (a well-formed
+# "0.5000000E-101" does read as 5e-102).
+#
+# So the published Table 2 / Figure 6 statistics were computed with these
+# near-zero slips read as ~0.84 m. Truncating here is what makes this port
+# agree with the reference implementation on the published data; interpreting
+# them as E-101 would be physically right but would NOT reproduce the paper.
+# Only paper-era (v2.0.2) output is affected -- current runs emit no such
+# tokens -- so this rule costs nothing on new models.
+_EXP_OVERFLOW = re.compile(rb"(\d)[+-]\d{3}$")
 
 
 class _RepairingConverter:
-    """np.loadtxt converter: fixes dropped-E tokens, counts how many."""
+    """np.loadtxt converter: truncates dropped-E tokens as MATLAB does."""
 
     def __init__(self) -> None:
         self.n_repaired = 0
 
     def __call__(self, tok: bytes) -> float:
-        fixed = _EXP_OVERFLOW.sub(rb"\1E\2", tok)
+        fixed = _EXP_OVERFLOW.sub(rb"\1", tok)
         if fixed != tok:
             self.n_repaired += 1
         return float(fixed)
@@ -324,7 +335,7 @@ def main() -> None:
     print(f"cycles    : {ncycles}   simulated: {t_kyr[-1]:.2f} kyr   "
           f"(paper Model A: 4000 cycles / 15 kyr)")
     print(f"threshold : {args.threshold} m slip at site")
-    print(f"exponent-overflow tokens repaired: {n_repaired}\n")
+    print(f"dropped-E tokens truncated (MATLAB rule): {n_repaired}\n")
 
     hdr = (f"{'site':<5} {'mean rec (yr)':>14} {'COV':>6} {'slip (m)':>9} "
            f"{'sd slip (m)':>12} {'counted/total':>14}")

@@ -23,7 +23,13 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         type=float,
         default=None,
-        help="Window start times in kyr. If omitted, auto-populate 0, 3, 6, ... up to total simulated kyr.",
+        help=(
+            "Window start times in kyr. If omitted, auto-populate duration, 2*duration, ... "
+            "up to total simulated kyr, skipping the initial [0, duration) window (see "
+            "_auto_tstart_kyr docstring: this mirrors the paper's own Fig 4 panel choice, "
+            "tstart=[3,6,9,12] kyr for Model A / duration=3kyr, which always skips the first "
+            "window)."
+        ),
     )
     parser.add_argument("--duration", type=float, default=3.0, help="Window duration in kyr (default 3)")
     parser.add_argument("--threshold", type=float, default=1.0, help="Minimum event max-slip in meters")
@@ -36,25 +42,31 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _auto_tstart_kyr(case_dir: Path, duration_kyr: float) -> list[float]:
-    """Auto-populate tstart=[0, duration, 2·duration, ...] covering all simulated years.
+def _auto_tstart_kyr(case_data, duration_kyr: float) -> list[float]:
+    """Auto-populate tstart windows covering the simulated run, skipping the first window.
 
-    Reads interval.txt<icstart> (sum of interseismic durations in years) from the case
-    dir. One window if <= duration kyr of data. Ceil division for longer runs.
+    The reference MATLAB (Figure4_7_8_Plot_Slip_distributions4sequence.m) never plots
+    from t=0: its header comment hardcodes the paper's own panel choices --
+    tstart=[3,6,9,12] kyr for Model A at duration=3kyr (covering 3-15 kyr of the 15.167
+    kyr run), tstart=[4,6] for Model B at duration=2kyr, tstart=[6,9] for Model C at
+    duration=3kyr. In each case the *first* duration-length window is skipped (spin-up /
+    less representative early cycles) and the ones after are shown back-to-back.
+
+    This reproduces that convention as a formula instead of hardcoding one model's
+    numbers: with n_full = floor(total_kyr / duration_kyr) complete windows available,
+    return duration_kyr*[1, 2, ..., n_full-1] (i.e. skip window 0, keep the rest). For
+    n_full <= 1 (not even one full window's worth of extra data after the burn-in) fall
+    back to a single window starting at 0, since there is nothing to skip past on a short
+    run. total_kyr is taken from case_data.event_times_kyr, already loaded by
+    load_saf_case with correct icstart-tag ordering, rather than re-globbing interval.txt*
+    (which double-counted files present in both case_dir and case_dir/aRawSimuData).
     """
     import math
-    total_yr = 0.0
-    # take the first interval.txt<icstart> we can find
-    candidates = sorted(case_dir.glob("interval.txt*")) + sorted((case_dir / "aRawSimuData").glob("interval.txt*")) if (case_dir / "aRawSimuData").exists() else sorted(case_dir.glob("interval.txt*"))
-    for f in candidates:
-        try:
-            vals = np.loadtxt(f)
-            total_yr += float(np.atleast_1d(vals).sum())
-        except Exception:
-            continue
-    total_kyr = total_yr / 1000.0
-    nwin = max(1, math.ceil(total_kyr / duration_kyr))
-    return [i * duration_kyr for i in range(nwin)]
+    total_kyr = float(case_data.event_times_kyr[-1] - case_data.event_times_kyr[0])
+    n_full = int(math.floor(total_kyr / duration_kyr))
+    if n_full <= 1:
+        return [0.0]
+    return [i * duration_kyr for i in range(1, n_full)]
 
 
 def plot_window(
@@ -78,6 +90,16 @@ def plot_window(
     }
     x_label_anchor = max(block.x_km.max() for block in case_data.fault_blocks) - 35.0
     shown = 0
+    # Label anti-collision: the reference MATLAB staggers labels across only 3 x-slots
+    # (text(152 + mod(ntag,3)*15, ...)), which visibly overlaps whenever events cluster
+    # in time (seen on a real run: several events <0.01 kyr apart in the same slot land
+    # on top of each other). This is cosmetic-only -- it changes label placement, never
+    # which events are shown, their order, or the slip polygons -- so it does not touch
+    # parity. Use more slots (6) and nudge close-in-time labels within the same slot
+    # apart vertically so they no longer overprint.
+    n_slots = 8
+    slot_spacing = 12.0
+    last_label_y = [None] * n_slots
 
     for index, cycle_id in zip(event_indices, cycle_ids):
         slip = case_data.slips_m[index]
@@ -98,11 +120,17 @@ def plot_window(
             )
             ax.fill(xx, yy, color=colors[block.name], alpha=0.28, linewidth=0.0)
 
+        slot = shown % n_slots
+        min_gap_kyr = 0.025 * duration_kyr
+        label_y = time_kyr
+        if last_label_y[slot] is not None and label_y - last_label_y[slot] < min_gap_kyr:
+            label_y = last_label_y[slot] + min_gap_kyr
+        last_label_y[slot] = label_y
         ax.text(
-            x_label_anchor + 10.0 * (shown % 3),
-            time_kyr,
+            x_label_anchor + slot_spacing * slot,
+            label_y,
             str(int(cycle_id)),
-            fontsize=6,
+            fontsize=5,
             fontweight="bold",
         )
 
@@ -118,7 +146,14 @@ def plot_window(
     ax.set_ylim(ymin, ymax)
     ax.set_xlabel("NW-SE (km)")
     ax.set_ylabel("Time (kyrs)")
-    ax.set_title(f"SAF slip distributions: {case_dir.name}, {tstart_kyr:g}-{tend_kyr:g} kyr")
+    # case_dir.name is '' for "." or a trailing-slash path (Path(".").name == ""),
+    # which rendered as a stray ", " in the title. Resolve to an absolute path first
+    # so cwd-relative invocations (the documented default) still get a real name.
+    case_label = case_dir.resolve().name
+    title = f"SAF slip distributions: {tstart_kyr:g}-{tend_kyr:g} kyr"
+    if case_label:
+        title = f"SAF slip distributions: {case_label}, {tstart_kyr:g}-{tend_kyr:g} kyr"
+    ax.set_title(title)
 
     scale_x = x_max - 40.0
     ax.plot([scale_x, scale_x], [ymin + 0.05, ymin + 0.05 + 5.0 / scale], color="k", linewidth=3.0)
@@ -138,7 +173,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     case_data = load_saf_case(case_dir)
 
-    tstart_list = args.tstart if args.tstart is not None else _auto_tstart_kyr(case_dir, args.duration)
+    tstart_list = args.tstart if args.tstart is not None else _auto_tstart_kyr(case_data, args.duration)
     print(f"tstart windows (kyr): {tstart_list}  duration={args.duration} kyr")
 
     outputs = []

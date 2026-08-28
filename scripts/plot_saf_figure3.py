@@ -12,6 +12,18 @@ import numpy as np
 
 from saf_result_utils import geologic_rate_profile, load_saf_case, modeled_slip_rate_mm_per_yr
 
+# NOTE (parity audit, see report): geologic_rate_profile()'s segment-boundary constant
+# OBSERVED_EQDYNA_X_KM in saf_result_utils.py does not match the reference MATLAB
+# (Figure3_Sliprates_UCERF3.m + observed_sliprates.m, which compute these x-positions via
+# deg2utm/convert/rotate of the UCERF3 site lon/lat). Running the MATLAB oracle gives
+# loc_eqdyna(1:3,1) = [-164.315662175388, 21.621033567916, 129.481611408865] km, vs.
+# [-158.576402497732, -69.7459994869569, -17.4212282973009] currently hardcoded --
+# shifting the Carrizo/Mojave-S/San-Bernardino-S segment boundaries along the SSAF trace
+# by 10s of km and misclassifying ~35% of fault-3 nodes into the wrong observed-rate
+# bucket. saf_result_utils.py is owned by another agent; this file cannot fix it, so
+# flagging it here where the wrong values are consumed. Do not treat this plot's
+# "observed" band as parity-verified until that constant is corrected upstream.
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
