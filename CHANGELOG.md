@@ -4,69 +4,126 @@ All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https:/
 
 ## [Unreleased]
 
-### Added
-- `scripts/paleo_site_stats.py`: Python port of the published MATLAB
-  `Figure5_Plot_Recurrene_Stats.m`, reproducing Table 2 of Liu et al.
-  (2022) — recurrence-interval and slip statistics at the Bidart Fan,
-  Frazier Mountain and Wrightwood paleoseismic sites. Site nodes are
-  derived from the mesh rather than hard-coded.
-- `scripts/plot_saf_figure6.py`, `scripts/plot_saf_figure9.py`: ports of
-  the published Figure 6 (cumulative moment, magnitude-frequency) and
-  Figure 9 (characteristic-event slip distributions).
-- `scripts/make_paper_figures.py`: single driver that renders the whole
-  paper figure set for any case — catalog, figures 3/4/5/6/9, b-value
-  analysis and per-cycle rupture dynamics — one stage per published
-  figure, each logged to `aPlots/logs/<stage>.log`.
-- `scripts/fetch_published_reference.sh`: fetches the published Zenodo
-  software (10.5281/zenodo.5823021) and Pangaea results
-  (10.1594/PANGAEA.940262) from their DOIs with md5 pinning, replacing
-  615 MB of vendored immutable data.
-- `compset/xianshuihe.gmsh.lite/`: Xianshuihe fault geometry input — the
-  1:1M active-fault KML, a trace/fault-id script and a step-over
-  analysis. Geometry only; not yet runnable. The 9 digitised polylines
-  become 8 faults: seg1 is merged into seg2 (they meet at 0.26 km, well
-  below the 3.8 km step-over cut-off, and seg1 alone is 15 km — about 38
-  nodes at dxy=400 m, near the resolution floor). All faults are vertical
-  and left-lateral.
+## [2.0.7-rc8] - 2026-08-28
+
+Pre-release of 2.0.7 (iteration on rc7). Three silent Fortran defects that
+suppressed earthquakes on fault systems with more than four faults, the
+Xianshuihe compset made runnable end to end, the published post-processing
+ported, and a project rule book with mechanical guards.
 
 ### Fixed
-- `scripts/saf_result_utils.py`: `OBSERVED_EQDYNA_X_KM` was wrong. The
-  Mojave S and San Bernardino S observed-rate sites sat ~91 km and
-  ~147 km too far NW, misassigning about a third of the SSAF nodes to the
-  wrong observed-rate band in every Figure 3 produced so far. Replaced
-  with values derived by running the published deg2utm/convert/rotate
-  chain, with the derivation recorded.
-- `scripts/saf_result_utils.py`: `load_saf_case` had no handling for
-  gfortran's dropped-E 3-digit exponents and crashed outright on the
-  published archive.
-- `scripts/paleo_site_stats.py`: its dropped-E handling was backwards.
-  MATLAB `load()` reads `0.8384675-101` as `0.8384675` — it truncates the
-  unparsed suffix rather than reading scientific notation (verified
-  against R2024b). Both loaders now use the truncation rule.
-- `scripts/plot_event_slips_overtime_fig4.py`: auto-windowing started at
-  0 kyr, while the paper's Figure 4 panels are `tstart = [3, 6, 9, 12]`
-  and skip the first window as burn-in. Also fixes a double count of
-  `interval.txt` when a case holds files in both the case dir and
-  `aRawSimuData/`, plus label collisions and an empty-case-name title.
-- `scripts/plotRuptureDynamics`: was the only script that never looked in
-  `aRawSimuData/`, so it failed on any case where `run.sh` had completed
-  its own post-run move.
-- `scripts/case.setup`: the C_mesh=2 branch deleted `binaryop` before
-  launching, so the documented restart-from-binaryop procedure could
-  never work for `paper.saf.A`. The run wrapper is now detached with
-  `setsid` where available, so a process-group kill cannot orphan the
-  binary and skip the post-run steps.
+- `src/faulting.f90`: the nucleation-point lookup was four hand-written
+  if/elseif branches covering faults 1-4 with **no else clause**. A
+  nucleation on fault 5 or beyond left `ift0`, `xcoor0` and `ycoor0`
+  uninitialised, so the forced-rupture test `ii == ift0` never matched and
+  the nucleation patch was never applied. The nucleating node crept a few
+  microns, stayed above failure, and every subsequent interseismic period
+  exited on its first step — an endless run of 1-year "cycles" with no
+  earthquakes and nothing in the log to say so. Affected
+  `xianshuihe.gmsh.lite` (7 faults) and `gulang.gmsh.lite` (5 faults).
+- `src/interstress.f90`: fault-tip exclusion and the nucleation search were
+  hardcoded to the first three faults, so with `ntotft > 3` the remaining
+  faults could never host an earthquake. `gulang.gmsh.lite` had been running
+  with ft4/ft5 inert, which invalidates its rc5 benchmark numbers.
+- `src/interstress.f90`: strength was computed as `abs(ns)*fric_fs` with no
+  cap, so a node driven tensile by the interseismic loading was handed
+  strength **proportional to how tensile it was**. The dynamic solver already
+  capped the effective normal stress at `minnorm = -10 MPa`
+  (`faulting.f90:170`); the interseismic phase now does the same.
+- `scripts/case.setup`: the generated `run.sh` re-ran `meshgen.py` on every
+  launch and then unconditionally copied `fem_mesh_output/*` over the case
+  directory, silently discarding per-node loading patched on top of the mesh.
+  The run proceeded on default uniform loading with nothing in the log to
+  indicate it. `meshgen.py` is now skipped when a mesh exists (`FORCE_MESH=1`
+  to force), and a working copy newer than its source is kept, not
+  overwritten.
+- `scripts/meshGenLib.py`: `judgeElemDirect` classified elements against a
+  global delta-y rather than the local fault normal, orphaning split nodes on
+  steep faults and misclassifying 3 of 13,517 cells on `subei.gmsh.lite`.
+- `scripts/plot_event_slips_overtime_fig4.py` defaults (`--threshold 1.0` m,
+  `--duration 3` kyr, `--scale 30`) are tuned to the SAF. On a case whose
+  events are mostly sub-metre every event was filtered out and the figure
+  rendered empty — axes, fault traces, scale bar, nothing else, no warning.
+  `monitor_runs.sh` now sets them per case via `FIG4_ARGS`.
+- Several `compset/*/user_defined_params.py` set `fric_fini = 0.45` without
+  the `par.` prefix, making it a silent no-op.
+
+### Added
+- `compset/xianshuihe.gmsh.lite/`: **runnable** Xianshuihe fault compset
+  (C_mesh=3). Supersedes the geometry-only version: the 9 digitised polylines
+  become **7 faults**, not 8 — `MERGE_GROUPS = [[1,2],[0,4],[3],[5],[6],[7],[8]]`,
+  merging seg1+seg2 (junction 0.26 km) and seg0+seg4 (junction 0.00 km),
+  482.7 km total, all vertical and left-lateral. Pure-quad embedded-fault mesh
+  via `Mesh.SubdivisionAlgorithm = 1`: 54,068 quads, 0 triangles, 0 orphaned
+  split nodes at dxy = 400 m. Per-node loading from GSRM v2.1
+  (`fetch_strain_rate.sh` -> `strain_rate_loading.py --case` ->
+  `apply_strain_loading.py`).
+- Loading calibration for that compset: the asymptotic shear stress must
+  satisfy `T <= |ambientnorm|`, because `ns = -N - T*sin(2*phi)` goes tensile
+  once `T*|sin 2phi| > N`. The SAF tolerates `T/N = 1.20` only because its
+  angle of compression is coherently positive (91% of nodes); the Xianshuihe
+  angle straddles zero (43% positive), so it needs **T = 90-100 MPa**.
+- `scripts/plotMeshFaults.py`: per-segment and per-tip mesh views with a
+  frozen style. `plotMeshNearFault.py` zooms on each fault's midpoint, which
+  is why every orphaned split node found on this project — all of them at
+  tips — went unseen.
+- `scripts/snapshot_case.py`: snapshots a live case for post-processing,
+  truncating each segment to whole cycles and merging restart segments
+  (`totalop.txt1` + `totalop.txt73` + ...) into one continuous sequence.
+  Without it `plotRuptureDynamics` reads a single `icstart` and silently
+  reports only one segment of a restarted run.
+- `scripts/paleo_site_stats.py`: port of the published MATLAB
+  `Figure5_Plot_Recurrene_Stats.m`, reproducing Table 2 of Liu et al. (2022)
+  at the Bidart Fan, Frazier Mountain and Wrightwood sites, with site nodes
+  derived from the mesh rather than hard-coded.
+- `scripts/plot_saf_figure6.py`, `scripts/plot_saf_figure9.py`: ports of the
+  published Figure 6 (cumulative moment, magnitude-frequency) and Figure 9
+  (characteristic-event slip distributions). Figure 9 selects events by
+  rupture footprint rather than by the paper's hard-coded cycle ids, which
+  mean nothing in another chaotic sequence.
+- `scripts/make_paper_figures.py`: single driver for the whole paper figure
+  set on any case, one stage per published figure, each logged to
+  `aPlots/logs/<stage>.log`.
+- `scripts/fetch_published_reference.sh`: fetches the published Zenodo
+  software (10.5281/zenodo.5823021) and Pangaea results
+  (10.1594/PANGAEA.940262) from their DOIs with md5 pinning, replacing 615 MB
+  of vendored immutable data.
+- `PROJECT_RULES.md` and `test_system/test_conventions.py`: 30 mechanical
+  checks over the conventions this project has had to learn the hard way,
+  including a ban on summing three or more literal `nfnode(<digit>)` terms in
+  `src/*.f90` — the syntactic shape of both Fortran fault-count bugs above.
+- `test_system/BENCHMARK.md`: 5k-cycle lite benchmarks.
+
+### Changed
+- `scripts/checkMeshQuality.py`: hardened to hard failures (exit 1) on
+  orphaned split nodes, element-count mismatch against the `.msh`, triangles
+  in a quad mesh, interior angles below 20 deg **or above 160 deg**, aspect
+  ratio above 10, degenerate and mixed cells. The maximum-angle gate is new:
+  a 164.8 deg cell previously passed because only the minimum was checked.
+- `scripts/monitor_runs.sh`: was hardcoded to `paper.saf.A.*` and `saflite`
+  and plotted the live directory. Now takes case directories (or discovers
+  any `work/*/` carrying `totalop.txt1`), snapshots each pass, runs the suite,
+  and reports events, span, Mmax and the M>=6.5 count per case.
+- `compset/paper.saf.A/README.md`: records how a 4000-cycle run compares to
+  published Model A — rupture behaviour reproduces, timing does not, which
+  points at the `Rate_direction.txt` provenance caveat rather than the solver.
 
 ### Known issues
+- `catalog.csv` writes the nucleation fault **0-indexed** (`ft0`..`ft6`) while
+  the rest of the project is 1-indexed (`ft1`..`ft7`).
+- `gulang.gmsh.lite` fails the new maximum-angle mesh gate on one 164.8 deg
+  cell, and its rc5 benchmark numbers were produced with ft4/ft5 inert.
 - `plotRuptureDynamics` computes moment with `mu = 2670*3464^2` while the
-  paper's Figures 6 and 9 use `3500^2*3000`, so every magnitude and
-  b-value it reports sits 0.04 Mw below the paper's published scale. The
-  paper's constant is itself inconsistent with its own model parameters;
-  making this selectable is planned.
-- Published Table 2 prints 49 counted events at Frazier Mountain where
-  its own script on its own published data computes 52. All other FM
-  statistics, and BF and WW, reproduce exactly. See
-  `compset/paper.saf.A/README.md`.
+  paper's Figures 6 and 9 use `3500^2*3000`, so every magnitude and b-value it
+  reports sits 0.04 Mw below the paper's published scale. The paper's constant
+  is itself inconsistent with its own model parameters; making this selectable
+  is planned.
+- Published Table 2 prints 49 counted events at Frazier Mountain where its own
+  script on its own published data computes 52. All other FM statistics, and
+  BF and WW, reproduce exactly. See `compset/paper.saf.A/README.md`.
+- The Xianshuihe angle of compression straddles zero where the SAF's is
+  coherently positive. Validating our GSRM-derived angle against the paper's
+  own on-fault field is still open.
 
 ## [2.0.7-rc7] - 2026-04-29
 

@@ -6,3 +6,15 @@ interval 1200s, stages: catalog analysis rupture, M>=6.0
 /home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t90_snap: 247 cycles
 [work/xsh_t90] 247 events over 3616 yr, Mmax 7.53, M>=6.5: 14  -> work/xsh_t90_snap/aPlots/
 sleeping 1200s...
+================ 2026-08-28 11:52:52 ================
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t100_snap: 473 cycles
+[work/xsh_t100] 473 events over 3747 yr, Mmax 7.66, M>=6.5: 17  -> work/xsh_t100_snap/aPlots/
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t90_snap: 522 cycles
+[work/xsh_t90] 522 events over 4175 yr, Mmax 7.53, M>=6.5: 16  -> work/xsh_t90_snap/aPlots/
+sleeping 1200s...
+================ 2026-08-28 12:15:32 ================
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t100_snap: 750 cycles
+[work/xsh_t100] 750 events over 4174 yr, Mmax 7.66, M>=6.5: 24  -> work/xsh_t100_snap/aPlots/
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t90_snap: 758 cycles
+[work/xsh_t90] 758 events over 4937 yr, Mmax 7.57, M>=6.5: 21  -> work/xsh_t90_snap/aPlots/
+sleeping 1200s...
