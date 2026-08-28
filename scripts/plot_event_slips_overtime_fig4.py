@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -165,7 +166,7 @@ def plot_window(
     output = output_dir / f"Figure4_7_8_slipdist_{tstart_kyr:g}_{tend_kyr:g}kyr.png"
     fig.savefig(output, dpi=200)
     plt.close(fig)
-    return output
+    return output, shown
 
 
 def main() -> None:
@@ -178,9 +179,16 @@ def main() -> None:
     tstart_list = args.tstart if args.tstart is not None else _auto_tstart_kyr(case_data, args.duration)
     print(f"tstart windows (kyr): {tstart_list}  duration={args.duration} kyr")
 
-    outputs = []
+    # Event times start the clock at the FIRST event, so the last event sits at
+    # sum(intervals) - intervals[0]. On a run whose first interseismic period is
+    # long, that is well short of the total simulated time, and a window chosen
+    # from the total lands past the end of the data.
+    t_max = float(case_data.event_times_kyr[-1]) if len(case_data.event_times_kyr) else 0.0
+    print(f"events span 0 to {t_max:.2f} kyr ({len(case_data.event_times_kyr)} events)")
+
+    outputs, empty = [], []
     for tstart_kyr in tstart_list:
-        output = plot_window(
+        output, shown = plot_window(
             case_data=case_data,
             case_dir=case_dir,
             output_dir=output_dir,
@@ -189,10 +197,28 @@ def main() -> None:
             threshold_m=args.threshold,
             scale=args.scale,
         )
-        outputs.append(output)
+        outputs.append((output, shown))
+        if shown == 0:
+            empty.append((tstart_kyr, output))
 
-    for output in outputs:
-        print(f"Wrote {output}")
+    for output, shown in outputs:
+        print(f"Wrote {output}  ({shown} events drawn)")
+
+    # R29: never render an empty result without saying so. This figure used to
+    # save axes, fault traces and a scale bar with no events on them and exit 0,
+    # so a window past the end of the data -- or a threshold above every event's
+    # slip -- looked like a finished plot.
+    if empty:
+        print()
+        for tstart_kyr, output in empty:
+            beyond = tstart_kyr > t_max
+            why = (f"window starts at {tstart_kyr:g} kyr but the events end at {t_max:.2f} kyr"
+                   if beyond else
+                   f"no event in the window exceeds --threshold {args.threshold} m")
+            print(f"EMPTY: {output.name} has no events -- {why}")
+        print("Nothing was plotted. Pick a window inside the event range, or lower "
+              "--threshold.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

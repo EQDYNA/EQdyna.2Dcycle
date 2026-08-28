@@ -222,20 +222,15 @@ It is the restart state; deleting it made the documented
 restart-from-binaryop procedure impossible for C_mesh=2 cases.
 
 ### R29 — A plot script must never render an empty result without saying so
-A filter (magnitude/slip threshold, time window, event-count cutoff) that
-excludes every candidate must print a warning naming the filter, not just
-save a blank figure — axes, fault traces, scale bar, nothing else.
-`plot_event_slips_overtime_fig4.py`'s defaults (`--threshold 1.0` m,
-`--duration 3` kyr, `--scale 30`) are tuned to the SAF; on a case whose
-events are mostly sub-metre, every event was filtered out and the figure
-rendered empty with no error. `monitor_runs.sh` now sets per-case values
-via `FIG4_ARGS`, papering over today's known cases but not stopping the
-next case from silently reproducing it. Tier 3 (norm, not yet a gate): the
-script has no such warning today, so a mechanical check would fail on
-current code; becomes mechanical once the script emits a literal marker
-(e.g. `"WARNING: 0 events passed --threshold"` to stderr) that
-`test_conventions.py` can `grep` for, and, more strongly, exits non-zero
-when zero events are plotted.
+A figure with axes, labels and a legend but no data reads as a finished result.
+`plot_event_slips_overtime_fig4.py` did exactly that twice: once when its
+SAF-tuned `--threshold 1.0` m filtered out every event of a sub-metre
+catalogue, and once when a requested window started past the last event —
+event times begin at the first event, so the last one sits at
+`sum(intervals) - intervals[0]`, well short of total simulated time on a run
+with a long first interseismic period. Both saved a plausible-looking PNG and
+exited 0. A script that draws nothing must say what it filtered and why, and
+exit non-zero. Mechanical check: `test_fig4_refuses_empty_output`.
 
 ### R17 — Detach the run wrapper
 `setsid` where available, so a process-group kill cannot orphan the binary

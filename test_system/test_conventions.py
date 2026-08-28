@@ -433,6 +433,27 @@ def test_every_check_is_registered() -> None:
           "unregistered, so the plain runner skips them: " + ", ".join(missing))
 
 
+def test_fig4_refuses_empty_output() -> None:
+    """R29: plot_event_slips_overtime_fig4.py must not ship an empty figure.
+
+    It saved axes, fault traces and a scale bar with no events on them and
+    exited 0 -- once when SAF-tuned thresholds filtered out every event of a
+    sub-metre catalogue, once when the requested window started past the last
+    event. Both looked like finished plots.
+    """
+    p = os.path.join(SCRIPTS, "plot_event_slips_overtime_fig4.py")
+    if not os.path.exists(p):
+        skip("R29", "fig4 refuses empty output", "script absent")
+        return
+    src = open(p).read()
+    check("R29", "fig4 counts the events it draws",
+          "shown == 0" in src or "if empty" in src,
+          "no empty-output detection")
+    check("R29", "fig4 exits non-zero when nothing is drawn",
+          "sys.exit(1)" in src,
+          "an empty figure still exits 0 and reads as a finished result")
+
+
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
     for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
@@ -443,7 +464,8 @@ def main() -> None:
                test_case_setup_run_sh, test_no_hardcoded_fault_counts_in_fortran,
                test_version_file_is_single_semver_line, test_changelog_has_body_for_version,
                test_changelog_section_extraction_returns_text,
-               test_run_sh_sets_omp_threads, test_every_check_is_registered):
+               test_run_sh_sets_omp_threads, test_fig4_refuses_empty_output,
+               test_every_check_is_registered):
         fn()
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")
     for f in FAILURES:
