@@ -1,8 +1,21 @@
 # subei.gmsh.lite
 
-Coarser-resolution gmsh-meshed (C_mesh=3) Subei fault system. Mirrors the
-saf.gmsh.lite framework: spline-tangent at every gmsh fault node, paper-Fig.2
-style per-node loading plot at meshgen time.
+Coarser-resolution gmsh-meshed (C_mesh=3) Subei fault system. Mirrors
+saf.gmsh.lite: spline-tangent at every gmsh fault node, paper-Fig.2 style
+per-node loading plot at meshgen time. Standard build/run flow: repo root
+`README.md` § Run (`create.newcase` → `python3 meshgen.py` → `case.setup` →
+`bash run.sh`).
+
+`meshgen.py` reads .gmt control points, builds a natural cubic spline y(x) per
+fault (matches `meshgen1.f90` / saf.gmsh.lite; for atf, atf1+atf2 points are
+merged into one x-monotonic spline), meshes with gmsh + multi-surface
+decomposition for the connected junctions (`dx=0.5 km`), and for every gmsh
+fault node sets `ftLoadAngle = uniformXLoadingAngle(tx, ty)` = -atan2(ty, tx)
+deg. Writes
+`fem_mesh_output/{vert,fac,nsmp,nsmpGeoPhys,nsmpTanLen,meshGeneralInfo}.txt`
+and a loading-inputs sanity plot to `aPlots/loading_inputs.png`.
+`meshGenLib.py` is not shipped here; `create.newcase` copies it in from
+`scripts/meshGenLib.py`.
 
 ## Loading model (default: uniform compression along +x)
 
@@ -28,7 +41,7 @@ Per-fault overrides (in `userDefinedFaultSysGeoPhys.py`):
 ## Fault system
 
 Four embedded fault traces (atf is split into atf1+atf2 across a ~2.2 km
-stepover), connected at junctions (atf↔dxs, atf↔sbt, sbt↔dxs). The
+stepover), connected at junctions (atf↔dxs, atf↔sbt, sbt↔dxs); the
 multi-surface gmsh decomposition handles the connected topology.
 
 | Logical fault | gmsh trace(s) | Type | Notes |
@@ -37,45 +50,12 @@ multi-surface gmsh decomposition handles the connected topology.
 | dxs | dxs | strike-slip | Danghe Nan Shan |
 | sbt | sbt | thrust (dip 30°) | Subei thrust |
 
-## Mesh + loading flow
-
-1. `meshgen.py` reads .gmt control points.
-2. Builds natural cubic spline y(x) per fault (matches `meshgen1.f90` /
-   saf.gmsh.lite). For atf, atf1+atf2 control points are merged into one
-   x-monotonic spline.
-3. gmsh meshes 2D domain with embedded fault polylines + multi-surface
-   decomposition for connected junctions; element size `dx=0.5 km`.
-4. For every gmsh fault node:
-   - tangent = analytical spline derivative (smooth, no chord kinks).
-   - ftLoadAngle = `uniformXLoadingAngle(tx, ty)` = -atan2(ty, tx) deg.
-   - other ftPhys fields from `userDefinedFaultSysGeoPhys.defineSysPhys`.
-5. Writes `fem_mesh_output/{vert,fac,nsmp,nsmpGeoPhys,nsmpTanLen,meshGeneralInfo}.txt`.
-6. Saves loading-inputs sanity-check plot to `aPlots/loading_inputs.png`.
-
 ## Files
 
 ```
-user_defined_params.py              # case parameters
-userDefinedFaultSysGeoPhys.py       # subei loading dispatch (uniform per fault)
-meshgen.py                          # gmsh + spline-tangent + uniform-x loading
-user_fault_geometry_input/
-  atf1.gmt.txt, atf2.gmt.txt        # atf segments (stepover)
-  dxs.gmt.txt
-  sbt.gmt.txt
+user_defined_params.py, userDefinedFaultSysGeoPhys.py, meshgen.py   # case params, loading dispatch, gmsh gen
+user_fault_geometry_input/{atf1,atf2,dxs,sbt}.gmt.txt   # atf segments (stepover), dxs, sbt
 README.md
-```
-
-`meshGenLib.py` is **not** in this dir — copied in by `create.newcase`
-from the canonical `scripts/meshGenLib.py`.
-
-## Usage
-
-```bash
-create.newcase --work_dir work/subei --compset subei.gmsh.lite
-cd work/subei
-python3 meshgen.py
-python3 case.setup
-bash run.sh
 ```
 
 ## Resolution

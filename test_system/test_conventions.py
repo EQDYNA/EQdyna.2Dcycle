@@ -387,6 +387,52 @@ def test_changelog_section_extraction_returns_text() -> None:
           "self-closing-range bug if it recurs")
 
 
+def test_run_sh_sets_omp_threads() -> None:
+    """R30: results reproduce only at a fixed thread count, so run.sh must pin one.
+
+    qdct3 and hrglss accumulate into brhs under $OMP ATOMIC, so the summation
+    order depends on thread scheduling and the result differs in the last bit
+    between thread counts. Earthquake sequences are chaotic, so that amplifies
+    to a different catalogue within about four cycles. Verified on v2.1.0:
+    at OMP_NUM_THREADS=1 both paper.saf.A (C_mesh=2) and saf.gmsh.lite
+    (C_mesh=3) reproduce their stored totalop.txt1 exactly (max abs diff 0.0);
+    at 2 threads the same binary diverges by cycle 5.
+
+    If run.sh inherited the caller's OMP_NUM_THREADS, the thread count -- and
+    so reproducibility -- would depend on unrecorded shell state.
+    """
+    p = os.path.join(SCRIPTS, "case.setup")
+    if not os.path.exists(p):
+        skip("R30", "run.sh pins thread count", "case.setup absent")
+        return
+    src = open(p).read()
+    check("R30", "run.sh sets OMP_NUM_THREADS explicitly",
+          "OMP_NUM_THREADS" in src,
+          "generated run.sh inherits the caller's thread count; runs become "
+          "irreproducible against stored references")
+
+
+def test_every_check_is_registered() -> None:
+    """Every test_* function must appear in main()'s run list.
+
+    Twice now a check has been added to this file and left out of that tuple,
+    so `python3 test_system/test_conventions.py` silently never ran it and only
+    pytest's auto-discovery did -- a guard that looks installed but is not.
+    It happened to test_no_hardcoded_fault_counts_in_fortran (the guard against
+    the faulting.f90 / interstress.f90 fault-count bugs) and again to
+    test_run_sh_sets_omp_threads.
+    """
+    import inspect
+    src = inspect.getsource(main)
+    here = sys.modules[__name__]
+    missing = [n for n in dir(here)
+               if n.startswith("test_") and n != "test_every_check_is_registered"
+               and callable(getattr(here, n)) and n not in src]
+    check("R21", "every test_* function is registered in main()",
+          not missing,
+          "unregistered, so the plain runner skips them: " + ", ".join(missing))
+
+
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
     for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
@@ -396,7 +442,8 @@ def main() -> None:
                test_magnitude_constants_documented, test_scripts_search_araw,
                test_case_setup_run_sh, test_no_hardcoded_fault_counts_in_fortran,
                test_version_file_is_single_semver_line, test_changelog_has_body_for_version,
-               test_changelog_section_extraction_returns_text):
+               test_changelog_section_extraction_returns_text,
+               test_run_sh_sets_omp_threads, test_every_check_is_registered):
         fn()
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")
     for f in FAILURES:

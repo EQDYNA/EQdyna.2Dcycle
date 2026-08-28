@@ -1,64 +1,35 @@
 # xianshuihe.gmsh.lite
 
-Xianshuihe fault system (鲜水河断裂), eastern Tibet — a runnable C_mesh=3
-compset with per-node loading derived from GSRM v2.1.
+Xianshuihe fault system (鲜水河断裂), eastern Tibet — runnable C_mesh=3 compset,
+per-node loading from GSRM v2.1. Standard build/run flow: repo root
+`README.md` § Run.
 
 ## Contents
 
 ```
-user_fault_geometry_input/
-  xianshuihe_fault_trace.kml   # 1:1,000,000 Chinese active-fault database trace
-  ft1.gmt.txt .. ft7.gmt.txt   # per-fault control points, written by export_fault_geometry.py
-strain_rate_input/README.md    # how to fetch GSRM v2.1 (the data itself is not committed)
-
-plot_fault_trace.py            # parse + plot the KML, assign fault ids
-map_step_overs.py              # measure and classify step-overs
-export_fault_geometry.py       # KML -> ftN.gmt.txt, resampled to even arc length
-fetch_strain_rate.sh           # download + regionally cut GSRM v2.1
-strain_rate_loading.py         # sample the strain field at the MESH fault nodes
-apply_strain_loading.py        # patch nsmpGeoPhys.txt columns 6, 7, 9
-
-meshgen.py                     # gmsh mesh (embedded fault lines, pure quads)
-user_defined_params.py
-userDefinedFaultSysGeoPhys.py
+user_fault_geometry_input/{xianshuihe_fault_trace.kml (1:1,000,000 Chinese active-fault DB), ft1..ft7.gmt.txt}, strain_rate_input/README.md
+plot_fault_trace.py            # KML parse+plot; shared lib used by the 3 scripts below
+map_step_overs.py, export_fault_geometry.py, fetch_strain_rate.sh, strain_rate_loading.py, apply_strain_loading.py   # see Step-overs / Loading
+meshgen.py, user_defined_params.py, userDefinedFaultSysGeoPhys.py
 ```
 
-**Three figures are kept in the repo**, and every script here exists to
-produce them or the model inputs they describe:
-
-| figure | produced by |
-|---|---|
-| `xianshuihe_fault_trace.png` | `plot_fault_trace.py` |
-| `xianshuihe_strain_map.png` | `strain_rate_loading.py` |
-| `xianshuihe_strain_figure2.png` | `strain_rate_loading.py --case <case_dir>` |
-
-Everything else the scripts emit — vector duplicates, the step-over map, mesh
-views — is regenerable and gitignored, as are third-party data (GSRM) and
-mesh-keyed derived products (`xianshuihe_strain_loading.csv`).
-
-`plot_fault_trace.py` is also the shared library: `export_fault_geometry.py`,
-`strain_rate_loading.py` and `map_step_overs.py` all import `read_kml`,
-`principal_frame`, `chain` and `assign_fault_ids` from it, so the fault
-decomposition is defined in exactly one place. `map_step_overs.py` produces no
-committed figure but is the provenance for the step-over tables below; deleting
-it would orphan a documented result.
+Committed figures: `xianshuihe_fault_trace.png` (`plot_fault_trace.py`),
+`xianshuihe_strain_map.png` (`strain_rate_loading.py`),
+`xianshuihe_strain_figure2.png` (`strain_rate_loading.py --case <case_dir>`).
+Everything else, including `xianshuihe_strain_loading.csv`, is
+regenerable/gitignored.
 
 ## Fault trace
 
-The KML holds **9 polylines across 3 Placemarks**, 124 points, 482 km of
-polyline, spanning 102.44 E / 28.93 N (SE) to 100.18 E / 31.74 N (NW).
-It is not one continuous line — the trace splits into sub-parallel strands
-between about 30.0 and 30.5 N, the Yalahe / Selaha / Zheduotang strands
-near Kangding.
+KML: **9 polylines / 3 Placemarks**, 124 points, 482 km, 102.44 E/28.93 N (SE)
+to 100.18 E/31.74 N (NW); splits into sub-parallel Yalahe/Selaha/Zheduotang
+strands near Kangding (30.0-30.5 N). Polylines *are* the segmentation —
+merging wholesale would erase the step-overs Qiao et al. use as their maturity
+metric and invent geometry across junctions. Ids from `assign_fault_ids()` via
+`MERGE_GROUPS`, SE to NW.
 
-The polylines *are* the segmentation: merging them wholesale into one
-through-going trace would erase the step-overs that Qiao et al. use as
-their maturity metric, and would force invented geometry across the
-junction gaps. Ids come from `assign_fault_ids()` via `MERGE_GROUPS`,
-ordered SE to NW — the rotated x axis increases toward the NW, so the
-ascending-x sort puts the southeastern-most group first.
-
-**7 faults**, `MERGE_GROUPS = [[1,2], [0,4], [3], [5], [6], [7], [8]]`:
+**7 faults**, `MERGE_GROUPS = [[1,2], [0,4], [3], [5], [6], [7], [8]]`,
+`FT_DIP_DEG = 90`, `FT_TYPE = 1` (all vertical, left-lateral):
 
 | fault | polylines | length | fault | polylines | length |
 |---|---|---|---|---|---|
@@ -67,40 +38,23 @@ ascending-x sort puts the southeastern-most group first.
 | ft3 | seg3 | 26.6 km | ft7 | seg8 | 63.4 km |
 | ft4 | seg5 | 70.9 km | | | **482.7 km** |
 
-All faults are vertical (`FT_DIP_DEG = 90`) and left-lateral strike-slip
-(`FT_TYPE = 1`).
+**The two merges** (nothing else is merged):
 
-### The two merges
+| merge | gap | justification |
+|---|---|---|
+| seg1+seg2 → ft1 (74.5 km) | 0.26 km | tightest junction, far below 3.8 km cut-off (digitisation break, not structure); *and* seg1 alone is 15 km → at dxy=400 m only ~38 nodes vs 2 km nucleation-patch radius, near resolution floor. Neither reason alone sufficient. |
+| seg0+seg4 → ft2 (118.1 km) | 0.00 km | collinear across the join; ft2 = SE trunk |
 
-`MERGE_GROUPS` merges twice, and nothing else.
-
-**seg1 + seg2.** Two reasons, both needed — either alone would not justify
-it. Their endpoints meet at **0.26 km**, the tightest junction in the
-dataset and far below the 3.8 km step-over cut-off: a break in the
-digitisation, not a structure. And seg1 alone is 15 km, which at
-dxy = 400 m carries ~38 fault nodes against a 2 km nucleation-patch
-radius — near the floor of what the code resolves. Merged, ft1 is 74.5 km.
-
-**seg0 + seg4.** These meet at **0.00 km** and are collinear across the
-join. Merged, ft2 is the 118 km southeastern trunk.
-
-`THROUGH_GOING_ORDER` in `plot_fault_trace.py` is **not** a fault. It is
-only the order in which the polylines succeed one another along the trace,
-which `map_step_overs.py` needs to know which pairs are neighbours. It is
-unaffected by the merges.
+`THROUGH_GOING_ORDER` is not a fault — polyline adjacency order for
+`map_step_overs.py`, unaffected by merges.
 
 ## Step-overs
 
-Qiao et al. use step-over density as a fault-maturity proxy, counting
-step-overs wider than 1% of fault length: 4/350 = 0.011 per km for the
-Xianshuihe against 1/550 = 0.002 for Yushu-Ganzi. `map_step_overs.py`
-measures each junction (along-strike gap, fault-normal width against the
-**local** strike, left/right sense) and the separation between the
-parallel splay strands.
-
-Sense is converted to releasing/restraining with the **sinistral**
-convention: on this left-lateral fault a *left* step opens and a *right*
-step closes — the opposite of the dextral case most references describe.
+Qiao et al.'s maturity metric: step-overs > 1% of fault length — Xianshuihe
+4/350 = 0.011/km vs Yushu-Ganzi 1/550 = 0.002/km. `map_step_overs.py` is the
+provenance for the tables below. Sense → releasing/restraining via the
+**sinistral** convention: *left* step opens, *right* step closes (opposite of
+the dextral case most references use).
 
 | junction | gap (km) | width (km) | sense | counted |
 |---|---:|---:|---|---|
@@ -115,83 +69,52 @@ step closes — the opposite of the dextral case most references describe.
 |---|---:|---:|---|
 | seg3-seg4 | 26 km | 2.9 - 8.7 km | yes |
 | seg4-seg5 | 55 km | 3.2 - 12.9 km | yes |
-| seg3-seg5 | 20 km | 11.4 - 15.0 km | no (= the other two summed) |
+| seg3-seg5 | 20 km | 11.4 - 15.0 km | no (= other two summed) |
 
-**Negative result worth recording: this 1:1M compilation does not resolve
-the step-overs the paper counts.** Every junction offset is 0.0-3.4 km,
-all below the 3.8 km cut-off; only the splay strands clear it. That gives
-2 step-overs, density 0.005 per km against the paper's 0.011.
-Reproducing their metric needs a finer source (Chevalier et al. 2018 /
-Xu et al. 2016, or 1:250k mapping).
-
-Note the largest junction offset — 12.4 km at x = 41 km — is almost
-entirely along-strike (2.3 km fault-normal). It is an unmapped stretch of
-trace, not a step-over.
+**Negative result: this 1:1M compilation does not resolve the paper's
+step-overs.** All offsets 0.0-3.4 km, below the 3.8 km cut-off; only splay
+strands clear it → 2 step-overs, density 0.005/km vs paper's 0.011/km. Needs a
+finer source (Chevalier et al. 2018 / Xu et al. 2016, or 1:250k mapping).
+Largest offset, 12.4 km at x=41 km, is almost entirely along-strike (2.3 km
+fault-normal) — an unmapped trace gap, not a step-over.
 
 ## Mesh
 
-`meshgen.py` follows the `saf.gmsh.lite` **embedded** scheme: one surface
-for the whole domain with the fault lines embedded via
-`gmsh.model.mesh.embed`. It does **not** connect fault tips with
-connector lines — that is the `gulang.gmsh.lite` chain-of-surfaces
-pattern, and forcing it here would invent geometry across the step-overs
-the case exists to study.
-
-Pure quads come from `Mesh.SubdivisionAlgorithm = 1`, which halves every
-element rather than recombining opportunistically. Overlapping strands are
-preserved as they are; no trimming.
-
-Current mesh (dxy = 400 m, `dxAtBoundary` = 20 km): 56,774 nodes,
-**54,068 quads, 0 triangles**, 0 orphaned split nodes, 0 cells failing the
-`checkMeshQuality.py` gates, interior angles 32.0-154.6 deg, aspect ratio
-max 4.43. Meshes in ~9 s.
-
-Inspect it with the two views in `scripts/plotMeshFaults.py`:
-
-```bash
-python3 scripts/plotMeshFaults.py <case_dir>          # per segment AND per tip
-```
-
-The per-tip view matters: `plotMeshNearFault.py` zooms on each fault's
-midpoint, and every orphaned split node found on this project sat at a tip.
+`meshgen.py`: `saf.gmsh.lite` **embedded** scheme (one surface, fault lines
+via `gmsh.model.mesh.embed`), not `gulang.gmsh.lite`'s connector-line pattern
+— would invent geometry across the step-overs the case studies. Pure quads via
+`Mesh.SubdivisionAlgorithm = 1`; overlapping strands preserved, no trimming.
+Current mesh (dxy=400 m, `dxAtBoundary`=20 km): 56,774 nodes, **54,068 quads,
+0 triangles**, 0 orphaned split nodes, 0 `checkMeshQuality.py` failures,
+interior angles 32.0-154.6 deg, aspect ratio max 4.43, ~9 s. `python3
+scripts/plotMeshFaults.py <case_dir>` — per-tip view matters, every orphaned
+split node found in this project sat at a tip.
 
 ## Loading
 
-Per-node, sampled from **GSRM v2.1** (Kreemer et al. 2014) at the mesh
-fault nodes. Order matters — the mesh must exist before the loading can be
-sampled, and `meshgen.py` writes `nsmpGeoPhys.txt` during meshing, so the
-loading columns are patched in afterwards:
+Per-node from **GSRM v2.1** (Kreemer et al. 2014), sampled at mesh fault nodes
+— must run after meshing:
 
 ```bash
-bash fetch_strain_rate.sh                                       # 1. GSRM v2.1 regional cut
-python3 export_fault_geometry.py                                # 2. polylines -> ftN.gmt.txt
-create.newcase --work_dir work/xsh --compset xianshuihe.gmsh.lite
-cd work/xsh && python3 case.setup && python3 meshgen.py         # 3. mesh
-python3 <compset>/strain_rate_loading.py --case .               # 4. sample at MESH nodes
-python3 <compset>/apply_strain_loading.py --case . --target-stress 100e6   # 5. cols 6,7,9
-./run_eqdyna2d_<version>                                        # 6. run
+bash fetch_strain_rate.sh                                       # GSRM v2.1 regional cut
+python3 export_fault_geometry.py                                # polylines -> ftN.gmt.txt
+# create.newcase / case.setup / meshgen.py — root README.md § Run
+python3 <compset>/strain_rate_loading.py --case .                # sample MESH nodes (2581)
+python3 <compset>/apply_strain_loading.py --case . --target-stress 100e6   # patch cols 6,7,9
 ```
 
-Step 4 without `--case` samples the 123 KML control points instead of the
-2581 mesh nodes, which is a field profile, not model input.
-
-Patch **both** `nsmpGeoPhys.txt` and `fem_mesh_output/nsmpGeoPhys.txt`, or
-launch with `run.sh`, which now keeps a working copy newer than its
-`fem_mesh_output` source rather than overwriting it. Before that fix,
-`run.sh` re-meshed on every launch and silently reverted the patch, and
-the run proceeded on default uniform loading with nothing in the log to
-say so.
-
-### What the columns get
+Trap: `--case`-less `strain_rate_loading.py` samples the 123 KML points, not
+the 2581 mesh nodes. Patch **both** `nsmpGeoPhys.txt` and
+`fem_mesh_output/nsmpGeoPhys.txt`, or use `run.sh` (keeps a working copy newer
+than its `fem_mesh_output` source; previously re-meshed every launch, silently
+reverting to uniform loading with no log trace).
 
 | column | value |
 |---|---|
 | `ftLoadMaxShear` (6) | per-node max shear strain rate from GSRM |
-| `ftLoadAngle` (7) | per-node **angle of compression** = local fault strike − max-shear direction |
+| `ftLoadAngle` (7) | per-node angle of compression = local fault strike − max-shear direction |
 | `ftLoadWt` (8) | 450 (unchanged) |
 | `ftVis` (9) | `TARGET / gamma_i` — see below |
-
-Per fault, on the current mesh:
 
 | fault | nodes | length | gamma (nanostrain/yr) | angle of compression (deg) |
 |---|---:|---:|---:|---:|
@@ -203,37 +126,21 @@ Per fault, on the current mesh:
 | ft6 | 391 | 74.7 km | 43-202 | -32.8 .. +18.5 |
 | ft7 | 321 | 63.4 km | 74-117 | -20.4 .. +8.4 |
 
-### Sign convention for `ftLoadAngle`
+**Sign convention** (Liu et al. 2022, Fig. 2d): angle of compression = local
+fault strike minus max-shear direction; `interstress.f90` applies `rn =
+-gamma*sin(2*phi)*ant` — positive phi clamps, negative unclamps; reversed sign
+pulls the fault apart. `strike`/`shear_dir` are azimuths in the local rotated
+frame (principal axis 122.9 deg) — **rotation cancels in the difference**,
+immune to frame choice. GSRM tensor **components** are interpolated, never the
+principal angle (pi-periodic; interpolating it directly spikes +/-90 deg at
+the wrap).
 
-Liu et al. (2022) define the angle of compression as **local fault strike
-minus max-shear direction** (their Fig. 2d caption), and `interstress.f90`
-consumes it as `rn = -gamma*sin(2*phi)*ant`: positive phi clamps, negative
-phi unclamps. Get this backwards and the loading pulls the fault apart.
-
-Both `strike` and `shear_dir` are azimuths in the local rotated frame
-(principal axis 122.9 deg); the rotation cancels in the difference, so the
-frame choice cannot affect the result. GSRM tensor **components** are
-interpolated, never the principal angle — the angle is pi-periodic and
-interpolating it produces +/-90 deg spikes at the wrap.
-
-### `ftVis` and the TARGET stress
-
-`ftVis_i = TARGET / gamma_i`, following the SAF construction:
-`interstress.f90` sets `ant = ant0*str/rd`, so loading rate x viscosity is
-**constant** across nodes. The asymptotic shear stress is then uniform and
-only the angle varies, while the local rate sets the approach timescale.
-Leaving `ftVis` uniform while `ftLoadMaxShear` varies would not reproduce
-that construction.
-
-**TARGET must not exceed the ambient normal stress.** With
-`ambientnorm = -100 MPa`, the asymptotic state per node is
-
-```
-ns = -N - T*sin(2*phi)      strength = fric_fs*|ns|      shs = T*cos(2*phi)
-```
-
-so a node goes tensile once `T*|sin 2phi| > N` on the negative-phi side.
-Swept against this case's actual angle distribution:
+**`ftVis` and TARGET.** `ftVis_i = TARGET/gamma_i` (SAF construction, `ant =
+ant0*str/rd`): constant rate x viscosity → uniform asymptotic shear stress,
+gamma sets only the approach timescale. TARGET must not exceed ambient normal
+stress: with `ambientnorm = -100 MPa`, `ns = -N - T*sin(2*phi)`, `strength =
+fric_fs*|ns|`, `shs = T*cos(2*phi)`, tensile once `T*|sin 2phi| > N`
+(negative-phi side):
 
 | T/N | tensile nodes | strength < 5 MPa | can nucleate | max ns |
 |---:|---:|---:|---:|---:|
@@ -241,18 +148,12 @@ Swept against this case's actual angle distribution:
 | 1.00 | 0% | 0.4% | 93% | -8.9 MPa |
 | 1.20 | 1.5% | 2.4% | 95% | +9.3 MPa |
 
-The SAF gets away with T/N = 1.20 because its angle of compression is
-coherently positive (91% of nodes, mean +6.8 deg, from
-`saf.gmsh.lite/user_fault_geometry_input/*.gmt.txt` col 4). The Xianshuihe
-angle straddles zero (43% positive, mean -0.2 deg), so it cannot. **Use
-T = 90-100 MPa here.**
-
-As a backstop, `interstress.f90` now caps the effective normal stress at
-`minnorm = -10 MPa`, the same cap the dynamic solver already applied in
-`faulting.f90`. It previously used `abs(ns)`, which handed a tensile node
-strength proportional to how tensile it was.
-
-### How the loading compares to the other compsets
+SAF uses T/N=1.20 because its angle of compression is coherently positive (91%
+of nodes, mean +6.8 deg); Xianshuihe straddles zero (43% positive, mean -0.2
+deg). **Use T = 90-100 MPa here.** Backstop: `interstress.f90` now caps
+effective normal stress at `minnorm = -10 MPa` (matches `faulting.f90`'s
+dynamic cap; previously `abs(ns)`, giving a tensile node strength proportional
+to how tensile it was).
 
 | compset | ftLoadMaxShear | nanostrain/yr | ftVis (Pa s) |
 |---|---|---|---|
@@ -261,38 +162,26 @@ strength proportional to how tensile it was.
 | `gulang.gmsh.lite` | 1.427e-14 uniform | 450 | 5.0e21 |
 | `xianshuihe` (GSRM) | varies per node | 39-202 | 1.6e22-8.0e22 |
 
-Only the SAF and this case derive loading from a strain field; `subei` and
-`gulang` carry the SAF default 450 nanostrain/yr unchanged, which is above
-the SAF's own maximum everywhere along their faults.
-
-Sanity check on magnitude: `V = 2*W*gamma` at a 50 km deforming half-width
-gives 5.4 mm/yr on ft1 and 11-12 mm/yr on the Xianshuihe proper, against
-Qiao et al.'s measured 5-6 and 12-13 mm/yr — an independent product from
-their InSAR inversion, not fitted. The same conversion puts the SAF at
-45 mm/yr against an observed 34, so treat this as order-of-magnitude
-confirmation; W is a free parameter.
-
-`ftVis` reaches 8.0e22 Pa s where the strain rate is lowest, above the
-SAF's 2.6e22 maximum. That is a consequence of holding the stress product
-constant at a lower loading rate, not an independent rheological claim.
-
-Note that gamma does **not** control whether the fault ruptures — it
-cancels out of the asymptotic stress and only sets the clock
-(`tau = ftVis/mu`, 15-25 kyr here against ~8 kyr for the SAF).
+Only SAF and this case derive loading from a strain field; `subei`/`gulang`
+carry the SAF default 450 nanostrain/yr unchanged, above the SAF's own max
+everywhere along their faults. Sanity check (`V=2*W*gamma`, 50 km half-width):
+5.4 mm/yr (ft1), 11-12 mm/yr (Xianshuihe proper) vs Qiao et al.'s 5-6/12-13
+mm/yr — independent InSAR product, not fitted (same conversion: SAF 45 vs
+observed 34, order-of-magnitude only, W free). `ftVis` reaches 8.0e22 Pa s at
+the lowest strain rate, above SAF's 2.6e22 max (constant stress-product
+construction, not a rheological claim). Gamma doesn't gate rupture (cancels
+from asymptotic stress); sets only the clock (`tau=ftVis/mu`: 15-25 kyr here
+vs ~8 kyr SAF).
 
 ## Reference
 
 Qiao, Zhou & Zhang (2022), *EPSL* 596, 117799,
-<https://doi.org/10.1016/j.epsl.2022.117799>. Their Fig. 4d gives a
-locking depth of 15.1 +/- 6.6 km along strike, against 22 km for the SAF;
-Fig. 4e gives dips of 75-90 S over the Xianshuihe proper, which the model
-rounds to vertical throughout.
+<https://doi.org/10.1016/j.epsl.2022.117799>. Fig. 4d: locking depth 15.1 +/-
+6.6 km along strike (vs 22 km SAF); Fig. 4e: dips 75-90 S over the Xianshuihe
+proper (model rounds to vertical).
 
 ## Still to do
 
-- Long runs for a converged catalogue; the median recurrence interval is
-  currently a few years, i.e. the sequence is dominated by small events.
-- Calibrate against Qiao et al.'s along-strike slip-rate profile with
-  `scripts/plot_saf_figure3.py`.
-- Compare the ~350 km Xianshuihe proper against the full system (Qiao et
-  al. put the segment boundary near 100.7 E).
+- Long runs for a converged catalogue; recurrence interval currently a few years (small-event dominated).
+- Calibrate against Qiao et al.'s along-strike slip-rate profile with `scripts/plot_saf_figure3.py`.
+- Compare the ~350 km Xianshuihe proper against the full system (segment boundary near 100.7 E, Qiao et al.).

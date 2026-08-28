@@ -109,6 +109,20 @@ CATALOG=1 plotRuptureDynamics      # writes aPlots/catalog.csv
 analyze_catalog.py . --mmax 7.0    # writes aPlots/catalog_analysis.png
 ```
 
+## Reproducibility
+
+Runs are only reproducible at a **fixed `OMP_NUM_THREADS`**. The OpenMP
+reductions in `qdct3` and `hrglss` accumulate under `$OMP ATOMIC`, so the
+summation order depends on thread scheduling and results differ in the last
+bit between thread counts. Earthquake sequences are chaotic, so that grows
+into a visibly different catalogue within about four cycles.
+
+At `OMP_NUM_THREADS=1`, v2.1.0 reproduces the stored SAF references exactly
+on both meshing paths — `paper.saf.A` (C_mesh=2) and `saf.gmsh.lite`
+(C_mesh=3), max absolute difference 0.0 in `totalop.txt1`. Comparing against
+a reference at a different thread count will diverge, and that is not a
+regression.
+
 ## Mesh checks
 
 C_mesh=3 cases should be checked before a long run:
