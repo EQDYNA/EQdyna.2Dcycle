@@ -37,4 +37,4 @@ par.yext = 10.e3 # m, external range outside of uniform grid zone along both x &
 par.rat = 1.025 # enlarging ratio for quadralaterals.
 par.dxy = 400. # m, cell size
 
-par.ftcn = [79, 53, 83, 167, 34]
+par.ftcn = [47, 19, 11, 12, 9, 14, 11]   # control points per fault, ft1..ft7
