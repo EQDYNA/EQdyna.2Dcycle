@@ -15,7 +15,7 @@ from saf_result_utils import load_saf_case, select_time_window
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Plot Figure 4/7/8 style SAF slip distributions directly from an EQdyna case."
+        description="Plot Figure 4/7/8 style slip distributions directly from an EQdyna case."
     )
     parser.add_argument("case_dir", nargs="?", default=".", help="Case directory to analyze (default: cwd)")
     parser.add_argument(
@@ -150,9 +150,11 @@ def plot_window(
     # which rendered as a stray ", " in the title. Resolve to an absolute path first
     # so cwd-relative invocations (the documented default) still get a real name.
     case_label = case_dir.resolve().name
-    title = f"SAF slip distributions: {tstart_kyr:g}-{tend_kyr:g} kyr"
+    # The script is not SAF-specific -- it reads whatever fault blocks the case
+    # has, and is used for Xianshuihe and others.
+    title = f"Slip distributions: {tstart_kyr:g}-{tend_kyr:g} kyr"
     if case_label:
-        title = f"SAF slip distributions: {case_label}, {tstart_kyr:g}-{tend_kyr:g} kyr"
+        title = f"Slip distributions: {case_label}, {tstart_kyr:g}-{tend_kyr:g} kyr"
     ax.set_title(title)
 
     scale_x = x_max - 40.0

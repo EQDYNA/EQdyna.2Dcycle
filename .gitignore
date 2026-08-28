@@ -29,3 +29,11 @@ monitor.log
 monitor.log
 scripts/.nfs*
 strain_rate_input/GSRM_v2.1_xianshuihe_region.txt
+
+# Xianshuihe compset: third-party strain-rate data and mesh-specific derived
+# products. GSRM v2.1 is CC-BY-NC-SA GEM data with a stable download
+# (fetch_strain_rate.sh); xianshuihe_strain_loading.csv is regenerated per
+# mesh by strain_rate_loading.py --case and is stale the moment the mesh
+# changes, so neither belongs in the repo.
+compset/xianshuihe.gmsh.lite/strain_rate_input/GSRM_v2.1_*.txt
+compset/xianshuihe.gmsh.lite/xianshuihe_strain_loading.csv
