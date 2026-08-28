@@ -146,7 +146,8 @@ hard way, most of them from silent failures. `test_system/test_conventions.py`
 enforces the mechanical ones:
 
 ```bash
-python3 test_system/test_conventions.py          # 36 checks
+python3 test_system/test_conventions.py          # 38 checks
+python3 test_system/verify_xianshuihe.py         # solver regression, 5 cycles, bit-exact
 python3 test_system/smoke.py                     # compile + 1-cycle run
 python3 -m test_system.test_all                  # full pipeline
 ```
