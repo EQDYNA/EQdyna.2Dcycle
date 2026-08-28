@@ -83,7 +83,21 @@ else
 fi
 
 # 6. tag
-NOTES="$(awk "/^## \[${VERSION}\]/,/^## \[/" CHANGELOG.md | sed '$d')"
+# Extract this version's CHANGELOG section for the tag message.
+# The obvious awk range /^## \[$VERSION\]/,/^## \[/ does NOT work: the
+# start line itself matches the end pattern, so awk closes the range on
+# that same line and the notes come out empty. Every tag through
+# v2.0.7-rc7 carries an empty message for exactly this reason. Skip the
+# heading, then stop at the next one.
+NOTES="$(awk -v hdr="## [${VERSION}]" '
+    index($0, hdr) == 1 { found = 1; next }
+    found && /^## \[/ { exit }
+    found { print }
+' CHANGELOG.md)"
+if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+    echo "ERROR: CHANGELOG.md has no body under '## [${VERSION}]'." >&2
+    exit 1
+fi
 if [ -z "$DRY_RUN" ]; then
     git tag -a "$TAG" -m "Release ${TAG}
 
