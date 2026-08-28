@@ -18,3 +18,15 @@ sleeping 1200s...
 /home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t90_snap: 758 cycles
 [work/xsh_t90] 758 events over 4937 yr, Mmax 7.57, M>=6.5: 21  -> work/xsh_t90_snap/aPlots/
 sleeping 1200s...
+================ 2026-08-28 12:37:16 ================
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t100_snap: 971 cycles
+[work/xsh_t100] 971 events over 4593 yr, Mmax 7.66, M>=6.5: 40  -> work/xsh_t100_snap/aPlots/
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t90_snap: 1022 cycles
+[work/xsh_t90] 1022 events over 5786 yr, Mmax 7.57, M>=6.5: 25  -> work/xsh_t90_snap/aPlots/
+sleeping 1200s...
+================ 2026-08-28 13:00:49 ================
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t100_snap: 1247 cycles
+[work/xsh_t100] 1247 events over 5259 yr, Mmax 7.66, M>=6.5: 42  -> work/xsh_t100_snap/aPlots/
+/home/utig5/dliu/EQdyna.2Dcycle/work/xsh_t90_snap: 1335 cycles
+[work/xsh_t90] 1335 events over 6244 yr, Mmax 7.57, M>=6.5: 25  -> work/xsh_t90_snap/aPlots/
+sleeping 1200s...

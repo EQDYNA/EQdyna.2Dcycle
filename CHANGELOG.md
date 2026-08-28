@@ -4,12 +4,17 @@ All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https:/
 
 ## [Unreleased]
 
-## [2.0.7-rc8] - 2026-08-28
+## [2.1.0] - 2026-08-28
 
-Pre-release of 2.0.7 (iteration on rc7). Three silent Fortran defects that
-suppressed earthquakes on fault systems with more than four faults, the
-Xianshuihe compset made runnable end to end, the published post-processing
-ported, and a project rule book with mechanical guards.
+First release off the 2.0.7 release-candidate chain, promoted to a minor
+version: it adds a new runnable compset and a large body of new tooling
+alongside the fixes, which is more than a patch. Supersedes v2.0.7-rc1
+through -rc7; there is no 2.0.7 final.
+
+Three silent Fortran defects that suppressed earthquakes on fault systems with
+more than four faults, the Xianshuihe compset made runnable end to end, the
+published post-processing ported, and a project rule book with mechanical
+guards.
 
 ### Fixed
 - `src/faulting.f90`: the nucleation-point lookup was four hand-written

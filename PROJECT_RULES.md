@@ -119,6 +119,30 @@ deleted from `fac.txt`.
 Thresholds live at the top of `checkMeshQuality.py` as named constants
 (`MIN_ANGLE_DEG`, `MAX_ANGLE_DEG`, `MAX_ASPECT`, `MIN_FAULT_GAP_ELEMENTS`).
 
+### R28 — Fortran must never enumerate faults by hand; loop over `ntotft`
+
+Any code that resolves per-fault state with a fixed number of hand-written
+branches (if/elseif chains, or an index built by summing literal
+`nfnode(1) + nfnode(2) + nfnode(3)` terms) breaks the moment `ntotft`
+exceeds that number, and breaks *silently* if there is no `else`.
+
+**Why:** `interstress.f90` excluded fault tips and searched for nucleation on
+faults 1-3 only, so `ntotft > 3` left the remaining faults unable to host an
+earthquake. `faulting.f90` resolved the nucleation point with four
+if/elseif branches and no else; a nucleation on fault 5+ left `ift0`,
+`xcoor0`, `ycoor0` uninitialised, the forced-rupture patch never applied,
+and every interseismic period collapsed to the 1-year floor — an endless
+run of "cycles" with no earthquakes and nothing in the log to say why. Both
+were silent on 3-fault cases and surfaced only on the 5-fault (`gulang`) and
+7-fault (`xianshuihe`) compsets.
+
+**Mechanical check:** `test_no_hardcoded_fault_counts_in_fortran` in
+`test_system/test_conventions.py` bans the syntactic pattern of three or
+more summed literal `nfnode(<digit>)` terms in `src/*.f90`. It does not
+catch an unbounded if/elseif chain with no arithmetic in it — see
+Rule-book health note below; that gap is a Tier-3 finding, not a passing
+check.
+
 ---
 
 ## New fault system: decisions that cannot be inferred
@@ -246,9 +270,143 @@ simulated duration.
 It is the restart state. Deleting it made the documented
 restart-from-binaryop procedure impossible for C_mesh=2 cases.
 
+### R29 — A plot script must never render an empty result without saying so
+
+A filter (magnitude/slip threshold, time window, event-count cutoff) that
+excludes every candidate must print a warning naming the filter that emptied
+it, not just save a blank figure — axes, fault traces, scale bar, and
+nothing else.
+
+**Why:** `plot_event_slips_overtime_fig4.py`'s defaults (`--threshold 1.0`
+m, `--duration 3` kyr, `--scale 30`) are tuned to the SAF. On a case whose
+events are mostly sub-metre, every event was filtered out and the figure
+rendered empty with no error. `monitor_runs.sh` now sets per-case values via
+`FIG4_ARGS`, which papers over today's known cases but does not stop the
+next case from silently reproducing it — the script itself still has no
+warning path.
+
+**Tier:** 3 (norm, not yet a gate) — `plot_event_slips_overtime_fig4.py` has
+no such warning today, so a mechanical check for one would fail on the
+current code, and this rule book edits rules, not the scripts it audits.
+Becomes mechanical the moment the script emits a literal marker (e.g.
+`"WARNING: 0 events passed --threshold"` to stderr) that
+`test_conventions.py` can `grep` for, and — more strongly — a check that
+exits non-zero when zero events are plotted.
+
 ### R17 — Detach the run wrapper
 
 `setsid` where available, so a process-group kill cannot orphan the binary
 and skip the post-run steps. A `paper.saf.A` run lost its wrapper mid-flight:
 the binary finished all 4000 cycles, but nothing was plotted, nothing was
 moved to `aRawSimuData/`, and no `Job finished` marker was written.
+
+---
+
+## Release process
+
+`release.sh` was removed on 2026-08-28 — the release process is manual
+again. The gates it encoded are restated here so they are not lost with the
+script. Where a gate can be checked without performing the tag operation
+itself, R24/R26/R27 have mechanical checks in
+`test_system/test_conventions.py`; the others are procedural and must be
+run by hand at release time (marked below).
+
+### R22 — Refuse to release from a dirty tree
+
+`git status --porcelain` must be empty before tagging. A dirty tree means the
+tag does not correspond to a reviewable commit.
+
+**Why:** the whole point of a tag is that `git checkout v$VERSION` reproduces
+exactly what was tested. Uncommitted changes break that guarantee silently.
+
+**How to apply:** `git diff --quiet && git diff --cached --quiet` before
+tagging. Not a standing check — the working tree is legitimately dirty
+during normal development, so this is a release-time gate, not something
+`test_conventions.py` can assert at arbitrary commits. Procedural.
+
+### R23 — Docs lockstep at release: README.md / CLAUDE.md / any compset README must have been touched since the previous tag
+
+`git log --name-only <prev-tag>..HEAD -- README.md CLAUDE.md test_system/README.md work/README.md compset/*/README.md`
+must be non-empty.
+
+**Why:** this is starter rule 11 ("docs move with the code") applied at the
+release boundary specifically, because that is where it was actually lost —
+individual commits can each look locally fine while the release as a whole
+drifts from what its own CHANGELOG claims changed.
+
+**How to apply:** run the `git log --name-only` command above against
+`git describe --tags --abbrev=0` before tagging. Procedural — depends on
+the previous tag and the commit range, neither of which is fixed at a given
+commit, so it cannot be asserted as a standing repo invariant.
+
+### R24 — CHANGELOG must have a real body under `## [<VERSION>]`, not just `[Unreleased]`
+
+`CHANGELOG.md` must contain a `## [<VERSION>]` heading (VERSION from the
+root `VERSION` file) with at least one non-blank line of body text before
+the next `## [` heading or end of file.
+
+**Why:** a release with nothing under its heading means either the work was
+never described or the heading was added without moving the `[Unreleased]`
+notes under it — both are the same failure from a reader's point of view.
+
+**Mechanical check:** `test_changelog_has_body_for_version` in
+`test_system/test_conventions.py`.
+
+### R25 — Run `test_system/smoke.py` before tagging
+
+The smoke test is the last gate before a tag is created; it must exit 0.
+
+**Why:** it is the cheapest thing that would have caught a release built
+against a broken build before the tag — not before someone using the tag —
+finds out.
+
+**How to apply:** `python3 test_system/smoke.py` immediately before
+`git tag`. Procedural — running a test suite is not itself a repo-state
+check `test_conventions.py` can assert.
+
+### R26 — The release tag message is the CHANGELOG section body — extract it correctly
+
+The naive awk range `/^## \[$VERSION\]/,/^## \[/` is wrong: the start line
+also matches the end pattern (both are `## [...]` headings), so the range
+closes on the same line it opens and the extraction yields nothing.
+
+**Incident:** every tag through `v2.0.7-rc7` carries an empty annotated-tag
+message because of exactly this bug — `release.sh` ran the broken range for
+its entire life and nobody read a tag message closely enough to notice.
+
+**How to apply:** skip the heading line itself, then stop at the *next*
+heading:
+
+```awk
+awk -v hdr="## [${VERSION}]" '
+    index($0, hdr) == 1 { found = 1; next }
+    found && /^## \[/ { exit }
+    found { print }
+' CHANGELOG.md
+```
+
+Reject an empty (whitespace-only) result — that is R24's check, applied to
+the exact text that would ship as the tag message, not just to "a heading
+exists."
+
+**Mechanical check:** `test_changelog_section_extraction_returns_text` in
+`test_system/test_conventions.py` runs this exact extraction (implemented in
+Python, not awk, but the same two-condition logic) against the current
+`VERSION` and asserts it is non-empty. An empty release note is impossible
+to ship again only if this check is run before every tag.
+
+### R27 — `VERSION` is the single source of the release version
+
+The root `VERSION` file is a single-line semver (optionally with a
+pre-release suffix, e.g. `2.0.7-rc8`), read by `src/makefile` to name the
+binary `run_eqdyna2d_$(VERSION)`, and is what `v$(cat VERSION)` tags against.
+Nothing else — not a hardcoded string in a script, not a case's compset
+README — states the version independently.
+
+**Why:** two sources of truth for a version number diverge the moment one
+is bumped and the other is not; `paper.saf.A` was found hardcoding
+`par.exe = run_eqdyna2d_2.0.3` instead of reading `VERSION` (fixed in
+b3ea71b).
+
+**Mechanical check:** `test_version_file_is_single_semver_line` in
+`test_system/test_conventions.py`.

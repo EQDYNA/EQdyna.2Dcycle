@@ -39,6 +39,16 @@ bash run.sh
 
 Available compsets: `create.newcase --list`.
 
+| Compset | Mesh | Fault system |
+|---|---|---|
+| `paper.saf.A` | C_mesh=2 (Fortran) | Southern San Andreas + San Jacinto — Liu et al. (2022) Model A |
+| `saf.gmsh.lite` | C_mesh=3 (gmsh) | the same system on an unstructured mesh, for quicker runs |
+| `subei.gmsh.lite` | C_mesh=3 | Subei (atf, dxs, sbt) |
+| `gulang.gmsh.lite` | C_mesh=3 | Gulang, ft1..ft5 |
+| `xianshuihe.gmsh.lite` | C_mesh=3 | Xianshuihe, 7 faults, per-node loading from GSRM v2.1 |
+
+C_mesh=3 compsets need `python3 meshgen.py` before `bash run.sh`.
+
 ## Restart from a previous run
 
 Every cycle the binary refreshes a `binaryop` file holding the full restart state. To extend a finished run from cycle N+1 → M:
@@ -83,7 +93,12 @@ All scripts live in `scripts/` (and are on `PATH` after install). Run from insid
 | `CATALOG=1 plotRuptureDynamics` | **Catalog mode**: no figures, ~10× faster. Writes `aPlots/catalog.csv` with columns: `eqId, magnitude, moment_Nm, nuc_x_km, nuc_y_km, nuc_ft, rup_dur_s, peak_slip_m`. |
 | `analyze_catalog.py [case_dir] [--mc M] [--mmax M]` | Reads `aPlots/catalog.csv`. Outputs b-value (LSQ on `[Mc, Mmax]` window), magnitude-frequency distribution, magnitude-vs-cycle scatter, nucleation-along-strike-vs-cycle scatter. Saves `aPlots/catalog_analysis.png`. For characteristic-fault MFDs use `--mmax 7.0` to exclude the bump. |
 | `plot_event_slips_overtime_fig4.py [case_dir]` | Paper Figure-4 style slip-distribution stacks (slip vs along-strike, vertically offset by event time). `--duration` = window in kyr (default 3); `--threshold` = min event slip (m). |
-| `monitor_runs.sh [seconds]` | Background poller (default 600s). Tails progress for all `paper.saf.A.*` and `saflite` cases under `work/`, re-runs Figure 4 + rupture-dynamics plots each tick. |
+| `make_paper_figures.py <case_dir>` | One command for the whole paper figure set — catalog, figures 3/4/5/6/9, b-value analysis, per-cycle rupture dynamics. `--only`/`--skip` select stages; each logs to `aPlots/logs/<stage>.log`. |
+| `snapshot_case.py <case_dir>` | Snapshots a **running** case for safe post-processing: truncates each segment to whole cycles and merges restart segments (`totalop.txt1` + `totalop.txt73` + ...) into one continuous sequence. Plotting a live or restarted case directly reads half-written cycles and silently sees only one segment. |
+| `monitor_runs.sh [-i secs] [-1] [cases...]` | Background poller (default 1200s). Snapshots each named case (or any `work/*/` holding `totalop.txt1`), re-runs the plot suite, and reports events, span, Mmax and the M≥6.5 count. |
+| `paleo_site_stats.py` | Table-2 style recurrence and slip statistics at the BF/FM/WW paleoseismic sites (SAF only). |
+| `plot_saf_figure6.py`, `plot_saf_figure9.py` | Ports of the published Figure 6 (cumulative moment, magnitude-frequency) and Figure 9 (characteristic-event slip distributions). SAF only. |
+| `fetch_published_reference.sh` | Fetches the published Zenodo software and Pangaea results from their DOIs with md5 pinning, instead of vendoring them. |
 | `compare_cycle_over_strike.py` | Overlay a chosen cycle's stress/slip/rupture-time curves from multiple cases (e.g. saf.gmsh.lite vs paper.saf.A) for direct comparison. |
 
 Quick example: catalog + analyze on a finished case:
@@ -93,6 +108,39 @@ cd work/my_case
 CATALOG=1 plotRuptureDynamics      # writes aPlots/catalog.csv
 analyze_catalog.py . --mmax 7.0    # writes aPlots/catalog_analysis.png
 ```
+
+## Mesh checks
+
+C_mesh=3 cases should be checked before a long run:
+
+```bash
+python3 scripts/checkMeshQuality.py <case_dir>   # hard-fails (exit 1) on real defects
+python3 scripts/plotMeshFaults.py <case_dir>     # per-segment and per-tip views
+```
+
+`checkMeshQuality.py` fails on orphaned split nodes, element-count mismatch
+against the `.msh`, triangles in a quad mesh, interior angles below 20° or
+above 160°, aspect ratio above 10, and degenerate or mixed cells.
+`plotMeshFaults.py` renders every fault end to end and every fault **tip** —
+the tip view exists because `plotMeshNearFault.py` zooms on midpoints, which
+is why every orphaned split node found on this project went unseen.
+
+## Conventions and tests
+
+`PROJECT_RULES.md` records the conventions this project has had to learn the
+hard way, most of them from silent failures. `test_system/test_conventions.py`
+enforces the mechanical ones:
+
+```bash
+python3 test_system/test_conventions.py          # 36 checks
+python3 test_system/smoke.py                     # compile + 1-cycle run
+python3 -m test_system.test_all                  # full pipeline
+```
+
+Releases follow the gates in `PROJECT_RULES.md` (R22-R27): clean tree, docs
+touched since the last tag, a non-empty `CHANGELOG.md` body for the version in
+`VERSION`, a passing smoke test, then an annotated tag carrying that changelog
+section.
 
 ## Authors
 

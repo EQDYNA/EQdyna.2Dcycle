@@ -300,6 +300,93 @@ def test_case_setup_run_sh() -> None:
           "mesh files are copied unconditionally over locally patched versions")
 
 
+# --- R24/R26/R27: release process -------------------------------------------
+
+def _read_version() -> str:
+    p = os.path.join(ROOT, "VERSION")
+    with open(p) as fh:
+        return fh.read().strip()
+
+
+def test_version_file_is_single_semver_line() -> None:
+    """R27: VERSION is the single source of the release version.
+
+    A single line of the form MAJOR.MINOR.PATCH, optionally with a
+    '-<prerelease>' suffix (e.g. 2.0.7-rc8). Anything else (blank, multiple
+    lines, trailing garbage) means src/makefile's `$(shell cat VERSION)`
+    produces a binary name nobody asked for.
+    """
+    p = os.path.join(ROOT, "VERSION")
+    if not os.path.exists(p):
+        check("R27", "VERSION file exists", False, "root VERSION file missing")
+        return
+    raw = open(p).read()
+    lines = raw.splitlines()
+    check("R27", "VERSION is exactly one line", len(lines) == 1,
+          f"got {len(lines)} lines: {lines!r}")
+    if lines:
+        check("R27", "VERSION is a semver (+ optional -prerelease)",
+              re.fullmatch(r"\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?", lines[0]) is not None,
+              f"got {lines[0]!r}")
+
+
+def extract_changelog_section(version: str, changelog_path: str) -> str:
+    """The correct CHANGELOG section extraction (R26).
+
+    The naive awk range /^## \\[$VERSION\\]/,/^## \\[/ closes on the same
+    line it opens, because the start heading also matches the end pattern.
+    Every tag through v2.0.7-rc7 shipped with an empty message because of
+    this. Skip the heading line itself, then stop at the *next* heading.
+    """
+    hdr = f"## [{version}]"
+    lines_out = []
+    found = False
+    for line in open(changelog_path):
+        if not found:
+            if line.startswith(hdr):
+                found = True
+            continue
+        if line.startswith("## ["):
+            break
+        lines_out.append(line)
+    return "".join(lines_out)
+
+
+def test_changelog_has_body_for_version() -> None:
+    """R24: CHANGELOG must have a real body under '## [<VERSION>]'."""
+    changelog = os.path.join(ROOT, "CHANGELOG.md")
+    if not os.path.exists(changelog):
+        check("R24", "CHANGELOG.md has a section for VERSION", False, "CHANGELOG.md missing")
+        return
+    version = _read_version()
+    src = open(changelog).read()
+    hdr_present = re.search(rf"^## \[{re.escape(version)}\]", src, re.MULTILINE) is not None
+    check("R24", f"CHANGELOG.md has a '## [{version}]' heading", hdr_present,
+          "no heading for the current VERSION -- rename '## [Unreleased]' and add today's date")
+    if not hdr_present:
+        return
+    body = extract_changelog_section(version, changelog)
+    check("R24", f"CHANGELOG.md '## [{version}]' has a non-empty body",
+          body.strip() != "",
+          "heading exists but body is blank -- an empty release note")
+
+
+def test_changelog_section_extraction_returns_text() -> None:
+    """R26: the section-extraction a human or script uses must not be the
+    self-closing awk range that produced an empty tag message on every
+    release through v2.0.7-rc7."""
+    changelog = os.path.join(ROOT, "CHANGELOG.md")
+    if not os.path.exists(changelog):
+        skip("R26", "changelog extraction returns text", "CHANGELOG.md missing")
+        return
+    version = _read_version()
+    body = extract_changelog_section(version, changelog)
+    check("R26", "extract_changelog_section(VERSION) returns non-empty text",
+          body.strip() != "",
+          f"extraction for {version!r} returned nothing -- this is exactly the "
+          "self-closing-range bug if it recurs")
+
+
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
     for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
@@ -307,16 +394,14 @@ def main() -> None:
                test_mesh_export_keeps_all_elements,
                test_geometry_checker, test_dropped_e_truncates, test_observed_site_constants,
                test_magnitude_constants_documented, test_scripts_search_araw,
-               test_case_setup_run_sh):
+               test_case_setup_run_sh, test_no_hardcoded_fault_counts_in_fortran,
+               test_version_file_is_single_semver_line, test_changelog_has_body_for_version,
+               test_changelog_section_extraction_returns_text):
         fn()
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")
     for f in FAILURES:
         print(f"  {f}")
     sys.exit(1 if FAILURES else 0)
-
-
-if __name__ == "__main__":
-    main()
 
 
 def test_no_hardcoded_fault_counts_in_fortran() -> None:
@@ -339,7 +424,7 @@ def test_no_hardcoded_fault_counts_in_fortran() -> None:
     compsets. The mechanical guard is to ban the syntactic pattern: any
     expression summing three or more literal nfnode(<digit>) terms.
     """
-    import re, glob
+    import glob
     pattern = re.compile(r"nfnode\(\d\)(\s*\+\s*nfnode\(\d\)){2,}")
     offenders = []
     for f in sorted(glob.glob(os.path.join(ROOT, "src", "*.f90"))):
@@ -349,6 +434,9 @@ def test_no_hardcoded_fault_counts_in_fortran() -> None:
                     continue
                 if pattern.search(line):
                     offenders.append(f"{os.path.relpath(f, ROOT)}:{n}: {line.strip()[:90]}")
-    assert not offenders, (
-        "hardcoded per-fault branching in Fortran (loop over ntotft instead):\n  "
-        + "\n  ".join(offenders))
+    check("R28", "no hardcoded per-fault branching in Fortran", not offenders,
+          "loop over ntotft instead:\n  " + "\n  ".join(offenders))
+
+
+if __name__ == "__main__":
+    main()
