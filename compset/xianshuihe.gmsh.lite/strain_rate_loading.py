@@ -180,7 +180,17 @@ def main() -> None:
         thp = 0.5 * np.arctan2(2.0 * exy_i, exx_i - eyy_i) - theta
         tang_ang = np.arctan2(tang[:, 1], tang[:, 0])
         shear_dir = thp + np.pi / 4.0
-        ang = np.degrees((shear_dir - tang_ang + np.pi / 2) % np.pi - np.pi / 2)
+        # Angle of compression phi = LOCAL FAULT STRIKE - max-shear direction,
+        # the convention interstress.f90 expects (paper eqs 1-3):
+        #     rs = +gamma*cos(2 phi)*ant      drives slip
+        #     rn = -gamma*sin(2 phi)*ant      NEGATIVE clamps the fault
+        # Computing it the other way round (shear - strike) flips the sign of
+        # rn and UNCLAMPS the fault: effective normal stress went from -100 to
+        # -47 MPa, strength from 50 to 23.5 MPa, while shear climbed to
+        # 107 MPa, so every node nucleated on the first step and no rupture
+        # could propagate. paper.saf.A's Rate_direction.txt angles are 93%
+        # positive (mean +7.1 deg), i.e. clamping.
+        ang = np.degrees((tang_ang - shear_dir + np.pi / 2) % np.pi - np.pi / 2)
         print(f"{fid:>6} {len(pts):>6} {gam.mean():>18.3e} {ang.mean():>18.1f}")
         rows.append((fid, pts, gam, ang, tang))
     if n_filled:
