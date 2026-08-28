@@ -215,27 +215,54 @@ def main() -> None:
     print(f"\nfault decomposition: {len(faults)} faults, numbered SE -> NW, "
           f"dip {FT_DIP_DEG:.0f} deg, ftType {FT_TYPE} (left-lateral)")
     print(f"{'fault':>6} {'segs':>8} {'npts':>5} {'length_km':>10} {'x_lo':>8} {'x_hi':>8}")
-    fcolours = plt.cm.tab10(np.linspace(0, 1, 10))
-    for n, (fid, group) in enumerate(faults):
+
+    # Panel (b) keeps each polyline in its ORIGINAL seg colour and id, so it
+    # reads directly against panel (a). Merges are shown as annotations at the
+    # junction where they happen, rather than by recolouring the merged pair --
+    # otherwise the figure hides which polylines the faults were built from.
+    for fid, group in faults:
         pieces_f, _ = chain(rotated, group)
         r = np.vstack(pieces_f)
         L = sum(polyline_length_km(p) for p in pieces_f)
-        for k, piece in enumerate(pieces_f):
+        for i_seg, piece in zip(sorted(group, key=lambda k: rotated[k][:, 0].mean()),
+                                pieces_f):
             ax_loc.plot(piece[:, 0], piece[:, 1], "-o", ms=4, lw=2.2,
-                        color=fcolours[n % 10],
-                        label=f"{fid} (seg{'+'.join(map(str, group))})  {L:.0f} km"
-                        if k == 0 else None)
-        ax_loc.annotate(fid, (r[len(r) // 2, 0], r[len(r) // 2, 1]), fontsize=12.5,
-                        fontweight="bold", color=fcolours[n % 10],
-                        xytext=(0, 9), textcoords="offset points", ha="center")
+                        color=colours[i_seg % 10])
+            ax_loc.annotate(f"seg{i_seg}",
+                            (piece[len(piece) // 2, 0], piece[len(piece) // 2, 1]),
+                            fontsize=11.5, fontweight="bold", color=colours[i_seg % 10],
+                            xytext=(0, 10), textcoords="offset points", ha="center")
+        # mark every junction internal to a merged fault. Offsets alternate so
+        # the callout boxes clear the seg labels and each other.
+        for m, (a_piece, b_piece) in enumerate(zip(pieces_f, pieces_f[1:])):
+            mid = 0.5 * (a_piece[-1] + b_piece[0])
+            d = float(np.hypot(*(b_piece[0] - a_piece[-1])))
+            ax_loc.plot(mid[0], mid[1], "*", ms=17, color="k", zorder=5)
+            off = (78, -26) if fid == "ft1" else (0, -46)
+            ax_loc.annotate(f"merge $\\rightarrow$ {fid}\n{d:.2f} km", mid,
+                            fontsize=11, fontweight="bold", ha="center",
+                            xytext=off, textcoords="offset points",
+                            bbox=dict(boxstyle="round,pad=0.28", fc="w", ec="k", lw=1.1),
+                            arrowprops=dict(arrowstyle="->", color="k", lw=1.2))
         print(f"{fid:>6} {'+'.join(map(str, group)):>8} {len(r):>5} {L:>10.1f} "
               f"{r[:, 0].min():>8.1f} {r[:, 0].max():>8.1f}")
+
+    # legend maps fault id -> the polylines it is built from
+    from matplotlib.lines import Line2D
+    handles = [Line2D([], [], color=colours[sorted(g, key=lambda k: rotated[k][:, 0].mean())[0] % 10],
+                      lw=2.6,
+                      label=f"{fid} = seg{'+seg'.join(map(str, g))}  "
+                            f"{sum(polyline_length_km(x) for x in chain(rotated, g)[0]):.0f} km")
+               for fid, g in faults]
+    handles.append(Line2D([], [], color="k", marker="*", ls="none", ms=13,
+                          label="merge junction"))
 
     ax_loc.set_xlabel(f"Along-strike distance (km), frame rotated {np.degrees(theta):.1f}$^\\circ$")
     ax_loc.set_ylabel("Fault-normal (km)")
     ax_loc.grid(alpha=0.25, lw=0.7)
-    ax_loc.legend(loc="upper center", bbox_to_anchor=(0.5, -0.30), frameon=False,
-                  handlelength=2.2, borderaxespad=0.0, ncol=3, columnspacing=1.4)
+    ax_loc.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.30),
+                  frameon=False, handlelength=2.2, borderaxespad=0.0, ncol=3,
+                  columnspacing=1.4)
     ax_loc.text(0.015, 0.97, "(b)", transform=ax_loc.transAxes, fontsize=16,
                 fontweight="bold", va="top", ha="left")
     ax_loc.set_title(f"EQdyna fault decomposition: {len(MERGE_GROUPS)} faults, "
