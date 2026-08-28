@@ -20,7 +20,7 @@ it is not confirmed to be the one that produced the published Model A results.
 Neither the Zenodo nor the Pangaea copy of `Rate_direction.txt` can be that
 file either — both are in an nrad/yr literal convention that the compiled
 binary's `interstress.f90` would read as ~1e24 Pa. See
-`archive/published/README.md` for the full runtime trace. The authoritative
+[`PROVENANCE.md`](PROVENANCE.md) for the full runtime trace. The authoritative
 loading file for the published run appears not to have been archived anywhere.
 
 ## Files
@@ -29,6 +29,8 @@ loading file for the published run appears not to have been archived anywhere.
 user_defined_params.py    # case parameters (icend, friction, viscosity, ...)
 x1_1.txt .. x3_1.txt      # per-fault structured-mesh geometry
 Rate_direction.txt        # per-node loading rate + angle
+RATE_DIRECTION.md         # that file's format, units and code path
+PROVENANCE.md             # published-archive trace behind the caveat above
 README.md
 ```
 
