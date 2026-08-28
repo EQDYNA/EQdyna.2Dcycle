@@ -72,7 +72,101 @@ GEOMETRY_PANEL_ROW = 10
 EVENT_LABELS = {4: "1857-like", 5: "1857-like", 6: "1812-like", 8: "1918-like"}
 
 
-def compute(case_dir: Path):
+# --- event selection --------------------------------------------------------
+# The cycle ids above are hand-picked for the PUBLISHED Model A sequence and
+# carry no meaning in any other run: earthquake sequences are chaotic, so
+# cycle 355 of a new model is an unrelated event, and stamping "1857-like" on
+# it is simply false. For a new model we therefore select events by what they
+# actually rupture, and fall back to the published ids only under --published.
+
+SLIP_THRESHOLD_M = 0.5   # a node counts as ruptured above this slip
+
+# Along-strike anchors on the SSAF, EQdyna x (km), from the paper's
+# Paleo_sites_loc_inEQdyna.txt: BF -160.5, FM -68.4, EL -20.5, WW 50.3,
+# LS 71.6. The historical analogs are defined against these.
+X_NORTHERN = -150.0   # NW of BF: Carrizo / Big Bend
+X_MOJAVE_NW = -60.0   # around FM, NW end of the Mojave section
+X_WRIGHTWOOD = 40.0   # just NW of the WW site
+
+# Categories in the order they claim a panel. Each is (label, predicate).
+# The label is only printed when the rupture footprint actually satisfies it.
+def _extent(slip, block):
+    """(x_min, x_max) of ruptured nodes in this block, or None if it did not break."""
+    seg = slip[block.index_start:block.index_stop]
+    hit = seg > SLIP_THRESHOLD_M
+    if not hit.any():
+        return None
+    xs = block.x_km[hit]
+    return float(xs.min()), float(xs.max())
+
+
+def classify(slip, blocks) -> str | None:
+    ext = {b.name: _extent(slip, b) for b in blocks}
+    saf = ext.get("ssaf")
+    clare = ext.get("sjfn")
+    clark = ext.get("sjfs")
+
+    if saf and saf[0] <= X_NORTHERN and saf[1] >= X_WRIGHTWOOD:
+        # Parkfield/Carrizo through Wrightwood -- the 1857 Fort Tejon extent.
+        return "1857-like"
+    if saf and saf[0] >= X_MOJAVE_NW and saf[1] >= X_WRIGHTWOOD:
+        # Mojave section only -- the proposed 1812 Wrightwood extent.
+        return "1812-like"
+    if saf and clare and saf[1] >= X_WRIGHTWOOD:
+        return "Cajon gate"
+    if saf and saf[1] <= X_MOJAVE_NW:
+        return "SSAF north only"
+    if clare and clark and not saf:
+        return "both NSJF strands"
+    if clare and not saf and not clark:
+        return "Claremont only"
+    if clark and not saf and not clare:
+        return "Clark only"
+    return None
+
+
+CATEGORY_ORDER = [
+    "1857-like", "1812-like", "Cajon gate", "SSAF north only",
+    "both NSJF strands", "Claremont only", "Clark only",
+]
+
+
+def auto_select(full, weights, n_panels: int = 8):
+    """Pick representative events by rupture footprint, largest first.
+
+    One panel per category (largest-magnitude representative), in
+    CATEGORY_ORDER, then the biggest remaining events fill the rest.
+    Returns [(row, cycle, label_or_None), ...].
+    """
+    mom, mag = moment_and_magnitude(full.slip_m, weights, RIG_PA, LOCKDEPTH_M, ALPHA)
+    labels = [classify(full.slip_m[i], full.fault_blocks)
+              for i in range(full.total_events)]
+
+    order = np.argsort(mag)[::-1]          # largest magnitude first
+    chosen: list[tuple[int, str | None]] = []
+    taken: set[int] = set()
+
+    for cat in CATEGORY_ORDER:
+        for i in order:
+            if i not in taken and labels[i] == cat:
+                chosen.append((int(i), cat))
+                taken.add(int(i))
+                break
+
+    for i in order:                        # fill remaining slots with the biggest
+        if len(chosen) >= n_panels:
+            break
+        if int(i) not in taken:
+            chosen.append((int(i), labels[i]))
+            taken.add(int(i))
+
+    chosen = chosen[:n_panels]
+    chosen.sort(key=lambda t: -mag[t[0]])
+    return [(row, int(i) + full.cycle_start, lab)
+            for row, (i, lab) in enumerate(chosen, start=1)]
+
+
+def compute(case_dir: Path, selection):
     full = load_saf_full_case(case_dir)
     if full.cycle_start != 1:
         sys.exit(f"error: Figure9 porting assumes cycle_start==1 (ic(1)==1 in "
@@ -81,7 +175,7 @@ def compute(case_dir: Path):
     weights = fault_node_weights_km(full.fault_blocks)
 
     events = {}
-    for row, cyc in EVENT_ROWS:
+    for row, cyc, _label in selection:
         idx = cyc - full.cycle_start
         if idx < 0 or idx >= full.total_events:
             sys.exit(f"error: cycle {cyc} (row {row}) out of range "
@@ -97,20 +191,20 @@ def compute(case_dir: Path):
             "mom": float(mom[0]), "mag": float(mag[0]),
         }
 
-    strength_idx = STRENGTH_PANEL_CYCLE - full.cycle_start
+    strength_idx = selection[0][1] - full.cycle_start
     ns_row = full.normal_stress[strength_idx]
     strength = -ns_row * MIUS / 1.0e6  # MPa
 
     return full, events, strength
 
 
-def plot(full, events: dict, strength: np.ndarray, output_path: Path) -> None:
+def plot(full, events: dict, strength: np.ndarray, selection, output_path: Path) -> None:
     blocks = full.fault_blocks
     fig, axes = plt.subplots(10, 1, figsize=(8, 12), sharex=True)
     colors = ["tab:blue", "tab:red", "k"]
     panel_letters = "abcdefghij"
 
-    for row, cyc in EVENT_ROWS:
+    for row, cyc, label in selection:
         ax = axes[row - 1]
         ev = events[row]
         for b, c in zip(blocks, colors):
@@ -123,13 +217,16 @@ def plot(full, events: dict, strength: np.ndarray, output_path: Path) -> None:
             seg_rupt = ev["rupt"][b.index_start:b.index_stop]
             ax2.plot(b.x_km, seg_rupt, color=c, linewidth=2)
         ax2.set_ylim(0, 100)
-        if cyc == 2704:
+        if row == 5:
             ax.set_ylabel("Slip (m)")
             ax2.set_ylabel("Time (s)")
         ax.text(0.025, 0.85, f"({panel_letters[row - 1]})", transform=ax.transAxes, fontsize=12)
         ax.text(0.025, 0.55, f"{ev['mag']:.2f}", transform=ax.transAxes, fontsize=12)
-        if row in EVENT_LABELS:
-            ax.text(0.85, 0.85, EVENT_LABELS[row], transform=ax.transAxes, fontsize=12)
+        if label:
+            ax.text(0.98, 0.85, label, transform=ax.transAxes, fontsize=10,
+                    horizontalalignment="right")
+        ax.text(0.025, 0.25, f"#{cyc}", transform=ax.transAxes, fontsize=8,
+                color="0.4")
 
     ax = axes[STRENGTH_PANEL_ROW - 1]
     for b, c in zip(blocks, colors):
@@ -158,22 +255,42 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("case_dir", nargs="?", default=".", help="Case directory (default: cwd)")
     ap.add_argument("--output-dir", default=None, help="Output directory (default: <case_dir>/aPlots)")
+    ap.add_argument("--published", action="store_true",
+                    help="Use the published run's hand-picked cycle ids and labels "
+                         "(only meaningful on the published Model A data)")
+    ap.add_argument("--cycles", nargs="+", type=int, default=None,
+                    help="Explicit cycle ids to plot, largest-first order preserved")
     args = ap.parse_args()
 
     case_dir = Path(args.case_dir).resolve()
     output_dir = Path(args.output_dir) if args.output_dir else case_dir / "aPlots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    full, events, strength = compute(case_dir)
+    full = load_saf_full_case(case_dir)
+    weights = fault_node_weights_km(full.fault_blocks)
+
+    if args.published:
+        selection = [(row, cyc, EVENT_LABELS.get(row)) for row, cyc in EVENT_ROWS]
+        mode = "published hand-picked cycles"
+    elif args.cycles:
+        selection = [(i, c, classify(full.slip_m[c - full.cycle_start], full.fault_blocks))
+                     for i, c in enumerate(args.cycles, start=1)]
+        mode = "user-specified cycles"
+    else:
+        selection = auto_select(full, weights)
+        mode = "auto-selected by rupture footprint"
+
+    full, events, strength = compute(case_dir, selection)
     print(f"case   : {case_dir}")
     print(f"cycles : {full.total_events}  (cycle_start={full.cycle_start}, cycle_end={full.cycle_end})")
-    print(f"{'row':>3} {'cycle':>6} {'mag':>6} {'mom (N*m)':>14}")
-    for row, cyc in EVENT_ROWS:
+    print(f"select : {mode}")
+    print(f"{'row':>3} {'cycle':>6} {'mag':>6} {'mom (N*m)':>14}  category")
+    for row, cyc, label in selection:
         ev = events[row]
-        print(f"{row:>3} {cyc:>6} {ev['mag']:>6.2f} {ev['mom']:>14.6e}")
+        print(f"{row:>3} {cyc:>6} {ev['mag']:>6.2f} {ev['mom']:>14.6e}  {label or '-'}")
 
     out = output_dir / "Figure9_SpecialEvents.png"
-    plot(full, events, strength, out)
+    plot(full, events, strength, selection, out)
     print(f"Wrote {out}")
 
 
