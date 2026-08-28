@@ -76,6 +76,22 @@ their traction was applied through the wrong side of the fault.
 An orphaned split node has no cell to transmit traction. `checkMeshQuality`
 reports orphans; run it on every new mesh.
 
+### R20 — The mesh export must not drop elements
+
+`meshGenLib` writes only quads to `fac.txt`. Where gmsh cannot recombine a
+region it leaves triangles, and those are discarded without a word, leaving
+holes in the FE mesh.
+
+**Why:** the Xianshuihe mesh had 34602 quads + 10 triangles in the `.msh`
+and 34602 rows in `fac.txt`. The 10 lost triangles sat exactly on the two
+orphaned split nodes, and were badly shaped (minimum angles down to 15
+degrees). `checkMeshQuality` could not see any of it, because it reads
+`fac.txt` -- it reported `angle<20 deg = 0` when five such elements had
+already been thrown away.
+
+Compare the element count in `fac.txt` against the 2D element count in the
+`.msh` on every mesh. See issue #1.
+
 ---
 
 ## New fault system: decisions that cannot be inferred

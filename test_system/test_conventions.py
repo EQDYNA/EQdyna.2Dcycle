@@ -150,6 +150,40 @@ def test_compset_params_use_par_prefix() -> None:
           "; ".join(bad))
 
 
+# --- R20: mesh export must not drop elements --------------------------------
+
+def test_mesh_export_keeps_all_elements() -> None:
+    """fac.txt must hold every 2D element the .msh does.
+
+    meshGenLib writes only quads. Where gmsh cannot recombine a region it
+    leaves triangles, and those are silently discarded, leaving holes in the
+    FE mesh. Nodes bordering a hole lose part of their cell fan and their
+    split node orphans. See issue #1.
+    """
+    import glob
+    checked = 0
+    for msh in sorted(glob.glob(os.path.join(ROOT, "work", "*", "fem_mesh_output",
+                                             "eqdynaMesh.msh")))[:3]:
+        fac = os.path.join(os.path.dirname(msh), "fac.txt")
+        if not os.path.exists(fac):
+            continue
+        try:
+            import meshio
+            m = meshio.read(msh)
+        except Exception as e:  # noqa: BLE001
+            skip("R20", "mesh export keeps all elements", f"meshio: {e}")
+            return
+        n2d = sum(len(cb.data) for cb in m.cells if cb.type in ("quad", "triangle"))
+        nfac = sum(1 for _ in open(fac))
+        label = os.path.relpath(msh, ROOT)
+        check("R20", f"no elements dropped ({label})", nfac == n2d,
+              f"fac.txt has {nfac} rows, .msh has {n2d} 2D elements "
+              f"({n2d - nfac} dropped)")
+        checked += 1
+    if not checked:
+        skip("R20", "mesh export keeps all elements", "no meshed case with a .msh")
+
+
 # --- R18: fault side classification -----------------------------------------
 
 def test_side_classification_uses_normal() -> None:
@@ -259,6 +293,7 @@ def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
     for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
                test_side_classification_uses_normal, test_compset_params_use_par_prefix,
+               test_mesh_export_keeps_all_elements,
                test_geometry_checker, test_dropped_e_truncates, test_observed_site_constants,
                test_magnitude_constants_documented, test_scripts_search_araw,
                test_case_setup_run_sh):
