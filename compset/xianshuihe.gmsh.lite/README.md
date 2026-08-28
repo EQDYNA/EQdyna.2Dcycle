@@ -159,6 +159,60 @@ imposed per node through `ftLoadMaxShear`, which is a per-node column, so
 the interesting part of Fig. 4b is reproducible directly. That
 along-strike contrast is the scientific target of the case.
 
+## Loading workflow (order matters)
+
+The mesh must exist before the loading can be sampled, and `meshgen.py`
+writes `nsmpGeoPhys.txt` during meshing, so the loading columns are patched
+in afterwards:
+
+```bash
+bash fetch_strain_rate.sh                         # 1. GSRM v2.1 regional cut
+python3 export_fault_geometry.py                  # 2. fault polylines -> ftN.gmt.txt
+# create.newcase + case.setup + meshgen.py        # 3. mesh (5.7 s)
+python3 strain_rate_loading.py --case <case_dir>  # 4. sample at MESH fault nodes
+python3 apply_strain_loading.py --case <case_dir> # 5. write cols 6,7,9
+```
+
+Step 4 without `--case` samples the 123 KML control points instead of the
+1290 mesh nodes, which is a field profile, not model input.
+
+`ftVis` follows the SAF construction: `interstress.f90` sets
+`ant = ant0*str/rd`, so loading rate x viscosity is **constant** across
+nodes — the asymptotic shear stress is uniform and only the angle varies,
+while the local rate sets the approach timescale. `apply_strain_loading.py`
+therefore writes `ftVis_i = TARGET / gamma_i`, verified constant at
+7.135e7 Pa. Leaving `ftVis` uniform while `ftLoadMaxShear` varies would not
+reproduce that construction.
+
+`TARGET` is the tunable: the SAF uses 120 MPa (1.427e-14 x 8.4e21); gulang
+needed 71 MPa (x 5.0e21) because 8.4e21 drove the normal stress tensile at
+large strike angles. Eastern Tibet shares gulang's 100 MPa ambient normal
+stress, so 71 MPa is the starting point.
+
+### How the loading compares to the other compsets
+
+| compset | ftLoadMaxShear | nanostrain/yr | ftVis (Pa s) |
+|---|---|---|---|
+| `saf.gmsh.lite` | varies per node | 143-536 | 7.1e21-2.6e22 |
+| `subei.gmsh.lite` | 1.427e-14 uniform | 450 | 8.4e21 |
+| `gulang.gmsh.lite` | 1.427e-14 uniform | 450 | 5.0e21 |
+| `xianshuihe` (GSRM) | varies per node | 40-201 | 1.1e22-5.7e22 |
+
+Only the SAF and this case derive loading from a strain field; `subei` and
+`gulang` carry the SAF default 450 nanostrain/yr unchanged, which is above
+the SAF's own maximum everywhere along their faults.
+
+Sanity check on magnitude: `V = 2*W*gamma` at a 50 km deforming half-width
+gives 5.4 mm/yr on ft1 and 11-12 mm/yr on the Xianshuihe proper, against
+Qiao et al.'s measured 5-6 and 12-13 mm/yr — an independent product from
+their InSAR inversion, not fitted. The same conversion puts the SAF at
+45 mm/yr against an observed 34, so treat this as order-of-magnitude
+confirmation; W is a free parameter.
+
+Note `ftVis` reaches 5.7e22 Pa s where the strain rate is lowest, above the
+SAF's 2.6e22 maximum. That is a consequence of holding the stress product
+constant at a lower loading rate, not an independent rheological claim.
+
 ## Still to do
 
 - Decide how the splay strands ft3/ft4/ft5 should interact at the mesh
