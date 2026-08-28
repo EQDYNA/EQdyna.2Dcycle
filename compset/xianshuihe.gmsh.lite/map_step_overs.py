@@ -33,7 +33,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from plot_fault_trace import (FAULT_DECOMPOSITION, chain, polyline_length_km,
+from plot_fault_trace import (THROUGH_GOING_ORDER, chain, polyline_length_km,
                               principal_frame, read_kml, rotate, to_local_km)
 
 # Qiao et al. count step-overs wider than this fraction of the fault length.
@@ -118,8 +118,9 @@ def main() -> None:
     centre, theta = principal_frame(np.vstack(local))
     rotated = [rotate(p, centre, theta) for p in local]
 
-    main_idx = FAULT_DECOMPOSITION["ft1 through-going (segs 1,2,0,4,6,7,8)"][0]
-    pieces, _ = chain(rotated, main_idx)
+    # Not a single fault -- just the order the polylines succeed one another
+    # along the trace, so the junctions between them can be measured.
+    pieces, _ = chain(rotated, THROUGH_GOING_ORDER)
     total_km = sum(polyline_length_km(p) for p in pieces)
     threshold = STEP_WIDTH_FRACTION * total_km
 

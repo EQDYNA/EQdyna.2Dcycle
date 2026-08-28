@@ -41,16 +41,17 @@ import numpy as np
 R_EARTH_KM = 6371.0
 
 # Proposed EQdyna fault decomposition: name -> (KML polyline indices, colour).
-# ft1 is routed via seg4 rather than seg5: seg4 joins seg0 at 0.00 km and
-# leaves a 12.6 km gap into seg6, against 19.8 km if seg5 is used instead.
-# seg5 is then the parallel strand -- note it is the strand that actually
-# reaches seg6 (1.6 km), so the two together bracket the Kangding splay zone
-# and the gap has to be closed when the mesh is built.
-FAULT_DECOMPOSITION = {
-    "ft1 through-going (segs 1,2,0,4,6,7,8)": ([1, 2, 0, 4, 6, 7, 8], "k"),
-    "ft2 parallel strand (seg 5)":            ([5], "tab:red"),
-    "ft3 short splay (seg 3)":                ([3], "tab:blue"),
-}
+# One fault per digitised polyline. The KML's 9 polylines ARE the
+# segmentation -- merging them into a single through-going trace would erase
+# the step-overs that Qiao et al. (2022) use as their maturity metric, and
+# would force us to invent geometry across the junction gaps. Fault ids are
+# assigned SE -> NW by assign_fault_ids(); note the rotated x axis increases
+# toward the NW, so ft1 is the southeastern-most polyline (Moxi end).
+#
+# The along-strike chain below is NOT a fault. It is only the order in which
+# the polylines succeed one another along the through-going trace, used by
+# map_step_overs.py to measure the junction step-overs between them.
+THROUGH_GOING_ORDER = [1, 2, 0, 4, 6, 7, 8]
 
 
 def read_kml(path: Path) -> list[np.ndarray]:
@@ -114,6 +115,16 @@ def chain(rotated: list[np.ndarray], indices: list[int]):
     return pieces, gaps
 
 
+def assign_fault_ids(rotated: list[np.ndarray]) -> list[tuple[str, int]]:
+    """[(fault_id, polyline_index), ...] numbered SE -> NW along strike.
+
+    Rotated x increases toward the NW, so sorting ascending puts the
+    southeastern-most polyline first: ft1 is the Moxi end, ft9 the Ganzi end.
+    """
+    order = sorted(range(len(rotated)), key=lambda i: rotated[i][:, 0].mean())
+    return [(f"ft{n}", i) for n, i in enumerate(order, start=1)]
+
+
 def polyline_length_km(points: np.ndarray) -> float:
     return float(np.sum(np.hypot(*np.diff(points, axis=0).T)))
 
@@ -174,33 +185,31 @@ def main() -> None:
                 fontweight="bold", va="top", ha="left")
     ax_map.set_title("Xianshuihe fault, 1:1M active-fault database", pad=10)
 
-    print(f"\nfault decomposition (gaps wider than {GAP_TOLERANCE_KM} km are flagged):")
-    for name, (indices, colour) in FAULT_DECOMPOSITION.items():
-        pieces, gaps = chain(rotated, indices)
-        total = sum(polyline_length_km(p) for p in pieces)
-        for k, piece in enumerate(pieces):
-            ax_loc.plot(piece[:, 0], piece[:, 1], "-o", ms=4.5, lw=2.2, color=colour,
-                        label=f"{name}   {total:.0f} km" if k == 0 else None)
-        # Stagger the labels: consecutive gaps sit close enough along strike
-        # that fixed-offset text overlaps at publication font sizes.
-        for k, (a, b, d) in enumerate(gaps):
-            ax_loc.plot([a[0], b[0]], [a[1], b[1]], ":", lw=2.2, color=colour)
-            ax_loc.plot([a[0], b[0]], [a[1], b[1]], "x", ms=10, mew=2.4, color=colour)
-            dy = 16 if k % 2 == 0 else -26
-            ax_loc.annotate(f"{d:.0f} km gap", ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2),
-                            fontsize=12.5, color=colour, fontweight="bold",
-                            xytext=(0, dy), textcoords="offset points", ha="center")
-        print(f"  {name:<42} {total:6.1f} km, {len(pieces)} piece(s), {len(gaps)} gap(s)"
-              + ("".join(f"\n      gap {d:.1f} km at x={a[0]:.0f}" for a, b, d in gaps)))
+    faults = assign_fault_ids(rotated)
+    print(f"\nfault decomposition: one fault per polyline, numbered SE -> NW")
+    print(f"{'fault':>6} {'seg':>4} {'npts':>5} {'length_km':>10} {'x_lo':>8} {'x_hi':>8}")
+    fcolours = plt.cm.tab10(np.linspace(0, 1, 10))
+    for n, (fid, i_seg) in enumerate(faults):
+        r = rotated[i_seg]
+        if r[0, 0] > r[-1, 0]:
+            r = r[::-1]
+        L = polyline_length_km(r)
+        ax_loc.plot(r[:, 0], r[:, 1], "-o", ms=4, lw=2.2, color=fcolours[n % 10],
+                    label=f"{fid} (seg{i_seg})  {L:.0f} km")
+        ax_loc.annotate(fid, (r[len(r) // 2, 0], r[len(r) // 2, 1]), fontsize=12.5,
+                        fontweight="bold", color=fcolours[n % 10],
+                        xytext=(0, 9), textcoords="offset points", ha="center")
+        print(f"{fid:>6} {i_seg:>4} {len(r):>5} {L:>10.1f} "
+              f"{r[:, 0].min():>8.1f} {r[:, 0].max():>8.1f}")
 
     ax_loc.set_xlabel(f"Along-strike distance (km), frame rotated {np.degrees(theta):.1f}$^\\circ$")
     ax_loc.set_ylabel("Fault-normal (km)")
     ax_loc.grid(alpha=0.25, lw=0.7)
     ax_loc.legend(loc="upper center", bbox_to_anchor=(0.5, -0.30), frameon=False,
-                  handlelength=2.4, borderaxespad=0.0)
+                  handlelength=2.2, borderaxespad=0.0, ncol=3, columnspacing=1.4)
     ax_loc.text(0.015, 0.97, "(b)", transform=ax_loc.transAxes, fontsize=16,
                 fontweight="bold", va="top", ha="left")
-    ax_loc.set_title("Proposed EQdyna fault decomposition", pad=10)
+    ax_loc.set_title("EQdyna fault decomposition: one fault per polyline", pad=10)
 
     # Fill panel (a) to the same width as panel (b) without distorting the map:
     # keep the true geographic aspect and widen the longitude range to match the
