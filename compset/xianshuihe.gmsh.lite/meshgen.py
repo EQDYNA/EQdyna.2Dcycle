@@ -239,6 +239,13 @@ for iSur in range(surfaceCount):
 # cleared every check was trimming the faults apart, reverted because it turns
 # the overlapping step-overs into end-to-end gaps. See issue #1.
 
+# NOTE: sizing the overlap control points to the gap width was tried and is a
+# no-op here -- the median gap is 0.405 km against dx = 0.400, i.e. already
+# 1.01 elements across. Sizing cannot force a single clean row anyway: the
+# free mesher places nodes where it likes, and it hugs ft2 (0.07-0.18 km)
+# rather than spanning to ft1 (0.30-0.50 km). Forcing one row needs the
+# overlap closed into its own 4-sided surface with setTransfiniteSurface.
+
 # Quad-oriented meshing. Without these gmsh uses Algorithm 6 (Frontal-Delaunay
 # for TRIANGLES) and RecombinationAlgorithm 1 (simple blossom), which is what
 # left stray triangles in the thin ft1/ft2 overlap: fac.txt exports quads only,
