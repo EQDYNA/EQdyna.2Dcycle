@@ -174,35 +174,9 @@ def main() -> None:
         "xtick.labelsize": 12, "ytick.labelsize": 12, "legend.fontsize": 11.5,
         "savefig.bbox": "tight", "pdf.fonttype": 42, "ps.fonttype": 42,
     })
-    fig = plt.figure(figsize=(190 * MM, 230 * MM))
-    gs = fig.add_gridspec(3, 1, height_ratios=[1.0, 0.85, 1.15], hspace=0.42)
-    ax_a, ax_b, ax_c = (fig.add_subplot(gs[0]), fig.add_subplot(gs[1]),
-                        fig.add_subplot(gs[2]))
-
-    # (a) along-strike overview
-    for k, p in enumerate(pieces):
-        ax_a.plot(p[:, 0], p[:, 1], "-", lw=2.6, color="0.15",
-                  label="through-going trace" if k == 0 else None)
-    ax_a.plot(rotated[4][:, 0], rotated[4][:, 1], "-", lw=2.4, color="tab:orange",
-              label="seg4 strand")
-    ax_a.plot(rotated[5][:, 0], rotated[5][:, 1], "-", lw=2.4, color="tab:red",
-              label="seg5 strand")
-    ax_a.plot(rotated[3][:, 0], rotated[3][:, 1], "-", lw=2.4, color="tab:blue",
-              label="seg3 strand")
-    for o in counted_overlaps:
-        ax_a.axvspan(o["x_lo"], o["x_hi"], color="tab:red", alpha=0.10, lw=0)
-    for s_ in steps:
-        ax_a.plot(s_["a_end"][0], s_["a_end"][1], "v", ms=9, color="0.35")
-        ax_a.annotate(f"{s_['index']}", (s_["a_end"][0], s_["a_end"][1]), fontsize=11,
-                      color="0.25", xytext=(0, 11), textcoords="offset points",
-                      ha="center")
-    ax_a.set_xlabel("Along-strike distance (km)")
-    ax_a.set_ylabel("Fault-normal (km)")
-    ax_a.grid(alpha=0.25, lw=0.7)
-    ax_a.legend(loc="lower right", frameon=False, ncol=2)
-    ax_a.text(0.012, 0.96, "(a)", transform=ax_a.transAxes, fontsize=16,
-              fontweight="bold", va="top")
-    ax_a.set_title("Trace, strands, and junction step-overs (triangles)")
+    fig = plt.figure(figsize=(190 * MM, 185 * MM))
+    gs = fig.add_gridspec(2, 1, height_ratios=[0.85, 1.25], hspace=0.34)
+    ax_b, ax_c = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
 
     # (b) separation profiles -- this is the quantitative step-over map
     for o in overlaps:
@@ -220,7 +194,7 @@ def main() -> None:
     ax_b.set_ylabel("Step width (km)")
     ax_b.grid(alpha=0.25, lw=0.7)
     ax_b.legend(loc="upper right", frameon=False)
-    ax_b.text(0.012, 0.96, "(b)", transform=ax_b.transAxes, fontsize=16,
+    ax_b.text(0.012, 0.96, "(a)", transform=ax_b.transAxes, fontsize=16,
               fontweight="bold", va="top")
     ax_b.set_title("Strand separation vs along-strike distance")
 
@@ -228,22 +202,21 @@ def main() -> None:
     for i_, seg in enumerate(segs):
         ax_c.plot(seg[:, 0], seg[:, 1], "-o", ms=3.5, lw=2.2,
                   color={3: "tab:blue", 4: "tab:orange", 5: "tab:red"}.get(i_, "0.15"))
-        if i_ in (3, 4, 5):
-            ax_c.annotate(f"seg{i_}", (seg[len(seg) // 2, 0], seg[len(seg) // 2, 1]),
-                          fontsize=13, fontweight="bold",
-                          color={3: "tab:blue", 4: "tab:orange", 5: "tab:red"}[i_],
-                          xytext=(8, 0), textcoords="offset points")
-    splay = np.vstack([segs[3], segs[4], segs[5]])
-    padx, pady = 0.18, 0.12
-    ax_c.set_xlim(splay[:, 0].min() - padx, splay[:, 0].max() + padx)
-    ax_c.set_ylim(splay[:, 1].min() - pady, splay[:, 1].max() + pady)
+        ax_c.annotate(f"seg{i_}", (seg[len(seg) // 2, 0], seg[len(seg) // 2, 1]),
+                      fontsize=12, fontweight="bold",
+                      color={3: "tab:blue", 4: "tab:orange", 5: "tab:red"}.get(i_, "0.15"),
+                      xytext=(8, 5), textcoords="offset points")
+    allpts = np.vstack(segs)
+    padx, pady = 0.12, 0.10
+    ax_c.set_xlim(allpts[:, 0].min() - padx, allpts[:, 0].max() + padx)
+    ax_c.set_ylim(allpts[:, 1].min() - pady, allpts[:, 1].max() + pady)
     ax_c.set_aspect(1.0 / np.cos(np.radians(lat0)))
     ax_c.set_xlabel("Longitude ($^\\circ$E)")
     ax_c.set_ylabel("Latitude ($^\\circ$N)")
     ax_c.grid(alpha=0.25, lw=0.7)
-    ax_c.text(0.012, 0.97, "(c)", transform=ax_c.transAxes, fontsize=16,
+    ax_c.text(0.012, 0.97, "(b)", transform=ax_c.transAxes, fontsize=16,
               fontweight="bold", va="top")
-    ax_c.set_title("Kangding splay zone, map view")
+    ax_c.set_title("Fault trace, map view (splay strands coloured)")
 
     fig.suptitle(f"Xianshuihe step-overs: {len(counted)} junction + "
                  f"{len(counted_overlaps)} strand wider than {threshold:.1f} km "
