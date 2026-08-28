@@ -113,6 +113,7 @@ python3 test_system/verify.test.py  # Compare results against reference data
 - `compset/paper.saf.A/`: paper-faithful Liu et al. (2022) Model A reproduction (C_mesh=2). Uses the smooth per-node Rate_direction.txt recovered from the paper-era local archive.
 - `compset/saf.gmsh.lite/`: gmsh-meshed (C_mesh=3) paper-A reproduction at coarser dxy=400m. Self-contained — ships with paper.saf.A's Rate_direction.txt + x{1,2,3}_1.txt; meshgen.py interpolates per-node loading onto gmsh fault nodes via natural-cubic-spline analytical tangent. First cycle: 473 yr / M5.7 (paper-A: 471 yr / M5.74).
 - `compset/subei.gmsh.lite/`: gmsh-meshed (C_mesh=3) Subei fault system (atf, dxs, sbt). Same framework as saf.gmsh.lite but uses the default uniform-x loading mode (`uniformXLoadingAngle`) since no paper Rate_direction.txt is available. Multi-surface decomposition handles the connected fault junctions.
+- `compset/xianshuihe.gmsh.lite/`: Xianshuihe fault (鲜水河断裂), eastern Tibet. **Geometry input only — not yet runnable.** Ships the 1:1M Chinese active-fault KML, `plot_fault_trace.py` (parses the 9 polylines and assigns one fault per polyline, ft1..ft9 SE→NW) and `map_step_overs.py` (junction and splay-strand step-overs, classified releasing/restraining with the sinistral convention). Loading plan from Qiao et al. (2022, EPSL 596, 117799) is in its README.
 - `compset/gulang.gmsh.lite/`: gmsh-meshed (C_mesh=3) Gulang fault system (ft1..ft5, all left-strike vertical). Uses uniform-x loading. Ships with `preprocess_control_points.py` that resamples the dense raw `.gmt` digitisation (412 control pts, median ~30 m spacing) down to a SAF-like 39-point set at ≥3 km arc-length spacing via per-fault smoothing splines; originals preserved as `*.gmt.txt.orig`. ftVis tuned to 5e21 Pa·s (1e21 too low for nucleation, 8.4e21 gives tensile normal at large strikes).
 - `user_defined_params.py`: Simulation parameters (inherits from defaultParameters.py)
 - `userDefinedFaultSysGeoPhys.py`: Fault geometry and physics
@@ -130,6 +131,11 @@ python3 test_system/verify.test.py  # Compare results against reference data
 - `plotRuptureDynamics`: per-cycle 4-panel plot. `MIN_PLOT_MAGNITUDE` env var (default 6.5) gates which cycles are saved as PNGs; `FORCE_REPLOT=1` re-renders existing plots; **`CATALOG=1`** runs in catalog-only mode (no figures, ~10× faster) and writes `aPlots/catalog.csv` with eqId, magnitude, moment, nucleation x/y, rupture duration, peak slip per cycle.
 - `analyze_catalog.py`: reads `aPlots/catalog.csv`, computes b-value (LSQ on user-windowed magnitude range; characteristic-fault MFDs need `--mmax 7.0` to exclude the bump), MFD, magnitude-vs-cycle, nucleation-vs-cycle. Saves `aPlots/catalog_analysis.png`.
 - `monitor_runs.sh`: periodic status + Figure 4 + rupture-dynamics re-plot for active `paper.saf.A.*` and `saflite` cases. Defaults to 600s polling; pass seconds as first arg to override.
+- `plot_saf_figure6.py`: Figure-6-style cumulative moment release, magnitude histogram, and magnitudes >6.6 against the Scharer & Yule (2020) prehistoric/historical datasets.
+- `plot_saf_figure9.py`: Figure-9-style characteristic-event slip distributions. Selects events by **rupture footprint**, not by cycle id — the published MATLAB hard-codes ids from its own run, which mean nothing in another sequence. `--published` restores the paper's exact panels; `--cycles` takes an explicit list.
+- `paleo_site_stats.py`: Table-2-style recurrence-interval and slip statistics at the BF/FM/WW paleoseismic sites. Parity-gated on running the published MATLAB against the published Pangaea output.
+- `make_paper_figures.py`: **one command for the full paper figure set on any case** — `python3 make_paper_figures.py <case_dir>`. Stages: catalog, figure3/4/5/6/9, analysis, rupture. `--skip rupture` for the cheap summary set, `--only <stages>`, `--list`. Each stage logs to `aPlots/logs/<stage>.log`; the expensive per-cycle stage runs last.
+- `fetch_published_reference.sh`: fetches the published Zenodo software (10.5281/zenodo.5823021) and Pangaea results (10.1594/PANGAEA.940262) from their DOIs with md5 pinning, instead of vendoring 615 MB of immutable data.
 - `saf_result_utils.py`: Loader helpers used by the plot_saf_* scripts.
 - `meshGenLib.py`: Mesh generation utilities (C_mesh=3)
 - `defaultParameters.py`: Default simulation parameters
@@ -196,6 +202,17 @@ At the fault node with peak `rd(1)`, `ant` hits its minimum `η_min = ant0 * str
 - `qdct3.f90` skips the `zeroal` check since `rdampm(1)=0` is enforced in `eqdyna2d.f90`; `formma` is always false.
 - OpenMP parallelized: `qdct3` (with `$OMP ATOMIC` on brhs assembly), `hrglss` (same pattern), the velocity/displacement update in `driver.f90`, and the `brhs = brhs*alhs_inv` multiply. Thread count is controlled by `OMP_NUM_THREADS` in run.sh. Scaling on 4 threads: ~2.8–3× (qdct3 limited by atomic contention; hrglss near-linear).
 - Per-op timing (`t_vd`, `t_qdct3`, `t_hrglss`, `t_faulting`, `t_brhs`) is printed every `print_every` timesteps (default 300 = every 3 simulated seconds) in the run log, alongside a date/time stamp.
+
+### Magnitude convention (important when comparing to the paper)
+`plotRuptureDynamics` computes moment with the model's own constants,
+`mu = rou*vs^2 = 2670*3464^2 = 3.204e10 Pa` at a 22 km seismogenic depth.
+The paper's Figures 6 and 9 instead use `mu = 3500^2*3000 = 3.675e10 Pa`
+at the same depth, so **every magnitude and b-value from `catalog.csv`
+sits 0.04 Mw below the paper's published scale**. `plot_saf_figure6.py`
+and `plot_saf_figure9.py` use the paper's constants and are therefore NOT
+directly comparable to `catalog.csv`. The paper's constant is itself
+inconsistent with its own model parameters (rou=2670, vs=3464); making
+this selectable is planned.
 
 ### Output files
 - `meshGeneralInfo.txt` — mesh summary (always written; replaces `Mesh_general_info.txt`)

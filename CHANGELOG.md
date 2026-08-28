@@ -2,6 +2,68 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `scripts/paleo_site_stats.py`: Python port of the published MATLAB
+  `Figure5_Plot_Recurrene_Stats.m`, reproducing Table 2 of Liu et al.
+  (2022) — recurrence-interval and slip statistics at the Bidart Fan,
+  Frazier Mountain and Wrightwood paleoseismic sites. Site nodes are
+  derived from the mesh rather than hard-coded.
+- `scripts/plot_saf_figure6.py`, `scripts/plot_saf_figure9.py`: ports of
+  the published Figure 6 (cumulative moment, magnitude-frequency) and
+  Figure 9 (characteristic-event slip distributions).
+- `scripts/make_paper_figures.py`: single driver that renders the whole
+  paper figure set for any case — catalog, figures 3/4/5/6/9, b-value
+  analysis and per-cycle rupture dynamics — one stage per published
+  figure, each logged to `aPlots/logs/<stage>.log`.
+- `scripts/fetch_published_reference.sh`: fetches the published Zenodo
+  software (10.5281/zenodo.5823021) and Pangaea results
+  (10.1594/PANGAEA.940262) from their DOIs with md5 pinning, replacing
+  615 MB of vendored immutable data.
+- `compset/xianshuihe.gmsh.lite/`: Xianshuihe fault geometry input — the
+  1:1M active-fault KML, a trace/fault-id script and a step-over
+  analysis. Geometry only; not yet runnable.
+
+### Fixed
+- `scripts/saf_result_utils.py`: `OBSERVED_EQDYNA_X_KM` was wrong. The
+  Mojave S and San Bernardino S observed-rate sites sat ~91 km and
+  ~147 km too far NW, misassigning about a third of the SSAF nodes to the
+  wrong observed-rate band in every Figure 3 produced so far. Replaced
+  with values derived by running the published deg2utm/convert/rotate
+  chain, with the derivation recorded.
+- `scripts/saf_result_utils.py`: `load_saf_case` had no handling for
+  gfortran's dropped-E 3-digit exponents and crashed outright on the
+  published archive.
+- `scripts/paleo_site_stats.py`: its dropped-E handling was backwards.
+  MATLAB `load()` reads `0.8384675-101` as `0.8384675` — it truncates the
+  unparsed suffix rather than reading scientific notation (verified
+  against R2024b). Both loaders now use the truncation rule.
+- `scripts/plot_event_slips_overtime_fig4.py`: auto-windowing started at
+  0 kyr, while the paper's Figure 4 panels are `tstart = [3, 6, 9, 12]`
+  and skip the first window as burn-in. Also fixes a double count of
+  `interval.txt` when a case holds files in both the case dir and
+  `aRawSimuData/`, plus label collisions and an empty-case-name title.
+- `scripts/plotRuptureDynamics`: was the only script that never looked in
+  `aRawSimuData/`, so it failed on any case where `run.sh` had completed
+  its own post-run move.
+- `scripts/case.setup`: the C_mesh=2 branch deleted `binaryop` before
+  launching, so the documented restart-from-binaryop procedure could
+  never work for `paper.saf.A`. The run wrapper is now detached with
+  `setsid` where available, so a process-group kill cannot orphan the
+  binary and skip the post-run steps.
+
+### Known issues
+- `plotRuptureDynamics` computes moment with `mu = 2670*3464^2` while the
+  paper's Figures 6 and 9 use `3500^2*3000`, so every magnitude and
+  b-value it reports sits 0.04 Mw below the paper's published scale. The
+  paper's constant is itself inconsistent with its own model parameters;
+  making this selectable is planned.
+- Published Table 2 prints 49 counted events at Frazier Mountain where
+  its own script on its own published data computes 52. All other FM
+  statistics, and BF and WW, reproduce exactly. See
+  `compset/paper.saf.A/README.md`.
+
 ## [2.0.7-rc7] - 2026-04-29
 
 Pre-release of 2.0.7 (iteration on rc6). Documents the

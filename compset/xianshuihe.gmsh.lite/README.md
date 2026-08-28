@@ -8,12 +8,19 @@ geometry input only; not yet a runnable compset.**
 ```
 user_fault_geometry_input/
   xianshuihe_fault_trace.kml   # 1:1,000,000 Chinese active-fault database trace
-plot_fault_trace.py            # parse + plot the KML, propose the fault decomposition
-xianshuihe_fault_trace.png     # output of the above
+plot_fault_trace.py            # parse + plot the KML, assign fault ids
+map_step_overs.py              # measure and classify step-overs
+xianshuihe_fault_trace.png     # output of plot_fault_trace.py
+xianshuihe_step_overs.png      # output of map_step_overs.py
 ```
 
-Run `python3 plot_fault_trace.py` to regenerate the figure and print the
-per-polyline table and the gap report.
+```bash
+python3 plot_fault_trace.py    # figure + per-polyline table + fault id table
+python3 map_step_overs.py      # figure + junction and strand step-over tables
+```
+
+Both write a 300 dpi PNG and a vector PDF, sized to a 190 mm
+double-column text width.
 
 ## Fault trace
 
@@ -23,25 +30,68 @@ It is not one continuous line — the trace splits into sub-parallel strands
 between about 30.0 and 30.5 N, the Yalahe / Selaha / Zheduotang strands
 near Kangding.
 
-Proposed decomposition (`FAULT_DECOMPOSITION` in the script):
+**Each polyline is its own fault.** The polylines *are* the segmentation:
+merging them into one through-going trace would erase the step-overs that
+Qiao et al. use as their maturity metric, and would force invented
+geometry across the junction gaps. Ids are assigned by
+`assign_fault_ids()`, running SE to NW — note the rotated x axis increases
+toward the NW, so the ascending-x sort puts the southeastern-most polyline
+first.
 
-| fault | polylines | length | gaps |
-|---|---|---|---|
-| ft1 through-going | 1, 2, 0, 4, 6, 7, 8 | 385 km | 12.6 km at x=41, 5.6 at x=108, 4.4 at x=177 |
-| ft2 parallel strand | 5 | 71 km | none |
-| ft3 short splay | 3 | 27 km | none |
+| fault | polyline | length | fault | polyline | length | fault | polyline | length |
+|---|---|---|---|---|---|---|---|---|
+| ft1 | seg1 | 15 km | ft4 | seg3 | 27 km | ft7 | seg6 | 54 km |
+| ft2 | seg2 | 59 km | ft5 | seg4 | 75 km | ft8 | seg7 | 75 km |
+| ft3 | seg0 | 43 km | ft6 | seg5 | 71 km | ft9 | seg8 | 63 km |
 
-**The gaps are unresolved and have to be closed when the mesh is built.**
-Neither strand gives a gap-free path through the Kangding splay zone:
-seg4 joins seg0 exactly (0.00 km) but stops 12.6 km short of seg6, while
-seg5 reaches seg6 (1.6 km) but starts 19.8 km off seg0. ft1 takes seg4 as
-the smaller-maximum-gap option. The script draws each gap dotted with an
-x rather than bridging it, so the figure never implies a continuity the
-data does not have.
+`THROUGH_GOING_ORDER` in `plot_fault_trace.py` is **not** a fault. It is
+only the order in which the polylines succeed one another along the trace,
+which `map_step_overs.py` needs to know which pairs are neighbours.
 
-Topologically this is the same shape as the SAF compset — one
-through-going fault plus splay strands — so `subei.gmsh.lite`'s
-multi-surface junction handling is the relevant precedent.
+Open: **ft1 is only 15 km long.** At the `.gmsh.lite` resolution of
+dxy = 400 m that is ~38 fault nodes, against a 2 km nucleation-patch
+radius in the SAF setup — near the floor of what the code resolves.
+It joins ft2 at 0.26 km, so merging the two is defensible (a digitisation
+break, not a step-over).
+
+## Step-overs
+
+Qiao et al. use step-over density as a fault-maturity proxy, counting
+step-overs wider than 1% of fault length: 4/350 = 0.011 per km for the
+Xianshuihe against 1/550 = 0.002 for Yushu-Ganzi. `map_step_overs.py`
+measures each junction (along-strike gap, fault-normal width against the
+**local** strike, left/right sense) and the separation between the
+parallel splay strands.
+
+Sense is converted to releasing/restraining with the **sinistral**
+convention: on this left-lateral fault a *left* step opens and a *right*
+step closes — the opposite of the dextral case most references describe.
+
+| junction | gap (km) | width (km) | sense | counted |
+|---|---:|---:|---|---|
+| 1 | 0.3 | 0.0 | right | no |
+| 2 | -1.1 | 0.5 | right | no |
+| 3 | 0.0 | 0.0 | right | no |
+| 4 | 12.4 | 2.3 | right | no |
+| 5 | -5.0 | 2.5 | left | no |
+| 6 | -2.8 | 3.4 | left | no |
+
+| strand pair | overlap | separation min-max | counted |
+|---|---:|---:|---|
+| seg3-seg4 | 26 km | 2.9 - 8.7 km | yes |
+| seg4-seg5 | 55 km | 3.2 - 12.9 km | yes |
+| seg3-seg5 | 20 km | 11.4 - 15.0 km | no (= the other two summed) |
+
+**Negative result worth recording: this 1:1M compilation does not resolve
+the step-overs the paper counts.** Every junction offset is 0.0-3.4 km,
+all below the 3.8 km cut-off; only the splay strands clear it. That gives
+2 step-overs, density 0.005 per km against the paper's 0.011.
+Reproducing their metric needs a finer source (Chevalier et al. 2018 /
+Xu et al. 2016, or 1:250k mapping).
+
+Note the largest junction offset — 12.4 km at x = 41 km — is almost
+entirely along-strike (2.3 km fault-normal). It is an unmapped stretch of
+trace, not a step-over.
 
 ## Loading (not yet built)
 
@@ -95,7 +145,8 @@ along-strike contrast is the scientific target of the case.
 
 ## Still to do
 
-- Close the three ft1 gaps and settle the splay-zone junction.
+- Decide whether to merge ft1 (15 km) into ft2, and how the splay strands
+  ft4/ft5/ft6 should interact at the mesh level.
 - Choose the model extent: the full 900 km Yushu–Ganzi–Xianshuihe system,
   or the ~350 km Xianshuihe proper (Qiao et al. put the segment boundary
   near 100.7 E).
