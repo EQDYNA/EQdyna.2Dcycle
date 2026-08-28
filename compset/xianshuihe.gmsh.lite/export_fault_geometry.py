@@ -34,6 +34,53 @@ import numpy as np
 from plot_fault_trace import (assign_fault_ids, chain, polyline_length_km,
                               principal_frame, read_kml, rotate, to_local_km)
 
+# Faults that succeed one another along strike. Where an earlier one overlaps
+# the next in x, its tail is trimmed so the two stay clear -- see TRIM below.
+CHAIN_ORDER = ["ft1", "ft2", "ft5", "ft6", "ft7"]
+
+# Minimum separation between two faults, in element widths. Below about one
+# element gmsh cannot recombine between them: it leaves triangles, fac.txt
+# drops them, and the bordering split nodes orphan (issue #1). Refining the
+# gap does NOT help -- that was tried and made it worse.
+MIN_GAP_ELEMENTS = 3.0
+DXY_KM = 0.4
+
+
+def trim_overlaps(faults: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    """Trim each chain fault's tail so it clears the next fault.
+
+    ft1 ends at x = -72.74 while ft2 starts at x = -73.93, so they overlap by
+    1.19 km and pass within 0.36 km -- 0.91 element widths. Trimming ft1 back
+    to before ft2's start leaves a clean forward connector instead of a
+    doubled-back sliver.
+    """
+    out = dict(faults)
+    for a, b in zip(CHAIN_ORDER, CHAIN_ORDER[1:]):
+        if a not in out or b not in out:
+            continue
+        pa, pb = out[a], out[b]
+        need = MIN_GAP_ELEMENTS * DXY_KM
+        cut = pb[:, 0].min()
+        while True:
+            keep = pa[pa[:, 0] <= cut]
+            if len(keep) < 4:
+                print(f"  WARNING: cannot trim {a} clear of {b} without "
+                      f"destroying it; leaving as is")
+                keep = pa
+                break
+            gap = min(float(np.hypot(*(pb - p).T).min()) for p in keep)
+            if gap >= need:
+                break
+            cut -= DXY_KM
+        if len(keep) < len(pa):
+            gap = min(float(np.hypot(*(pb - p).T).min()) for p in keep)
+            print(f"  trimmed {a}: dropped {len(pa)-len(keep)} point(s); "
+                  f"clearance to {b} now {gap:.3f} km "
+                  f"= {gap/DXY_KM:.2f} elements")
+            out[a] = keep
+    return out
+
+
 # 7-fault id -> mesh name, for the through-going chain only.
 # All seven faults, exported under their own ids. ft3 and ft4 are the splay
 # strands: ft3 runs above the chain, ft4 below it, so each divides one side
@@ -61,14 +108,23 @@ def main() -> None:
     if args.all:
         wanted.update(STRANDS)
 
+    # build every fault first so overlaps can be trimmed before writing
+    built = {}
+    for fid, group in assign_fault_ids(rotated):
+        if fid not in wanted:
+            continue
+        pieces, _ = chain(rotated, group)
+        built[fid] = np.vstack(pieces)
+    print("\ntrimming chain overlaps:")
+    built = trim_overlaps(built)
+
     out_dir = here / "user_fault_geometry_input"
     print(f"origin lon0={lon0:.4f} lat0={lat0:.4f}  rotation {np.degrees(theta):.2f} deg")
     print(f"{'mesh':>12} {'fault':>6} {'npts':>5} {'len_km':>8} {'x_lo':>8} {'x_hi':>8}")
     for fid, group in assign_fault_ids(rotated):
         if fid not in wanted:
             continue
-        pieces, _ = chain(rotated, group)
-        p = np.vstack(pieces)
+        p = built[fid]
         if np.any(np.diff(p[:, 0]) <= 0):
             raise SystemExit(f"error: {fid} is not strictly increasing in x after "
                              f"merge dedup; meshgen's CubicSpline would reject it")
