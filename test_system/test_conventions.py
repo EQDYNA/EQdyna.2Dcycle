@@ -127,6 +127,29 @@ def test_geometry_checker() -> None:
           str(check_geometry(fine, 400.0)))
 
 
+# --- R19: compset parameters must be assigned to par ------------------------
+
+def test_compset_params_use_par_prefix() -> None:
+    """A bare `name = value` in user_defined_params.py is silently discarded.
+
+    case.setup reads attributes off `par`, so an assignment without the
+    prefix sets a module-level local that nothing ever reads. It fails
+    silently and only bites when the value differs from the default.
+    """
+    import glob
+    bad = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "compset", "*", "user_defined_params.py"))):
+        for i, line in enumerate(open(path), start=1):
+            stripped = line.strip()
+            if (not stripped or stripped.startswith("#")
+                    or stripped.startswith(("from ", "import ", "par.", "par ="))):
+                continue
+            if re.match(r"^[A-Za-z_][A-Za-z0-9_]*\s*=", stripped):
+                bad.append(f"{os.path.relpath(path, ROOT)}:{i}: {stripped}")
+    check("R19", "compset params all assigned to par", not bad,
+          "; ".join(bad))
+
+
 # --- R18: fault side classification -----------------------------------------
 
 def test_side_classification_uses_normal() -> None:
@@ -235,7 +258,7 @@ def test_case_setup_run_sh() -> None:
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
     for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
-               test_side_classification_uses_normal,
+               test_side_classification_uses_normal, test_compset_params_use_par_prefix,
                test_geometry_checker, test_dropped_e_truncates, test_observed_site_constants,
                test_magnitude_constants_documented, test_scripts_search_araw,
                test_case_setup_run_sh):

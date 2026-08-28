@@ -106,6 +106,17 @@ End-to-end joins collapse into one fault. Side-by-side strands do not — they
 need multi-surface topology (`subei.gmsh.lite`), not chain topology
 (`gulang.gmsh.lite`).
 
+### R19 — Every compset parameter must be assigned to `par`
+
+`case.setup` reads attributes off the `par` object, so a bare
+`name = value` in `user_defined_params.py` sets a module-level local that
+nothing ever reads.
+
+**Why:** `fric_fini = 0.45` was missing the prefix in `gulang`, `subei`
+and `xianshuihe`. It never had any effect. It went unnoticed only because
+the value happens to equal the default in `defaultParameters.py` -- change
+the number and nothing would happen, silently.
+
 ---
 
 ## Loading conventions
