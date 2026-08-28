@@ -216,6 +216,7 @@ def main() -> None:
           f"dip {FT_DIP_DEG:.0f} deg, ftType {FT_TYPE} (left-lateral)")
     print(f"{'fault':>6} {'segs':>8} {'npts':>5} {'length_km':>10} {'x_lo':>8} {'x_hi':>8}")
 
+    merge_notes: list[str] = []
     # Panel (b) keeps each polyline in its ORIGINAL seg colour and id, so it
     # reads directly against panel (a). Merges are shown as annotations at the
     # junction where they happen, rather than by recolouring the merged pair --
@@ -234,16 +235,12 @@ def main() -> None:
                             xytext=(0, 10), textcoords="offset points", ha="center")
         # mark every junction internal to a merged fault. Offsets alternate so
         # the callout boxes clear the seg labels and each other.
-        for m, (a_piece, b_piece) in enumerate(zip(pieces_f, pieces_f[1:])):
+        for a_piece, b_piece in zip(pieces_f, pieces_f[1:]):
             mid = 0.5 * (a_piece[-1] + b_piece[0])
             d = float(np.hypot(*(b_piece[0] - a_piece[-1])))
             ax_loc.plot(mid[0], mid[1], "*", ms=17, color="k", zorder=5)
-            off = (78, -26) if fid == "ft1" else (0, -46)
-            ax_loc.annotate(f"merge $\\rightarrow$ {fid}\n{d:.2f} km", mid,
-                            fontsize=11, fontweight="bold", ha="center",
-                            xytext=off, textcoords="offset points",
-                            bbox=dict(boxstyle="round,pad=0.28", fc="w", ec="k", lw=1.1),
-                            arrowprops=dict(arrowstyle="->", color="k", lw=1.2))
+            merge_notes.append(f"{fid} = seg{'+seg'.join(map(str, group))}, "
+                               f"junction {d:.2f} km")
         print(f"{fid:>6} {'+'.join(map(str, group)):>8} {len(r):>5} {L:>10.1f} "
               f"{r[:, 0].min():>8.1f} {r[:, 0].max():>8.1f}")
 
@@ -255,7 +252,7 @@ def main() -> None:
                             f"{sum(polyline_length_km(x) for x in chain(rotated, g)[0]):.0f} km")
                for fid, g in faults]
     handles.append(Line2D([], [], color="k", marker="*", ls="none", ms=13,
-                          label="merge junction"))
+                          label="merge junction ($\\star$)"))
 
     ax_loc.set_xlabel(f"Along-strike distance (km), frame rotated {np.degrees(theta):.1f}$^\\circ$")
     ax_loc.set_ylabel("Fault-normal (km)")
@@ -263,6 +260,9 @@ def main() -> None:
     ax_loc.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.30),
                   frameon=False, handlelength=2.2, borderaxespad=0.0, ncol=3,
                   columnspacing=1.4)
+    if merge_notes:
+        ax_loc.text(0.5, -0.70, "Merges:   " + "      ".join(merge_notes),
+                    transform=ax_loc.transAxes, fontsize=12, ha="center", va="top")
     ax_loc.text(0.015, 0.97, "(b)", transform=ax_loc.transAxes, fontsize=16,
                 fontweight="bold", va="top", ha="left")
     ax_loc.set_title(f"EQdyna fault decomposition: {len(MERGE_GROUPS)} faults, "
