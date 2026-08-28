@@ -53,11 +53,21 @@ R_EARTH_KM = 6371.0
 # map_step_overs.py to measure the junction step-overs between them.
 THROUGH_GOING_ORDER = [1, 2, 0, 4, 6, 7, 8]
 
-# Polylines that form one fault. seg1 and seg2 meet at 0.26 km -- a
-# digitisation break, not a step-over -- and seg1 alone is only 15 km, near
-# the resolution floor at dxy = 400 m, so they are merged. Every other
-# polyline stands alone. Groups are ordered SE -> NW by assign_fault_ids().
-MERGE_GROUPS = [[1, 2], [0], [3], [4], [5], [6], [7], [8]]
+# Polylines that form one fault. Two merges, both forced by the geometry:
+#
+#   seg1 + seg2  meet at 0.26 km -- a digitisation break, not a step-over --
+#                and seg1 alone is only 15 km, near the resolution floor at
+#                dxy = 400 m (~38 nodes).
+#   seg0 + seg4  share an endpoint at EXACTLY 0.000 km. As separate faults
+#                they would hand gmsh two surfaces meeting at a single node,
+#                which welds or degenerates there. seg4 is the continuation
+#                of seg0 into the splay zone, so merging is also the right
+#                reading of the structure.
+#
+# Every other polyline stands alone; the next-closest approach is 1.62 km
+# (seg5-seg6), comfortably more than one element width.
+# Groups are ordered SE -> NW by assign_fault_ids().
+MERGE_GROUPS = [[1, 2], [0, 4], [3], [5], [6], [7], [8]]
 
 # All faults are vertical: the Xianshuihe is left-lateral strike-slip, and
 # Qiao et al. (2022) Fig. 4e put the dip at 75-90 deg over the Xianshuihe
