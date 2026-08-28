@@ -30,6 +30,7 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+from scipy.interpolate import CubicSpline
 
 from plot_fault_trace import (assign_fault_ids, chain, polyline_length_km,
                               principal_frame, read_kml, rotate, to_local_km)
@@ -40,6 +41,32 @@ from plot_fault_trace import (assign_fault_ids, chain, polyline_length_km,
 # into a lens plus the outer block (see meshgen.py).
 CHAIN = {f"ft{i}": f"ft{i}" for i in range(1, 8)}
 STRANDS: dict[str, str] = {}
+
+
+def even_arclength(p: np.ndarray, n: int | None = None) -> np.ndarray:
+    """Resample a polyline to EVEN arc-length spacing, same point count.
+
+    The KML digitisation is wildly uneven -- ft1 has a 49 m segment next to a
+    9.9 km one, a 200:1 ratio. gmsh subdivides each control-point segment
+    independently and gives every segment at least one element, so a short
+    segment produces a short element no matter what dx says. That is what puts
+    a 49 m element beside 369 m neighbours.
+
+    This evens the spacing WITHOUT densifying. Densifying is a different thing
+    and is known to break the mesh: gmsh's tolerance merges or drops points
+    that are too close together, leaving orphaned fault nodes with no mass
+    (see the note in saf.gmsh.lite/meshgen.py). Point count is preserved here,
+    so the density is unchanged and only the distribution improves.
+
+    x stays strictly increasing, since even resampling of a monotone curve is
+    monotone, which meshgen's CubicSpline requires.
+    """
+    seg = np.hypot(*np.diff(p, axis=0).T)
+    s_cum = np.concatenate([[0.0], np.cumsum(seg)])
+    n = len(p) if n is None else n
+    s_new = np.linspace(0.0, s_cum[-1], n)
+    return np.column_stack([CubicSpline(s_cum, p[:, 0], bc_type="natural")(s_new),
+                            CubicSpline(s_cum, p[:, 1], bc_type="natural")(s_new)])
 
 
 def main() -> None:
@@ -69,6 +96,16 @@ def main() -> None:
             continue
         pieces, _ = chain(rotated, group)
         p = np.vstack(pieces)
+        seg0 = np.hypot(*np.diff(p, axis=0).T)
+        q = even_arclength(p)
+        if np.any(np.diff(q[:, 0]) <= 0):
+            print(f"  {fid}: even-spacing resample broke x-monotonicity, keeping raw")
+        else:
+            seg1 = np.hypot(*np.diff(q, axis=0).T)
+            print(f"  {fid}: spacing ratio {seg0.max()/seg0.min():7.1f} -> "
+                  f"{seg1.max()/seg1.min():5.2f}   min {seg0.min():.3f} -> "
+                  f"{seg1.min():.3f} km")
+            p = q
         if np.any(np.diff(p[:, 0]) <= 0):
             raise SystemExit(f"error: {fid} is not strictly increasing in x after "
                              f"merge dedup; meshgen's CubicSpline would reject it")
