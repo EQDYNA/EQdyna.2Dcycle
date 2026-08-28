@@ -36,6 +36,12 @@ system = "xianshuihe"
 
 # length in km
 dx = 0.4
+# Element size used only where two faults pass closer than
+# NARROW_GAP_ELEMENTS * dx -- i.e. inside a narrow step-over, where gmsh
+# otherwise cannot fit a clean row of quads between the strands.
+# Set dx_refined = None to disable.
+dx_refined = 0.1
+NARROW_GAP_ELEMENTS = 2.0
 dxAtBoundary = 20
 totalSimuTime = 30
 vp = 6000
@@ -245,6 +251,34 @@ for iSur in range(surfaceCount):
 # free mesher places nodes where it likes, and it hugs ft2 (0.07-0.18 km)
 # rather than spanning to ft1 (0.30-0.50 km). Forcing one row needs the
 # overlap closed into its own 4-sided surface with setTransfiniteSurface.
+
+# --- refine narrow step-overs ------------------------------------------------
+#
+# Applied through setSize on the control points in the gap, which keeps the
+# per-point sizing scheme intact. A background field would override the point
+# sizes that carry dxAtBoundary and the whole domain would mesh at dx.
+if dx_refined:
+    _narrow = {}
+    _names = list(ftNamesForGmsh)
+    for _i, _a in enumerate(_names):
+        for _b in _names[_i + 1:]:
+            _pa, _pb = ftDecimated[_a], ftDecimated[_b]
+            _fa, _fb = ftEndNodeIdDict[_a][0], ftEndNodeIdDict[_b][0]
+            for _k, _p in enumerate(_pa):
+                _dd = np.hypot(*(_pb - _p).T)
+                _d = float(_dd.min())
+                if _d < NARROW_GAP_ELEMENTS * dx:
+                    _narrow[_fa + _k] = _d
+                    _narrow[_fb + int(np.argmin(_dd))] = _d
+    if _narrow:
+        print(f'refining {len(_narrow)} control point(s) in narrow step-overs '
+              f'from dx={dx:.3f} to dx_refined={dx_refined:.3f} km '
+              f'(narrowest gap {min(_narrow.values()):.3f} km = '
+              f'{min(_narrow.values())/dx_refined:.1f} refined elements across)')
+        gmsh.model.mesh.setSize([(0, t) for t in sorted(_narrow)], dx_refined)
+    else:
+        print(f'no fault gap under {NARROW_GAP_ELEMENTS:.0f} elements; '
+              f'dx_refined not applied')
 
 # Quad-oriented meshing. Without these gmsh uses Algorithm 6 (Frontal-Delaunay
 # for TRIANGLES) and RecombinationAlgorithm 1 (simple blossom), which is what
