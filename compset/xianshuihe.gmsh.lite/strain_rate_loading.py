@@ -41,8 +41,32 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
+
 from plot_fault_trace import (assign_fault_ids, chain, principal_frame,
                               read_kml, rotate, to_local_km)
+
+
+def load_mesh_faults(case_dir: Path):
+    """[(name, (n,2) node coords)] per fault, from a meshed case.
+
+    Coordinates are already in the local rotated frame -- meshgen.py consumed
+    the ftN.gmt.txt files written in that frame.
+    """
+    def find(name):
+        for d in (case_dir, case_dir / "fem_mesh_output"):
+            if (d / name).exists():
+                return d / name
+        raise SystemExit(f"error: {name} not found under {case_dir}")
+
+    vert = np.loadtxt(find("vert.txt"))[:, :2]
+    nsmp = np.loadtxt(find("nsmp.txt"), dtype=int)
+    if nsmp.min() == 1:
+        nsmp = nsmp - 1
+    rows = [l.split() for l in open(find("meshGeneralInfo.txt")) if l.strip()]
+    nfn = [int(x) for x in rows[1]]
+    mx = max(nfn)
+    return [(f"ft{i+1}", vert[nsmp[i * mx: i * mx + n, 0]]) for i, n in enumerate(nfn)]
 
 SEC_PER_YR = 365.25 * 24 * 3600.0
 GSRM_UNIT = 1.0e-9           # GSRM values are 1e-9/yr
@@ -74,6 +98,10 @@ def main() -> None:
     ap.add_argument("--gsrm", type=Path,
                     default=here / "strain_rate_input" / "GSRM_v2.1_xianshuihe_region.txt")
     ap.add_argument("--out-prefix", default="xianshuihe_strain")
+    ap.add_argument("--case", type=Path, default=None,
+                    help="Meshed case dir. With it, sampling is at the MESH fault "
+                         "nodes (what nsmpGeoPhys.txt needs); without it, at the "
+                         "KML control points.")
     args = ap.parse_args()
 
     g = load_gsrm(args.gsrm)
@@ -99,23 +127,53 @@ def main() -> None:
     # rotating the frame by -theta rotates tensor directions by -theta
     theta_p_loc = theta_p_geo - theta
 
+    # Linear interpolation over the GSRM cells, with nearest-neighbour only to
+    # fill outside the convex hull. Nearest-cell alone is wrong here: the grid
+    # is 0.1 deg (~9-11 km) while mesh nodes are 400 m apart, so ~25
+    # consecutive nodes would otherwise share one identical value.
+    # Interpolate the TENSOR COMPONENTS, never the principal angle. Orientation
+    # is pi-periodic, so interpolating theta across a wrap (+89 deg to -89 deg)
+    # produces meaningless values -- it put +/-90 deg spikes through the
+    # direction and compression panels. The components are single-valued
+    # fields, and gamma and theta are derived from the interpolated tensor.
+    # Rotation into the local frame is a fixed linear map, so it commutes with
+    # interpolation and is applied after.
+    comp = np.column_stack([to_si(g["exx"]), to_si(g["eyy"]), to_si(g["exy"])])
+    interp_c = LinearNDInterpolator(gxy, comp)
+    near_c = NearestNDInterpolator(gxy, comp)
+
+    if args.case:
+        faults = load_mesh_faults(args.case)
+        source = f"mesh fault nodes ({args.case})"
+    else:
+        faults = []
+        for fid, group in assign_fault_ids(rotated):
+            pieces, _ = chain(rotated, group)
+            faults.append((fid, np.vstack(pieces)))
+        source = "KML control points"
+
     rows = []
-    print(f"\n{'fault':>6} {'nodes':>6} {'gamma_max (s^-1)':>18} {'load angle (deg)':>18}")
-    for fid, group in assign_fault_ids(rotated):
-        pieces, _ = chain(rotated, group)
-        pts = np.vstack(pieces)
-        # nearest GSRM cell per fault node
-        idx = [int(np.argmin(np.hypot(*(gxy - p).T))) for p in pts]
-        gam = gamma_si[idx]
-        # fault tangent, local frame
+    n_filled = 0
+    print(f"\nsampling at {source}")
+    print(f"{'fault':>6} {'nodes':>6} {'gamma_max (s^-1)':>18} {'load angle (deg)':>18}")
+    for fid, pts in faults:
+        c = interp_c(pts)
+        bad = ~np.isfinite(c[:, 0])
+        if bad.any():
+            n_filled += int(bad.sum())
+            c[bad] = near_c(pts[bad])
+        exx_i, eyy_i, exy_i = c[:, 0], c[:, 1], c[:, 2]
+        gam = np.hypot(0.5 * (exx_i - eyy_i), exy_i)
+        thp = 0.5 * np.arctan2(2.0 * exy_i, exx_i - eyy_i) - theta
         tang = np.gradient(pts, axis=0)
         tang /= np.hypot(*tang.T)[:, None]
         tang_ang = np.arctan2(tang[:, 1], tang[:, 0])
-        # max-shear direction is 45 deg from the principal axis
-        shear_dir = theta_p_loc[idx] + np.pi / 4.0
+        shear_dir = thp + np.pi / 4.0
         ang = np.degrees((shear_dir - tang_ang + np.pi / 2) % np.pi - np.pi / 2)
         print(f"{fid:>6} {len(pts):>6} {gam.mean():>18.3e} {ang.mean():>18.1f}")
         rows.append((fid, pts, gam, ang))
+    if n_filled:
+        print(f"  {n_filled} node(s) outside the GSRM hull, filled by nearest cell")
 
     csv = here / f"{args.out_prefix}_loading.csv"
     with open(csv, "w") as f:
