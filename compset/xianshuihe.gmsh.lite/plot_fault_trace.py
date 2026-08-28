@@ -53,6 +53,20 @@ R_EARTH_KM = 6371.0
 # map_step_overs.py to measure the junction step-overs between them.
 THROUGH_GOING_ORDER = [1, 2, 0, 4, 6, 7, 8]
 
+# Polylines that form one fault. seg1 and seg2 meet at 0.26 km -- a
+# digitisation break, not a step-over -- and seg1 alone is only 15 km, near
+# the resolution floor at dxy = 400 m, so they are merged. Every other
+# polyline stands alone. Groups are ordered SE -> NW by assign_fault_ids().
+MERGE_GROUPS = [[1, 2], [0], [3], [4], [5], [6], [7], [8]]
+
+# All faults are vertical: the Xianshuihe is left-lateral strike-slip, and
+# Qiao et al. (2022) Fig. 4e put the dip at 75-90 deg over the Xianshuihe
+# proper. 90 deg for every fault.
+FT_DIP_DEG = 90.0
+
+# Left-lateral strike-slip -> ftType = 1 in nsmpGeoPhys.txt.
+FT_TYPE = 1
+
 
 def read_kml(path: Path) -> list[np.ndarray]:
     """Return one (n, 2) lon/lat array per <coordinates> block, in file order."""
@@ -115,14 +129,16 @@ def chain(rotated: list[np.ndarray], indices: list[int]):
     return pieces, gaps
 
 
-def assign_fault_ids(rotated: list[np.ndarray]) -> list[tuple[str, int]]:
-    """[(fault_id, polyline_index), ...] numbered SE -> NW along strike.
+def assign_fault_ids(rotated: list[np.ndarray],
+                     groups: list[list[int]] | None = None) -> list[tuple[str, list[int]]]:
+    """[(fault_id, [polyline indices]), ...] numbered SE -> NW along strike.
 
     Rotated x increases toward the NW, so sorting ascending puts the
-    southeastern-most polyline first: ft1 is the Moxi end, ft9 the Ganzi end.
+    southeastern-most group first: ft1 is the Moxi end, the last is Ganzi.
     """
-    order = sorted(range(len(rotated)), key=lambda i: rotated[i][:, 0].mean())
-    return [(f"ft{n}", i) for n, i in enumerate(order, start=1)]
+    groups = MERGE_GROUPS if groups is None else groups
+    ordered = sorted(groups, key=lambda g: np.mean([rotated[i][:, 0].mean() for i in g]))
+    return [(f"ft{n}", g) for n, g in enumerate(ordered, start=1)]
 
 
 def polyline_length_km(points: np.ndarray) -> float:
@@ -186,20 +202,23 @@ def main() -> None:
     ax_map.set_title("Xianshuihe fault, 1:1M active-fault database", pad=10)
 
     faults = assign_fault_ids(rotated)
-    print(f"\nfault decomposition: one fault per polyline, numbered SE -> NW")
-    print(f"{'fault':>6} {'seg':>4} {'npts':>5} {'length_km':>10} {'x_lo':>8} {'x_hi':>8}")
+    print(f"\nfault decomposition: {len(faults)} faults, numbered SE -> NW, "
+          f"dip {FT_DIP_DEG:.0f} deg, ftType {FT_TYPE} (left-lateral)")
+    print(f"{'fault':>6} {'segs':>8} {'npts':>5} {'length_km':>10} {'x_lo':>8} {'x_hi':>8}")
     fcolours = plt.cm.tab10(np.linspace(0, 1, 10))
-    for n, (fid, i_seg) in enumerate(faults):
-        r = rotated[i_seg]
-        if r[0, 0] > r[-1, 0]:
-            r = r[::-1]
-        L = polyline_length_km(r)
-        ax_loc.plot(r[:, 0], r[:, 1], "-o", ms=4, lw=2.2, color=fcolours[n % 10],
-                    label=f"{fid} (seg{i_seg})  {L:.0f} km")
+    for n, (fid, group) in enumerate(faults):
+        pieces_f, _ = chain(rotated, group)
+        r = np.vstack(pieces_f)
+        L = sum(polyline_length_km(p) for p in pieces_f)
+        for k, piece in enumerate(pieces_f):
+            ax_loc.plot(piece[:, 0], piece[:, 1], "-o", ms=4, lw=2.2,
+                        color=fcolours[n % 10],
+                        label=f"{fid} (seg{'+'.join(map(str, group))})  {L:.0f} km"
+                        if k == 0 else None)
         ax_loc.annotate(fid, (r[len(r) // 2, 0], r[len(r) // 2, 1]), fontsize=12.5,
                         fontweight="bold", color=fcolours[n % 10],
                         xytext=(0, 9), textcoords="offset points", ha="center")
-        print(f"{fid:>6} {i_seg:>4} {len(r):>5} {L:>10.1f} "
+        print(f"{fid:>6} {'+'.join(map(str, group)):>8} {len(r):>5} {L:>10.1f} "
               f"{r[:, 0].min():>8.1f} {r[:, 0].max():>8.1f}")
 
     ax_loc.set_xlabel(f"Along-strike distance (km), frame rotated {np.degrees(theta):.1f}$^\\circ$")
@@ -209,7 +228,8 @@ def main() -> None:
                   handlelength=2.2, borderaxespad=0.0, ncol=3, columnspacing=1.4)
     ax_loc.text(0.015, 0.97, "(b)", transform=ax_loc.transAxes, fontsize=16,
                 fontweight="bold", va="top", ha="left")
-    ax_loc.set_title("EQdyna fault decomposition: one fault per polyline", pad=10)
+    ax_loc.set_title(f"EQdyna fault decomposition: {len(MERGE_GROUPS)} faults, "
+                     f"all dip {FT_DIP_DEG:.0f}$^\\circ$", pad=10)
 
     # Fill panel (a) to the same width as panel (b) without distorting the map:
     # keep the true geographic aspect and widen the longitude range to match the

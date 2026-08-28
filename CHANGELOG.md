@@ -23,7 +23,11 @@ All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https:/
   615 MB of vendored immutable data.
 - `compset/xianshuihe.gmsh.lite/`: Xianshuihe fault geometry input — the
   1:1M active-fault KML, a trace/fault-id script and a step-over
-  analysis. Geometry only; not yet runnable.
+  analysis. Geometry only; not yet runnable. The 9 digitised polylines
+  become 8 faults: seg1 is merged into seg2 (they meet at 0.26 km, well
+  below the 3.8 km step-over cut-off, and seg1 alone is 15 km — about 38
+  nodes at dxy=400 m, near the resolution floor). All faults are vertical
+  and left-lateral.
 
 ### Fixed
 - `scripts/saf_result_utils.py`: `OBSERVED_EQDYNA_X_KM` was wrong. The

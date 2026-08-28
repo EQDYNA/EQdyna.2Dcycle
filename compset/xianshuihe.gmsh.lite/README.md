@@ -30,29 +30,45 @@ It is not one continuous line — the trace splits into sub-parallel strands
 between about 30.0 and 30.5 N, the Yalahe / Selaha / Zheduotang strands
 near Kangding.
 
-**Each polyline is its own fault.** The polylines *are* the segmentation:
-merging them into one through-going trace would erase the step-overs that
-Qiao et al. use as their maturity metric, and would force invented
-geometry across the junction gaps. Ids are assigned by
-`assign_fault_ids()`, running SE to NW — note the rotated x axis increases
-toward the NW, so the ascending-x sort puts the southeastern-most polyline
-first.
+**One fault per polyline, with a single deliberate merge.** The polylines
+*are* the segmentation: merging them wholesale into one through-going
+trace would erase the step-overs that Qiao et al. use as their maturity
+metric, and would force invented geometry across the junction gaps. Ids
+are assigned by `assign_fault_ids()` from `MERGE_GROUPS`, running SE to NW
+— note the rotated x axis increases toward the NW, so the ascending-x sort
+puts the southeastern-most group first.
 
-| fault | polyline | length | fault | polyline | length | fault | polyline | length |
-|---|---|---|---|---|---|---|---|---|
-| ft1 | seg1 | 15 km | ft4 | seg3 | 27 km | ft7 | seg6 | 54 km |
-| ft2 | seg2 | 59 km | ft5 | seg4 | 75 km | ft8 | seg7 | 75 km |
-| ft3 | seg0 | 43 km | ft6 | seg5 | 71 km | ft9 | seg8 | 63 km |
+**8 faults:**
+
+| fault | polylines | length | fault | polylines | length |
+|---|---|---|---|---|---|
+| ft1 | seg1 + seg2 | 74 km | ft5 | seg5 | 71 km |
+| ft2 | seg0 | 43 km | ft6 | seg6 | 54 km |
+| ft3 | seg3 | 27 km | ft7 | seg7 | 75 km |
+| ft4 | seg4 | 75 km | ft8 | seg8 | 63 km |
+
+### The seg1 + seg2 merge
+
+`MERGE_GROUPS` merges seg1 into seg2, and nothing else. Two reasons, both
+needed — either alone would not justify it:
+
+1. **They are not separated by a step-over.** Their endpoints meet at
+   **0.26 km**, the tightest junction in the whole dataset and far below
+   the 3.8 km step-over cut-off. This is a break in the digitisation, not
+   a structure.
+2. **seg1 alone is too short to model.** At 15 km and the `.gmsh.lite`
+   resolution of dxy = 400 m it carries ~38 fault nodes, against a 2 km
+   nucleation-patch radius in the SAF setup — near the floor of what the
+   code resolves meaningfully. Merged, ft1 is 74 km.
+
+No other junction qualifies: the next-tightest are 0.00 km (seg0→seg4)
+and 1.62 km (seg5→seg6), but both connect polylines that are already long
+enough to stand alone, and merging across them would span the splay zone.
 
 `THROUGH_GOING_ORDER` in `plot_fault_trace.py` is **not** a fault. It is
 only the order in which the polylines succeed one another along the trace,
-which `map_step_overs.py` needs to know which pairs are neighbours.
-
-Open: **ft1 is only 15 km long.** At the `.gmsh.lite` resolution of
-dxy = 400 m that is ~38 fault nodes, against a 2 km nucleation-patch
-radius in the SAF setup — near the floor of what the code resolves.
-It joins ft2 at 0.26 km, so merging the two is defensible (a digitisation
-break, not a step-over).
+which `map_step_overs.py` needs to know which pairs are neighbours. It is
+unaffected by the merge.
 
 ## Step-overs
 
@@ -102,8 +118,8 @@ loading amplitude itself:
 
 | `nsmpGeoPhys.txt` column | source |
 |---|---|
-| `ftType` | left-lateral strike-slip throughout → `1` |
-| `ftDip` | Fig. 4e: 60–90 S (Dangjiang/Yushu), 70–90 N (Ganzi), 75–90 S (Xianshuihe) |
+| `ftType` | left-lateral strike-slip throughout → `1` (`FT_TYPE`) |
+| `ftDip` | **90 for every fault** (`FT_DIP_DEG`). Qiao et al. Fig. 4e give 75–90 S over the Xianshuihe proper; the model takes all faults vertical. |
 | `ftLoadMaxShear` | **not directly given** — see below |
 | `ftLoadAngle` | `-999` (auto) |
 | `ftLoadWt` | `450` |
@@ -145,8 +161,9 @@ along-strike contrast is the scientific target of the case.
 
 ## Still to do
 
-- Decide whether to merge ft1 (15 km) into ft2, and how the splay strands
-  ft4/ft5/ft6 should interact at the mesh level.
+- Decide how the splay strands ft3/ft4/ft5 should interact at the mesh
+  level (the `subei.gmsh.lite` multi-surface junction handling is the
+  precedent).
 - Choose the model extent: the full 900 km Yushu–Ganzi–Xianshuihe system,
   or the ~350 km Xianshuihe proper (Qiao et al. put the segment boundary
   near 100.7 E).
