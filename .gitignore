@@ -28,3 +28,4 @@ compset/**/meshGeneralInfo.txt
 monitor.log
 monitor.log
 scripts/.nfs*
+strain_rate_input/GSRM_v2.1_xianshuihe_region.txt
