@@ -31,8 +31,9 @@ STYLE = {"font.size": 10, "axes.titlesize": 10.5, "axes.labelsize": 10,
          "xtick.labelsize": 9, "ytick.labelsize": 9, "legend.fontsize": 8.5,
          "savefig.bbox": "tight"}
 FAULT_COLOURS = plt.cm.tab10(np.arange(10))      # fixed order, as the other figures
-N_TRACES = 40                                     # traces in the record section
-TRACE_GAIN = 2.0                                  # peak trace width, in trace spacings
+N_TRACES = 120                                    # traces across the whole fault system
+TRACE_GAIN = 2.0                                  # width of REF_SLIP_RATE, in trace spacings
+REF_SLIP_RATE = 2.0                               # m/s; fixed across events for comparability
 
 
 def plot_event(case: STFCase, eqid: int, out_dir: str) -> str:
@@ -58,30 +59,54 @@ def plot_event(case: STFCase, eqid: int, out_dir: str) -> str:
     faults = np.unique(ev["fault"])
     rt = ev["rupture_time"]
     ok = rt < 999
-    xlim = (float(x_km.min()), float(x_km.max()))
+    # Whole fault system, not just the nodes that slipped: every node of the
+    # table, with zero slip rate where the event did not reach.
+    allx = case.nodes["x"] / 1e3
+    xlim = (float(allx.min()), float(allx.max()))
+    nall = len(allx)
+    full_v = np.zeros((nall, len(t)), dtype=float)
+    full_v[ev["node"]] = ev["slip_rate"]
+    full_slip = np.zeros(nall)
+    full_slip[ev["node"]] = ev["slip"][:, -1]
+    all_fault = case.nodes["fault"]
 
     # (b) record section: each trace is one node's slip-rate function, drawn at
     # its along-strike position with amplitude to the right, time upward
     rs = ax[1]
-    order_all = np.argsort(x_km)
-    step = max(1, len(order_all) // N_TRACES)
-    sel = order_all[::step]
-    spacing = (x_km.max() - x_km.min()) / max(len(sel), 1)
-    gain = TRACE_GAIN * spacing / max(float(ev["slip_rate"].max()), 1e-9)
+    # Traces at a fixed spacing along each fault (same nodes for every event),
+    # coloured by fault so overlapping strands stay distinguishable, plus the
+    # nucleation node so a small rupture is never missed between traces.
+    step = max(1, nall // N_TRACES)
+    sel = []
+    for f in np.unique(all_fault):
+        idx = np.where(all_fault == f)[0]
+        sel += list(idx[np.argsort(allx[idx])][::step])
+    nuc = int(ev["nuc_node"]) - 1
+    if 0 <= nuc < nall and nuc not in sel:
+        sel.append(nuc)
+    spacing = (xlim[1] - xlim[0]) / max(nall // step, 1)
+    # Fixed amplitude scale, identical for every event of a case, so record
+    # sections are comparable: REF_SLIP_RATE spans TRACE_GAIN trace spacings.
+    gain = TRACE_GAIN * spacing / REF_SLIP_RATE
     for i in sel:
-        tr = x_km[i] + ev["slip_rate"][i] * gain
-        rs.fill_betweenx(t, x_km[i], tr, color="0.25", lw=0)
-        rs.plot(tr, t, color="0.05", lw=0.4)
+        col = FAULT_COLOURS[(int(all_fault[i]) - 1) % 10]
+        if full_v[i].max() > 0:
+            tr = allx[i] + full_v[i] * gain
+            rs.fill_betweenx(t, allx[i], tr, color=col, alpha=0.55, lw=0)
+            rs.plot(tr, t, color=col, lw=0.5)
+        else:
+            rs.plot([allx[i], allx[i]], [t[0], t[-1]], color="0.88", lw=0.3, zorder=0)
     rs.plot(x_km[ok], rt[ok], ".", ms=1.2, color="C3", label="rupture front")
     rs.plot(ev["nuc_x"] / 1e3, 0, marker="*", ms=11, color="C3", ls="none",
             label="nucleation")
-    rs.plot([], [], color="0.05", lw=1,
-            label=f"1 m/s = {gain:.2f} km")
+    for f in np.unique(all_fault):
+        rs.plot([], [], color=FAULT_COLOURS[(int(f) - 1) % 10], lw=3, label=f"ft{int(f)}")
+    rs.plot([], [], color="0.05", lw=1, label=f"1 m/s = {gain:.2f} km")
     rs.set_ylim(0, t[-1])
     rs.set_ylabel("time (s)")
     rs.set_xlabel("along-strike x (km)")
-    rs.set_title(f"(b) Record section: slip-rate functions at every {step}th node", loc="left")
-    rs.legend(loc="upper right", frameon=True)
+    rs.set_title(f"(b) Record section: every {step}th node per fault, ~{spacing:.1f} km apart (grey = no slip)", loc="left")
+    rs.legend(loc="upper right", frameon=True, ncol=2, fontsize=7.5)
     rs.set_xlim(xlim)
 
     # (c) slip-rate functions at a few informative nodes
@@ -99,16 +124,19 @@ def plot_event(case: STFCase, eqid: int, out_dir: str) -> str:
     ax[2].legend(loc="upper right", ncol=2, frameon=False)
 
     # (d) final slip along strike
-    for f in faults:
-        m = ev["fault"] == f
-        order = np.argsort(x_km[m])
-        ax[3].plot(x_km[m][order], final[m][order], lw=1.8,
+    all_faults = np.unique(all_fault)
+    for f in all_faults:
+        m = all_fault == f
+        order = np.argsort(allx[m])
+        xs, ss = allx[m][order], full_slip[m][order]
+        ax[3].plot(xs, np.zeros_like(xs), color="0.8", lw=0.8, zorder=0)
+        ax[3].plot(xs, np.where(ss > 0, ss, np.nan), lw=1.8,
                    color=FAULT_COLOURS[(int(f) - 1) % 10], label=f"ft{int(f)}")
     ax[3].set_ylabel("slip (m)")
     ax[3].set_xlabel("along-strike x (km)")
     ax[3].set_title("(d) Final slip", loc="left")
-    if len(faults) > 1:
-        ax[3].legend(loc="upper right", ncol=min(len(faults), 7), frameon=False)
+    if len(all_faults) > 1:
+        ax[3].legend(loc="upper right", ncol=min(len(all_faults), 7), frameon=False)
     ax[3].set_xlim(xlim)
     for a in ax:
         a.grid(alpha=0.25, lw=0.5)
