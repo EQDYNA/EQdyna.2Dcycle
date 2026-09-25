@@ -130,7 +130,12 @@ class STFFile:
 class STFCase:
     """All STF segments of a case (stf.bin1, stf.bin1256, ...), merged by eqid."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, name: str | None = None):
+        # case name for labelling figures: the case directory's name
+        base = path if os.path.isdir(path) else os.path.dirname(os.path.abspath(path))
+        if os.path.basename(base) == "aRawSimuData":
+            base = os.path.dirname(base)
+        self.name = name or os.path.basename(os.path.abspath(base))
         if os.path.isdir(path):
             files = []
             for d in (path, os.path.join(path, "aRawSimuData")):

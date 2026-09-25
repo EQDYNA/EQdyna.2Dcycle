@@ -50,8 +50,8 @@ def plot_event(case: STFCase, eqid: int, out_dir: str) -> str:
     # (a) moment rate
     ax[0].plot(t, mdot, color="0.15", lw=1.6)
     ax[0].set_ylabel(r"$\dot M_0$ (N m/s)")
-    ax[0].set_title(f"(a) Event {eqid}: Mw {mw:.2f}, t = {ev['time_yr']:.1f} yr in the "
-                    f"sequence, {ev['nout']} nodes, {ev['t_end']:.1f} s", loc="left")
+    ax[0].set_title(f"(a) {case.name}, event {eqid}: Mw {mw:.2f}, t = {ev['time_yr']:.1f} yr "
+                    f"in the sequence, {ev['nout']} nodes, {ev['t_end']:.1f} s", loc="left")
     ax[0].set_xlim(0, t[-1])
     ax[0].set_xlabel("time (s)")
 
