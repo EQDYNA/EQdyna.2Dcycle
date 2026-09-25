@@ -65,6 +65,13 @@ class parameters:
     ambientnorm = -100.e6 # background ambient on-fault normal stress, Pa. 
     debug = 0 # 1/0, activate/deactivate debugging mode.
     plotmesh = 0 # 1/0, genearte/NOTgenearte mesh files.
+    # Source-time-function output (stf.bin<icstart>, read with stf_read.py):
+    # per event, per slipping fault node, the full dynamic time series of slip
+    # rate, slip, shear/normal stress and friction. Read-only: turning it on
+    # must not change totalop.txt.
+    outputSTF = 0     # 1/0, write/don't write
+    stfEvery = 1      # keep every Nth solver step (dt_out = stfEvery*dt1)
+    stfVmin = 1.e-3   # m/s; write only nodes whose peak slip rate exceeds this
     
     yext = 10.e3 # m, external range outside of uniform grid zone along both x & y.
     rat = 1.025 # enlarging ratio for quadralaterals.

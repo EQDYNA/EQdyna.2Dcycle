@@ -21,7 +21,7 @@ OPT1 = $(LDFLAGS)
 
 OBJ = eqdyna2d.o globalvar.o qdcshl.o prop2d.o formlm.o driver.o \
 	 qdct2.o qdcshg.o contm.o qdcb.o qdct3.o \
-	 contma.o qdckd.o faulting.o fric.o hrglss.o meshgen.o meshgen1.o loadGmshMesh.o interstress.o Read_Input_Files.o
+	 contma.o qdckd.o faulting.o fric.o hrglss.o meshgen.o meshgen1.o loadGmshMesh.o interstress.o Read_Input_Files.o stf_output.o
 
 .PHONY: all release debug clean
 
@@ -38,7 +38,7 @@ clean:
 $(EXE): $(OBJ)
 	$(F90) $(OPT1) $(OBJ) -o $(EXE)
 
-eqdyna2d.o: eqdyna2d.f90 globalvar.o driver.o interstress.o Read_Input_Files.o
+eqdyna2d.o: eqdyna2d.f90 globalvar.o driver.o interstress.o Read_Input_Files.o stf_output.o
 	$(F90) $(OPT) eqdyna2d.f90
 
 globalvar.o: globalvar.f90
@@ -100,3 +100,6 @@ interstress.o: interstress.f90 globalvar.o
 
 Read_Input_Files.o: Read_Input_Files.f90 globalvar.o
 	$(F90) $(OPT) Read_Input_Files.f90
+
+stf_output.o: stf_output.f90 globalvar.o
+	$(F90) $(OPT) stf_output.f90

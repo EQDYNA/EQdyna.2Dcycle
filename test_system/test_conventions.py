@@ -454,6 +454,25 @@ def test_fig4_refuses_empty_output() -> None:
           "an empty figure still exits 0 and reads as a finished result")
 
 
+def test_stf_format_versions_match() -> None:
+    """R31: stf.bin writer and reader must agree on the format version."""
+    import re
+    w = os.path.join(ROOT, "src", "stf_output.f90")
+    r = os.path.join(SCRIPTS, "stf_read.py")
+    if not (os.path.exists(w) and os.path.exists(r)):
+        skip("R31", "stf writer/reader versions match", "files absent")
+        return
+    ws = open(w).read()
+    rs = open(r).read()
+    mw = re.search(r"write\(u\) int\((\d+),4\), int\(icstart", ws)
+    mr = re.search(r"if self\.version != (\d+)", rs)
+    check("R31", "stf.bin writer and reader carry the same format version",
+          bool(mw and mr and mw.group(1) == mr.group(1)),
+          f"writer {mw.group(1) if mw else '?'} vs reader {mr.group(1) if mr else '?'}")
+    check("R31", "stf.bin magic matches", "'EQDYNSTF'" in ws and 'b"EQDYNSTF"' in rs,
+          "magic string differs between writer and reader")
+
+
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
     for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
@@ -464,7 +483,7 @@ def main() -> None:
                test_case_setup_run_sh, test_no_hardcoded_fault_counts_in_fortran,
                test_version_file_is_single_semver_line, test_changelog_has_body_for_version,
                test_changelog_section_extraction_returns_text,
-               test_run_sh_sets_omp_threads, test_fig4_refuses_empty_output,
+               test_run_sh_sets_omp_threads, test_fig4_refuses_empty_output, test_stf_format_versions_match,
                test_every_check_is_registered):
         fn()
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")

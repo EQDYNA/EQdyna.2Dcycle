@@ -3,7 +3,7 @@ subroutine readglobal
 ! This subroutine is read information from FE_global.txt
 	use globalvar
 	implicit none
-	integer (kind = 4) :: i
+	integer (kind = 4) :: i, ios
 	logical::file_exists
 	
 	INQUIRE(FILE="FE_Global.txt", EXIST=file_exists)
@@ -48,6 +48,13 @@ subroutine readglobal
 		read(1001,*) ambientnorm
 		read(1001,*) debug
 		read(1001,*) plotmesh
+		! Optional STF output control; absent in older FE_Global.txt files, in
+		! which case the output stays off and the run is unchanged.
+		read(1001,*,iostat=ios) stfOn, stfEvery, stfVmin
+		if (ios /= 0) then
+			stfOn = 0; stfEvery = 1; stfVmin = 1.0d-3
+		endif
+		if (stfEvery < 1) stfEvery = 1
 	close(1001)
 end subroutine readglobal 
 ! #2 readmodelgeometry -------------------------------------------------

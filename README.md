@@ -78,6 +78,8 @@ After a run finishes, `run.sh` moves raw outputs into `aRawSimuData/`:
 | `cyclelog.txt<N>` | one line per cycle: `cycle_id  nucleation_node` |
 | `interval.txt<N>` | one value per cycle: interseismic duration (yr) |
 | `binaryop` | restart state for resuming with `icstart > 1` |
+| `seqtime.txt` | time in the earthquake sequence after the last cycle (yr); lets a restart keep absolute event times |
+| `stf.bin<N>` | **optional** source time functions, `par.outputSTF = 1` — see below |
 
 Plus the input/mesh files used by the run (`vert.txt`, `fac.txt`, `nsmp.txt`, `nsmpGeoPhys.txt`, `meshGeneralInfo.txt`, `Rate_direction.txt`, `FE_*.txt`).
 
@@ -98,6 +100,8 @@ All scripts live in `scripts/` (and are on `PATH` after install). Run from insid
 | `monitor_runs.sh [-i secs] [-1] [cases...]` | Background poller (default 1200s). Snapshots each named case (or any `work/*/` holding `totalop.txt1`), re-runs the plot suite, and reports events, span, Mmax and the M≥6.5 count. |
 | `paleo_site_stats.py` | Table-2 style recurrence and slip statistics at the BF/FM/WW paleoseismic sites (SAF only). |
 | `plot_saf_figure6.py`, `plot_saf_figure9.py` | Ports of the published Figure 6 (cumulative moment, magnitude-frequency) and Figure 9 (characteristic-event slip distributions). SAF only. |
+| `stf_read.py <case> [--list] [--event ID --netcdf f.nc]` | Reads `stf.bin*`: lists events (id, time in sequence, interval, nodes, duration, M0, Mw) and exports one event to NetCDF or `.npz`. Also a library (`STFCase`). |
+| `plot_stf.py <case> <eqid...>` | Per event: moment-rate function, space-time slip rate with the rupture front, slip-rate functions at key nodes, final slip. |
 | `fetch_published_reference.sh` | Fetches the published Zenodo software and Pangaea results from their DOIs with md5 pinning, instead of vendoring them. |
 | `compare_cycle_over_strike.py` | Overlay a chosen cycle's stress/slip/rupture-time curves from multiple cases (e.g. saf.gmsh.lite vs paper.saf.A) for direct comparison. |
 
@@ -108,6 +112,27 @@ cd work/my_case
 CATALOG=1 plotRuptureDynamics      # writes aPlots/catalog.csv
 analyze_catalog.py . --mmax 7.0    # writes aPlots/catalog_analysis.png
 ```
+
+## Source time functions
+
+Set `par.outputSTF = 1` in `user_defined_params.py` to write, for **every**
+event, the full dynamic time series at every fault node that slipped, into one
+file per run, `stf.bin<icstart>`:
+
+| per file | per event | per node | per node, per time step |
+|---|---|---|---|
+| fault-node table: fault, x, y, tangent, tributary length | event id (= `catalog.csv` eqId), time in the sequence (yr), preceding interval, nucleation node, `dt`, duration | rupture time, peak slip rate | slip rate, signed slip rate, slip, signed slip, shear stress, normal stress, friction |
+
+The layout is documented in `src/stf_output.f90` and implemented by
+`scripts/stf_read.py`; `stf_read.py <case> --event 38 --netcdf ev38.nc` hands
+one event to other codes. `stfEvery` decimates in time (default 1 = every
+solver step, dt = 0.01 s); `stfVmin` (default 1 mm/s) selects the nodes.
+Output is float32; a full-resolution 4000-cycle SAF Model A run is ~45 GB.
+
+Events are **not** a fixed length: an event stops once the peak slip rate
+drops below 1 mm/s after 5 s (capped at `term`), and each record carries its
+own duration. The output is read-only — `totalop.txt` is bit-identical with it
+on or off (`test_system/verify_stf.py`).
 
 ## Reproducibility
 
@@ -148,6 +173,7 @@ enforces the mechanical ones:
 ```bash
 python3 test_system/test_conventions.py          # 38 checks
 python3 test_system/verify_xianshuihe.py         # solver regression, 5 cycles, bit-exact
+python3 test_system/verify_stf.py                # STF output: read-only, consistent, complete
 python3 test_system/smoke.py                     # compile + 1-cycle run
 python3 -m test_system.test_all                  # full pipeline
 ```

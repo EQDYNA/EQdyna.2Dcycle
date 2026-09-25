@@ -4,6 +4,30 @@ All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https:/
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-25
+
+### Added
+- **Source-time-function output** (`par.outputSTF = 1`). For every event, one
+  file per run, `stf.bin<icstart>`, holds the full dynamic time series at every
+  fault node that slipped: slip rate, signed slip rate, slip, signed slip,
+  shear and normal stress, friction coefficient; per node the rupture time and
+  peak slip rate; per event the event id (= `catalog.csv` eqId), its time in
+  the earthquake sequence, the preceding interval, nucleation node, sample
+  interval and duration; and once per file the fault-node table (fault, x, y,
+  tangent, tributary length). Compact float32 stream binary, layout in
+  `src/stf_output.f90`. `stfEvery` decimates in time, `stfVmin` selects nodes.
+- `scripts/stf_read.py` (reader, event listing, NetCDF/`.npz` export, moment-
+  rate function) and `scripts/plot_stf.py` (per-event figure).
+- `seqtime.txt`, written after every cycle, so a restart keeps absolute event
+  times; without it the STF header records that times are relative.
+- `test_system/verify_stf.py`: with the output on, `totalop.txt` stays
+  bit-identical to the frozen reference, and the STF agrees with `totalop`
+  (final slip, stress, rupture time), integrates to the final slip, misses no
+  ruptured node, carries the right sequence times, and reproduces the
+  catalogue moment. R31 and `test_stf_format_versions_match` guard the
+  writer/reader contract.
+
+
 ## [2.1.1] - 2026-08-28
 
 Documentation and test-infrastructure release. No change to the solver or to

@@ -208,6 +208,15 @@ Mechanical check: `test_run_sh_sets_omp_threads` — the generated `run.sh`
 must set `OMP_NUM_THREADS` explicitly rather than inheriting whatever the
 caller's environment happens to hold.
 
+### R31 — A new solver output must be read-only, and its reader must match its writer
+An output hook reads the solution; it must never feed back into it. Proof is
+mechanical, not argued: with the output on, `totalop.txt` must be bit-identical
+to the frozen reference (`test_system/verify_stf.py`, check 1). The binary
+layout of `stf.bin` is a contract between `src/stf_output.f90` and
+`scripts/stf_read.py`; a field added to one and not the other silently shifts
+every value after it, so both carry the same format version and a change to
+either bumps it. Mechanical check: `test_stf_format_versions_match`.
+
 ## Case I/O
 
 ### R15 — Read case outputs from the case dir **or** `aRawSimuData/`

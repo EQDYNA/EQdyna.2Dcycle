@@ -95,6 +95,7 @@ Full details (contents, figures, generation scripts) live in each compset's own 
 - `make_paper_figures.py`: one command for the full paper figure set — `python3 make_paper_figures.py <case_dir>`; stages catalog, figure3/4/5/6/9, analysis, rupture. `--skip rupture` for the cheap summary set, `--only <stages>`, `--list`; each stage logs to `aPlots/logs/<stage>.log`, the expensive per-cycle stage runs last
 - `fetch_published_reference.sh`: fetches the published Zenodo software (10.5281/zenodo.5823021) and Pangaea results (10.1594/PANGAEA.940262) by DOI with md5 pinning, instead of vendoring 615 MB of immutable data
 - `saf_result_utils.py`: loader helpers used by the plot_saf_* scripts
+- `stf_read.py` / `plot_stf.py`: read and plot the optional source-time-function output `stf.bin<icstart>` (`par.outputSTF = 1`; binary layout defined in `src/stf_output.f90`, the reader implements it — change both together). `stf_read.py <case> --event ID --netcdf out.nc` exports one event
 - `meshGenLib.py`: mesh generation utilities (C_mesh=3)
 - `defaultParameters.py`: default simulation parameters
 

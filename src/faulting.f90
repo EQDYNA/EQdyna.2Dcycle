@@ -4,7 +4,7 @@ SUBROUTINE faulting(step)
 
 	logical :: lstr
 	integer (kind=4)::ifault,i,j,k, ii, jj, kk, step
-	integer (kind=4)::iFtLoop, iNodeAcc, iLocal
+	integer (kind=4)::iFtLoop, iNodeAcc, iLocal, ks
 	real (kind = dp)::nx,ny,tx,ty,txy,mmast,mslav,mtotl,ttao,tnrm,taoc, &
 		taox,taoy,ftix, ftiy, fnfault, ftfault, slip,sliprate,xmu,trupt,tr,temp1, maxslip, maxsliprate
 	real (kind = dp),dimension(4,2,3)::fvd=0.0d0 
@@ -188,6 +188,24 @@ SUBROUTINE faulting(step)
 			output4plot(3,kk) = slip
 			output4plot(4,kk) = sliprate
 			output4plot(5,kk) = fnft(i)
+			! Source-time-function buffer. Read-only use of the solution: nothing
+			! here feeds back into the update. Variables (see stf_output.f90):
+			! 1 |slip rate|, 2 slip rate along the tangent (signed), 3 |slip|,
+			! 4 slip along the tangent (signed), 5 shear, 6 normal, 7 friction.
+			if (stfOn == 1) then
+				if (mod(step-1, stfEvery) == 0) then
+					ks = (step-1)/stfEvery + 1
+					stfBuf(ks,kk,1) = real(sliprate, 4)
+					stfBuf(ks,kk,2) = real(fvd(4,2,2)-fvd(4,1,2), 4)
+					stfBuf(ks,kk,3) = real(slip, 4)
+					stfBuf(ks,kk,4) = real(fvd(4,2,3)-fvd(4,1,3), 4)
+					stfBuf(ks,kk,5) = real(-ttao, 4)
+					stfBuf(ks,kk,6) = real(tnrm, 4)
+					stfBuf(ks,kk,7) = real(xmu, 4)
+					if (ks > stfNt) stfNt = ks
+				endif
+				if (sliprate > stfVpeak(kk)) stfVpeak(kk) = sliprate
+			endif
 			maxslip_arr(kk) = slip
 			maxsliprate_arr(kk) = sliprate
 			!

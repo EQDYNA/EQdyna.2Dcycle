@@ -172,6 +172,10 @@ write(*,*) '=     Nucleation occurs at on-fault node                            
 write(*,'(X,A,40X,i5)') '=',loc
 flush(6)
 
+! Interval and time in the sequence for this event, carried into the STF output.
+tInterYr = tinter/tcon
+tSeqYr   = tSeqYr + tInterYr
+
 open(2001,file='interval.txt'//m1, position='append')
 	write(2001,'(1e21.14)') tinter/tcon
 close(2001)

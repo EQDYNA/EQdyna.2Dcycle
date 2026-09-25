@@ -4,6 +4,7 @@ PROGRAM eqdyna2d
 
 	real (kind = dp) :: timebegin, timeover
 	integer (kind=4) :: ic, n,i,j,k,m,alloc_err
+	logical :: seqexists
 	character (len = 30) :: mm
 	write(*,*) '====================================================================='
 	write(*,*) '================== Welcome to EQdyna 2D ' // EQDYNA_VERSION // ' =================='
@@ -248,6 +249,29 @@ PROGRAM eqdyna2d
 		enddo 				
 	endif
 	
+	! Time in the earthquake sequence. A restart recovers it from seqtime.txt
+	! (written after every cycle); without that file the times in this segment
+	! are relative to the restart and the STF header says so (originKnown=0).
+	tSeqYr = 0.0d0
+	stfOriginKnown = 1
+	if (icstart > 1) then
+		inquire(file='seqtime.txt', exist=seqexists)
+		if (seqexists) then
+			open(62, file='seqtime.txt', form='formatted', status='old')
+			read(62,*) tSeqYr
+			close(62)
+		else
+			stfOriginKnown = 0
+			write(*,*) '= WARNING: seqtime.txt not found; event times restart from 0 ='
+		endif
+	endif
+	tSeqStartYr = tSeqYr
+
+	if (stfOn == 1) then
+		allocate(stfBuf(nstep1/stfEvery + 1, totftnode, stfNvar), stfVpeak(totftnode))
+		write(*,*) '=     Source-time-function output ON -> stf.bin'//trim(mm)
+	endif
+
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     Readt to simulate earthquake cycles ...                       ='		
 
@@ -274,6 +298,10 @@ PROGRAM eqdyna2d
 		fnft = 1000.0d0
 		v = 0.0d0
 		d = 0.0d0 
+		if (stfOn == 1) then
+			stfNt = 0
+			stfVpeak = 0.0d0
+		endif
 		write(*,*) '=                                                                   ='	
 		write(*,*) '=     Calculating dynamic rupture ...                               ='	
 		
@@ -302,6 +330,10 @@ PROGRAM eqdyna2d
 		open(4,file='cyclelog.txt'//mm,form = 'formatted', status = 'unknown')
 			write(4,*) icstart, ic
 		close(4)
+		open(62, file='seqtime.txt', form='formatted', status='unknown')
+			write(62,'(e25.17)') tSeqYr
+		close(62)
+		if (stfOn == 1) call write_stf(ic)
 
 		write(*,*) '=                                                                   ='
 		write(*,*) '=     Finishing the current earthquake cycle                        ='

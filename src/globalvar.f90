@@ -59,6 +59,19 @@ MODULE globalvar
   real (kind = dp) :: ambientnorm, minnorm = -10.0d6, vp, vs, lambda
   real (kind = dp),allocatable, dimension(:,:) :: fistr, output4plot, rd, nsmpgp ! rd: C_mesh=2; nsmpgp: C_mesh=3
   integer (kind=8),allocatable, dimension(:) :: nfnode, ftcn
+  !...source-time-function (STF) output, written by write_stf (stf_output.f90).
+  !   Optional: FE_Global.txt line 29 "stfOn stfEvery stfVmin"; absent => off,
+  !   so older case directories run unchanged. Buffering never feeds back into
+  !   the solution: with stfOn=1 totalop.txt must stay bit-identical.
+  integer (kind=4) :: stfOn = 0, stfEvery = 1, stfNt = 0, stfOriginKnown = 1
+  integer (kind=4), parameter :: stfNvar = 7
+  real (kind = dp) :: stfVmin = 1.0d-3
+  !   tSeqYr: time of the current event in the sequence (yr since model start,
+  !   i.e. the cumulative sum of interseismic intervals INCLUDING this event's).
+  real (kind = dp) :: tSeqYr = 0.0d0, tInterYr = 0.0d0, tSeqStartYr = 0.0d0
+  !   stfBuf(t, node, var), time fastest so each node's series writes contiguously
+  real (kind = 4), allocatable, dimension(:,:,:) :: stfBuf
+  real (kind = dp), allocatable, dimension(:) :: stfVpeak
   
 	     
 end MODULE globalvar 	      
