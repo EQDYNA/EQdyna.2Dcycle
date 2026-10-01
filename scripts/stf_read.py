@@ -194,7 +194,9 @@ def to_netcdf(ev: dict, varnames, varunits, out: str):
                                 "t0", "dt", "t_end")}
     attrs["origin_known"] = int(ev["origin_known"])
     attrs["source"] = "EQdyna.2Dcycle stf.bin (src/stf_output.f90)"
-    xr.Dataset(data, coords=coords, attrs=attrs).to_netcdf(out)
+    ds = xr.Dataset(data, coords=coords, attrs=attrs)
+    enc = {v: {"zlib": True, "complevel": 4} for v in ds.data_vars}   # lossless
+    ds.to_netcdf(out, encoding=enc)
 
 
 def main():

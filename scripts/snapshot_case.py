@@ -31,7 +31,7 @@ import shutil
 
 MESH_AND_INPUT = ['FE_Global.txt', 'FE_Model_Geometry.txt', 'FE_Fault_Geometry.txt',
                   'meshGeneralInfo.txt', 'nsmp.txt', 'vert.txt', 'fac.txt',
-                  'nsmpTanLen.txt', 'nsmpGeoPhys.txt', 'user_defined_params.py']
+                  'nsmpTanLen.txt', 'nsmpnv.txt', 'nsmpGeoPhys.txt', 'user_defined_params.py']
 
 
 def totftnode(case: str) -> int:
