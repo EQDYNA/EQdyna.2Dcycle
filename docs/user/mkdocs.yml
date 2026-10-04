@@ -1,0 +1,41 @@
+site_name: EQdyna.2Dcycle
+site_url: https://eqdyna.github.io/EQdyna.2Dcycle/
+repo_url: https://github.com/EQDYNA/EQdyna.2Dcycle
+repo_name: EQDYNA/EQdyna.2Dcycle
+edit_uri: ''
+
+# Lives at docs/user/mkdocs.yml to keep the repo root clean, so docs_dir points
+# back at this directory; the built site goes to docs/user-site (gitignored),
+# outside docs_dir as mkdocs requires.
+docs_dir: .
+site_dir: ../user-site
+
+theme:
+  name: material
+  palette:
+    scheme: default
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Running a case: running-a-case.md
+  - Compsets: compsets.md
+  - Model inputs: inputs.md
+  - Parameters: parameters.md
+  - Output files: outputs.md
+  - Post-processing: post-processing.md
+  - Source time functions: source-time-functions.md
+  - Testing and reproducibility: testing.md
+  - Troubleshooting: troubleshooting.md
+  - Citing: citing.md
+
+# `mkdocs build --strict` (the CI gate) passes strict on the command line, so a
+# plain local preview is never blocked by a warning.
+markdown_extensions:
+  - tables
+  - fenced_code
+  - admonition
+
+exclude_docs: |
+  gen_params.py
+  requirements.txt

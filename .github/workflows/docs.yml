@@ -1,0 +1,54 @@
+name: Build and publish the user guide
+
+# MkDocs Material site from docs/user/. A pull request only builds it
+# (--strict: any warning fails); a version tag builds and publishes it to
+# GitHub Pages, so each release publishes the guide matching its own code.
+on:
+  pull_request:
+    paths:
+      - 'docs/user/**'
+      - 'scripts/defaultParameters.py'
+      - '.github/workflows/docs.yml'
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install MkDocs and the Material theme
+        run: pip install -r docs/user/requirements.txt
+      - name: Parameter reference is up to date with defaultParameters.py
+        run: python3 docs/user/gen_params.py --check
+      - name: Build the site (strict)
+        run: mkdocs build --strict -f docs/user/mkdocs.yml
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/user-site
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-22.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

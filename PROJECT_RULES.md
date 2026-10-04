@@ -217,6 +217,13 @@ layout of `stf.bin` is a contract between `src/stf_output.f90` and
 every value after it, so both carry the same format version and a change to
 either bumps it. Mechanical check: `test_stf_format_versions_match`.
 
+### R32 — The user guide is generated where it can be, and stays user-facing
+`docs/user/` is a MkDocs site published to GitHub Pages on each tag. Its
+parameter table is generated from `scripts/defaultParameters.py` by
+`docs/user/gen_params.py`, so change a default's comment there, not in the
+page. User pages cite no internal material (rule ids, this rule book, agent
+names). Mechanical check: `test_user_guide`; CI builds with `--strict`.
+
 ## Case I/O
 
 ### R15 — Read case outputs from the case dir **or** `aRawSimuData/`

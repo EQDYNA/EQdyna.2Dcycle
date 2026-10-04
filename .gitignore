@@ -3,6 +3,11 @@
 work/
 bin/
 archive/
+# docs/ holds private working material; only the user guide is tracked
+docs/*
+!docs/user/
+docs/user-site/
+docs/user/__pycache__/
 compset/**/fem_mesh_output/
 compset/**/__pycache__/
 compset/**/archive/

@@ -2,6 +2,9 @@
 
 2D finite-element code for physics-based multicycle earthquake dynamics on geometrically complex fault systems.
 
+**User guide:** <https://eqdyna.github.io/EQdyna.2Dcycle/> (source in `docs/user/`; build locally with
+`pip install -r docs/user/requirements.txt && mkdocs serve -f docs/user/mkdocs.yml`).
+
 ## Install
 
 ```bash
