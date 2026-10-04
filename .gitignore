@@ -49,3 +49,6 @@ compset/xianshuihe.gmsh.lite/xianshuihe_strain_loading.csv
 compset/xianshuihe.gmsh.lite/*.pdf
 compset/xianshuihe.gmsh.lite/xianshuihe_step_overs.*
 compset/xianshuihe.gmsh.lite/xianshuihe_mesh*.png
+
+# Python bytecode, anywhere
+**/__pycache__/
