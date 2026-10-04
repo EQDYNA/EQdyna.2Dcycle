@@ -224,6 +224,17 @@ parameter table is generated from `scripts/defaultParameters.py` by
 page. User pages cite no internal material (rule ids, this rule book, agent
 names). Mechanical check: `test_user_guide`; CI builds with `--strict`.
 
+### R33 — Compiled Python never enters the repository
+`**/__pycache__/` is ignored everywhere, not per directory: a per-directory
+rule missed a new test folder and six `.pyc` files were committed. Mechanical
+check: `test_no_tracked_bytecode`.
+
+### R34 — Tag only a commit that CI has passed
+Push the release commit, wait for `.github/workflows/test.yml` to go green on
+that exact SHA, then create the tag. A tag on an untested commit publishes the
+user guide and a release for code CI never saw. Procedural; `gh run list
+--commit <sha>` shows the status.
+
 ## Case I/O
 
 ### R15 — Read case outputs from the case dir **or** `aRawSimuData/`

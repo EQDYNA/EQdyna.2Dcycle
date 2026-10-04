@@ -39,3 +39,18 @@ def test_merge_and_truncate(tmp_path):
     assert (dest / "cyclelog.txt1").read_text().split() == ["1", "3"]
     assert (dest / "FE_Global.txt").read_text().splitlines()[6] == "1 3"
     assert "par.icstart, par.icend = 1, 3" in (dest / "user_defined_params.py").read_text()
+
+
+def test_copies_files_the_catalogue_needs(tmp_path):
+    """plotRuptureDynamics reads nsmpnv.txt on C_mesh = 2 cases; a snapshot
+    without it failed with FileNotFoundError."""
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "meshGeneralInfo.txt").write_text("2\n2 3\n")
+    (case / "FE_Global.txt").write_text("\n".join(["2", "2", "4", " ", "0.01", "200", "1 1"]) + "\n")
+    (case / "nsmpnv.txt").write_text("0 1 100\n")
+    write_segment(case, 1, [1])
+    dest = tmp_path / "snap"
+    subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "snapshot_case.py"),
+                    str(case), str(dest), "--quiet"], check=True, capture_output=True)
+    assert (dest / "nsmpnv.txt").exists()
