@@ -1,0 +1,53 @@
+name: Tests
+
+# Every push and pull request: the fast tiers and a build-and-run smoke test,
+# about 5 minutes. The bit-exact e2e tier is NOT run here: its references were
+# produced on the project's own machine with -march=native at one thread, and a
+# runner's different CPU gives last-bit differences that are not regressions.
+# Run `python3 test_system/run.py e2e` locally before a release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  unit-regression:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python dependencies
+        run: pip install numpy matplotlib xarray scipy pytest
+      - name: Unit and regression tiers
+        run: python3 test_system/run.py unit regression
+
+  build-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: System packages (gfortran, gmsh runtime libraries)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gfortran libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1
+      - name: Python dependencies
+        run: pip install numpy matplotlib xarray scipy gmsh meshio
+      - name: Build, mesh and run one cycle
+        run: OMP_NUM_THREADS=1 python3 test_system/run.py smoke
+      - name: Upload the smoke case log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-case
+          path: work/smoke_case/run_*.log

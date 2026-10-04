@@ -2,22 +2,28 @@
 
 ## The test suite
 
+One runner, four tiers:
+
 ```bash
-python3 test_system/test_conventions.py     # fast checks on code and docs conventions
-python3 test_system/smoke.py                # compile and run one cycle
-python3 test_system/verify_xianshuihe.py    # solver regression: 5 cycles, bit-exact
-python3 test_system/verify_stf.py           # rupture-time-history output
-python3 -m test_system.test_all             # full pipeline
+python3 test_system/run.py               # unit + regression (seconds)
+python3 test_system/run.py unit          # pytest tests of the Python tools
+python3 test_system/run.py regression    # convention checks, one per past failure
+python3 test_system/run.py smoke         # build, mesh and run one cycle (minutes)
+python3 test_system/run.py e2e           # bit-exact solver checks against frozen references
+python3 test_system/run.py all           # everything; run before a release
 ```
 
-`verify_xianshuihe.py` runs five cycles of a 7-fault model from frozen inputs
-and requires the output to match the stored reference bit for bit. The mesh
-and loading are frozen too, so the test checks the solver alone.
+| tier | what it checks | time |
+|---|---|---|
+| unit | the readers, the geographic conversion, snapshot merging, the parameter reference, the published-archive reader | < 1 s |
+| regression | code and documentation conventions that once failed silently | ~3 s |
+| smoke | the Fortran builds, a gmsh case meshes, one cycle runs and writes output | a few minutes |
+| e2e | five cycles of a 7-fault model match the stored reference bit for bit; the rupture-time-history output leaves the solution unchanged and agrees with it | a few minutes |
 
-`verify_stf.py` checks that turning the time-history output on leaves the
-solution unchanged, and that the time histories agree with the end-of-event
-output, integrate to the final slip, include every node that ruptured, carry
-the right event times, and reproduce the catalogue moment.
+Continuous integration runs unit, regression and smoke on every push and pull
+request. The e2e references were made on the project's own machine; the build
+uses CPU-specific instructions, so on other hardware e2e can differ in the
+last bit without anything being wrong. Run it locally before a release.
 
 ## Reproducibility depends on the thread count
 

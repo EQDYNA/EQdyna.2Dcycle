@@ -174,11 +174,9 @@ hard way, most of them from silent failures. `test_system/test_conventions.py`
 enforces the mechanical ones:
 
 ```bash
-python3 test_system/test_conventions.py          # 38 checks
-python3 test_system/verify_xianshuihe.py         # solver regression, 5 cycles, bit-exact
-python3 test_system/verify_stf.py                # STF output: read-only, consistent, complete
-python3 test_system/smoke.py                     # compile + 1-cycle run
-python3 -m test_system.test_all                  # full pipeline
+python3 test_system/run.py               # unit + regression, seconds
+python3 test_system/run.py ci            # + build/mesh/one-cycle smoke (what CI runs)
+python3 test_system/run.py all           # + bit-exact e2e; run locally before a release
 ```
 
 Releases follow the gates in `PROJECT_RULES.md` (R22-R27): clean tree, docs

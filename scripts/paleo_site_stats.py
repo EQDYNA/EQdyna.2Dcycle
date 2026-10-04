@@ -145,7 +145,11 @@ class _RepairingConverter:
     def __init__(self) -> None:
         self.n_repaired = 0
 
-    def __call__(self, tok: bytes) -> float:
+    def __call__(self, tok) -> float:
+        # numpy >= 1.23 hands converters str, older numpy bytes; the regex is
+        # bytes, so normalise -- a str token used to raise on every value.
+        if isinstance(tok, str):
+            tok = tok.encode()
         fixed = _EXP_OVERFLOW.sub(rb"\1", tok)
         if fixed != tok:
             self.n_repaired += 1

@@ -53,8 +53,10 @@ to `aRawSimuData/` after the binary exits.
 ## Testing
 
 ```bash
-python3 -m test_system.test_all         # complete pipeline: compile, create case, mesh, run, post-process, verify against reference results
-python3 test_system/verify.test.py      # manual verification against reference data only
+python3 test_system/run.py              # unit (test_system/unit, pytest) + regression (test_conventions.py)
+python3 test_system/run.py ci           # + smoke: build, mesh, one cycle -- what .github/workflows/test.yml runs
+python3 test_system/run.py all          # + e2e: verify_xianshuihe.py, verify_stf.py (bit-exact; local only, -march=native)
+python3 -m test_system.test_all         # legacy full pipeline over all compsets
 ```
 
 ## Key File Types and Architecture
