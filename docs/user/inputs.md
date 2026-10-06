@@ -62,7 +62,7 @@ node. Format, units and code path: `compset/paper.saf.A/RATE_DIRECTION.md`.
 |---|---|---|
 | 1, 2 | `tx`, `ty` | unit fault tangent |
 | 3 | `len` | segment length, m |
-| 4 | `ftType` | 1 left-lateral, −1 right-lateral, 2 thrust, −2 normal |
+| 4 | `ftType` | 1 left-lateral, −1 right-lateral, 2 thrust, −2 normal; not read by the solver, see `slipSense` |
 | 5 | `ftDip` | dip, degrees (90 = vertical strike-slip) |
 | 6 | `ftLoadMaxShear` | shear strain rate γ, s⁻¹ |
 | 7 | `ftLoadAngle` | φ, degrees; −999 = take it from the fault tangent |
@@ -72,8 +72,10 @@ node. Format, units and code path: `compset/paper.saf.A/RATE_DIRECTION.md`.
 ### Choosing the loading stress
 
 The asymptotic shear stress T = γ·η must not exceed the magnitude of the
-ambient normal stress N where φ is negative, or those nodes are driven
-tensile. A fault whose angle of compression is coherently positive (the San
+ambient normal stress N where the loading unclamps the fault (φ < 0 for
+s = +1, φ > 0 for s = −1), or those nodes are driven tensile. In general the
+asymptotic normal stress is −N − s·T·sin 2φ, so every node stays below the
+−10 MPa cap for T ≤ (N − 10 MPa) / max(−s·sin 2φ). A fault whose angle of compression is coherently positive (the San
 Andreas, 91% of nodes) tolerates T/N ≈ 1.2; one whose angle straddles zero
 (the Xianshuihe) needs T/N ≤ 1. The effective normal stress is capped at
 −10 MPa in both the interseismic and dynamic phases.

@@ -20,6 +20,7 @@ nav:
   - Getting started: getting-started.md
   - Running a case: running-a-case.md
   - Compsets: compsets.md
+  - New fault system: new-fault-system.md
   - Model inputs: inputs.md
   - Parameters: parameters.md
   - Output files: outputs.md

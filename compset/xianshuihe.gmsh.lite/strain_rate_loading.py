@@ -166,6 +166,7 @@ def main() -> None:
         source = "KML control points, tangent by finite difference"
 
     rows = []
+    audit = []
     n_filled = 0
     print(f"\nsampling at {source}")
     print(f"{'fault':>6} {'nodes':>6} {'gamma_max (s^-1)':>18} {'load angle (deg)':>18}")
@@ -192,9 +193,31 @@ def main() -> None:
         # positive (mean +7.1 deg), i.e. clamping.
         ang = np.degrees((tang_ang - shear_dir + np.pi / 2) % np.pi - np.pi / 2)
         print(f"{fid:>6} {len(pts):>6} {gam.mean():>18.3e} {ang.mean():>18.1f}")
+        # Audit: resolve the tensor on the fault directly. t in the geographic
+        # frame, n its left normal; -t.E.n is left-lateral shear.
+        tg = np.column_stack([tang[:, 0] * np.cos(theta) - tang[:, 1] * np.sin(theta),
+                              tang[:, 0] * np.sin(theta) + tang[:, 1] * np.cos(theta)])
+        nr = np.column_stack([-tg[:, 1], tg[:, 0]])
+        t_e_n = tg[:, 0] * (exx_i * nr[:, 0] + exy_i * nr[:, 1]) + tg[:, 1] * (exy_i * nr[:, 0] + eyy_i * nr[:, 1])
+        n_e_n = nr[:, 0] * (exx_i * nr[:, 0] + exy_i * nr[:, 1]) + nr[:, 1] * (exy_i * nr[:, 0] + eyy_i * nr[:, 1])
+        phr = np.radians(ang)
+        audit.append((np.abs(np.cos(2 * phr) * gam + t_e_n).max() / gam.max(),
+                      np.abs(np.sin(2 * phr) * gam - (n_e_n - 0.5 * (exx_i + eyy_i))).max() / gam.max(),
+                      (t_e_n < 0).sum(), len(pts),
+                      np.sin(2 * np.clip(phr, -np.pi / 4, np.pi / 4)).max()))
         rows.append((fid, pts, gam, ang, tang))
     if n_filled:
         print(f"  {n_filled} node(s) outside the GSRM hull, filled by nearest cell")
+    # The angle is the one interstress.f90 expects with par.slipSense = -1
+    # (left-lateral): gamma*cos(2 phi) is the left-lateral resolved shear and
+    # gamma*sin(2 phi) the deviatoric normal strain rate, extension positive.
+    a = np.array(audit)
+    print(f"\naudit: angle vs resolved tensor, max rel error shear {a[:, 0].max():.1e}, "
+          f"normal {a[:, 1].max():.1e}")
+    print(f"       left-lateral resolved shear at {int(a[:, 2].sum())}/{int(a[:, 3].sum())} nodes")
+    s2 = a[:, 4].max()
+    print(f"       max sin(2 phi) = {s2:.2f}: normal stays <= -10 MPa (minnorm) for "
+          f"T <= {(100 - 10) / s2:.0f} MPa at ambientnorm = -100 MPa (slipSense = -1)")
 
     csv = here / f"{args.out_prefix}_loading.csv"
     with open(csv, "w") as f:
