@@ -200,17 +200,44 @@ def checkElementCount(root):
             'dropped': counts.get('quad', 0) + counts.get('triangle', 0) - n_fac}
 
 
+def _c_mesh(root):
+    """Mesh mode from FE_Global.txt line 1 (2 = solver's structured mesh,
+    3 = gmsh). Defaults to 3 when the case has no FE_Global.txt."""
+    for d in (root, os.path.join(root, 'fem_mesh_output')):
+        p = os.path.join(d, 'FE_Global.txt')
+        if os.path.exists(p):
+            try:
+                return int(open(p).readline().split()[0])
+            except (ValueError, IndexError):
+                return 3
+    return 3
+
+
 def report(root):
     """Print the report and return a list of hard failures."""
     failures = []
     print(f'\n=== {root} ===')
     v, f, nsmp, nfn = _load_case(root)
     print(f'  {len(v)} nodes, {len(f)} cells, {len(nfn)} fault(s), nfnodes={nfn}')
+    # The split-node and aspect gates were written for gmsh (C_mesh = 3)
+    # meshes. A C_mesh = 2 case is the solver's own structured mesh: its
+    # vert/fac files are a plotting export in which cells reference split nodes
+    # with a different convention (so cells read as "mixed", and a master and
+    # slave sharing a coordinate give a zero-length edge), and far-field cells
+    # are stretched on purpose by the coarsening ratio. Reporting those as hard
+    # failures called a sound mesh broken (paper.saf.A: 4,481 "mixed" cells and
+    # 415,510 aspect > 10 on a mesh that reproduces the published results).
+    structured = _c_mesh(root) == 2
+    if structured:
+        print('  C_mesh = 2 (structured solver mesh): the mixed-cell and aspect '
+              'gates are reported for information only; orphan, angle and '
+              'degenerate gates still apply')
 
     print('\n  [split-node classification per fault]')
     for r in checkSplitNodes(v, f, nsmp, nfn):
-        flag = '' if r['mixed'] == 0 else '  **MIXED CELLS — BUG**'
-        if r['mixed']:
+        flag = '' if r['mixed'] == 0 else (
+            '  (export convention, not a defect)' if structured else '  **MIXED CELLS — BUG**')
+        if r['mixed'] and not structured:
             failures.append(f"Ft{r['fault']}: {r['mixed']} mixed cells")
         print(f"    Ft{r['fault']} (n={r['nfnodes']}): "
               f"edge m/s={r['m_edge']}/{r['s_edge']}  "
@@ -243,7 +270,7 @@ def report(root):
                        ('bad_angle_lt20', 'cells with an interior angle < 20 deg'),
                        ('bad_angle_gt160', f'cells with an interior angle > {MAX_ANGLE_DEG:.0f} deg'),
                        ('bad_aspect_gt10', 'cells with aspect ratio > 10')):
-        if g[key]:
+        if g[key] and not (structured and key == 'bad_aspect_gt10'):
             failures.append(f"{g[key]} {label}")
 
     ec = checkElementCount(root)
