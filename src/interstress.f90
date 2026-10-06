@@ -19,7 +19,8 @@ write(m1,'(i6)') icstart
 m1=trim(adjustl(m1))
 
 if (ic == 1) then 
-	ss0 = -ambientnorm * fric_fini
+	! slipSense = -1 (left-lateral) reverses the shear; see the loading below.
+	ss0 = -ambientnorm * fric_fini * slipSense
 	ns0 = ambientnorm
 else
 	do i = 1, totftnode
@@ -62,14 +63,17 @@ do ndt = 1, 1000000000
 			!   σ_τ → η γ_τ,  σ_n → η γ_n + σ^a  asymptotically.
 			! Fallback uniform η = ant0 at zero-rate nodes (fault endpoints).
 			theta = rd(2,ida(i))/180.0d0*pi
-			if (theta >= 45.0d0/180.0d0*pi) theta = 45.0d0/180.0d0*pi
+			! |theta| <= 45 deg: beyond it cos(2 theta) < 0 and the resolved shear
+			! reverses. The clamp was one-sided (upper only); harmless while every
+			! angle was > -45 deg, wrong for a left-lateral field mirrored in sign.
+			theta = max(-45.0d0/180.0d0*pi, min(45.0d0/180.0d0*pi, theta))
 			if (rd(1,ida(i)) > 0.0d0) then
 				ant = ant0 * str / rd(1,ida(i))
 			else
 				ant = ant0
 			endif
-			rs = rd(1,ida(i)) * cos(2.0d0*theta) * ant
-			rn = -rd(1,ida(i)) * sin(2.0d0*theta) * ant
+			rs =  slipSense * rd(1,ida(i)) * cos(2.0d0*theta) * ant
+			rn = -slipSense * rd(1,ida(i)) * sin(2.0d0*theta) * ant
 		else
 			! C_mesh=3: per-node loading from nsmpGeoPhys.txt
 			! cols (1-indexed): 1=tx,2=ty,3=len,4=ftType,5=ftDip,
@@ -94,10 +98,19 @@ do ndt = 1, 1000000000
 			else
 				theta = atan(nsmpgp(2,ida(i))/nsmpgp(1,ida(i)))
 			endif
-			if (theta >= 45.0d0/180.0d0*pi) theta = 45.0d0/180.0d0*pi
+			! |theta| <= 45 deg: beyond it cos(2 theta) < 0 and the resolved shear
+			! reverses. The clamp was one-sided (upper only); harmless while every
+			! angle was > -45 deg, wrong for a left-lateral field mirrored in sign.
+			theta = max(-45.0d0/180.0d0*pi, min(45.0d0/180.0d0*pi, theta))
 			ant = nsmpgp(9,ida(i)) * 450.0d0 / nsmpgp(8,ida(i))
-			rs =  nsmpgp(6,ida(i)) / 450.0d0 * nsmpgp(8,ida(i)) * cos(2.0d0*theta) * ant
-			rn = -nsmpgp(6,ida(i)) / 450.0d0 * nsmpgp(8,ida(i)) * sin(2.0d0*theta) * ant
+			! Slip sense. The loading tensor is pure shear on the max-shear plane;
+			! for a left-lateral fault (slipSense = -1) the resolved shear changes
+			! sign AND the same angle of compression clamps on the opposite side:
+			! a fault rotated toward sigma1 from a sinistral plane is unclamped,
+			! from a dextral plane clamped. Flipping only the shear would leave a
+			! transpressional left-lateral fault unclamped.
+			rs =  slipSense * nsmpgp(6,ida(i)) / 450.0d0 * nsmpgp(8,ida(i)) * cos(2.0d0*theta) * ant
+			rn = -slipSense * nsmpgp(6,ida(i)) / 450.0d0 * nsmpgp(8,ida(i)) * sin(2.0d0*theta) * ant
 		endif
 		! --- debug: dump per-node loading/stress on first interseismic step ---
 		if (ndt == 1 .and. ic == 1) then
@@ -122,7 +135,8 @@ do ndt = 1, 1000000000
 		! it got. Nodes near the sign change instead got strength ~0 and sat
 		! permanently above failure, which no rupture could relieve.
 		if (ns(i) > minnorm) ns(i) = minnorm
-		strengthexcess(i) = (-ns(i)*fric_fs - shs(i))
+		! shear compared in the loaded sense, so left-lateral faults fail too
+		strengthexcess(i) = (-ns(i)*fric_fs - slipSense*shs(i))
 		! Fault endpoints are excluded from nucleation: slip tapers to zero
 		! at a tip, so the stress state there is not meaningful. Generic over
 		! ntotft -- this was hardcoded to the first THREE faults, which
@@ -152,7 +166,7 @@ do ndt = 1, 1000000000
 			iNodeAcc = iNodeAcc + nfnode(iFtLoop)
 		enddo
 		if (isFtInterior) then
-			if (shs(i) > fric_fs * (-ns(i))) then 
+			if (slipSense*shs(i) > fric_fs * (-ns(i))) then 
 			nucntag = nucntag + 1
 			nuci(nucntag) = i
 			quit  = .TRUE.

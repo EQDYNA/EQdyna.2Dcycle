@@ -4,6 +4,21 @@ All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https:/
 
 ## [Unreleased]
 
+### Added
+- `par.slipSense` (FE_Global, optional last line): +1 right-lateral (default,
+  bit-identical to before), −1 left-lateral. It flips the sign of the
+  interseismic shear and normal loading and of the initial shear stress, so a
+  left-lateral system is loaded and ruptures left-lateral.
+
+### Fixed
+- `ftType` was never read by the solver: every fault, including the
+  left-lateral Xianshuihe, Gulang and Subei compsets, was simulated
+  right-lateral. Use `slipSense = -1` for left-lateral systems.
+- The 45° clamp on the loading angle in `interstress.f90` was one-sided
+  (upper bound only); it is now ±45°. Of the shipped compsets only
+  `subei.gmsh.lite` has angles below −45° (23 nodes), so only its results
+  change.
+
 ## [2.2.0] - 2026-09-25
 
 ### Added

@@ -72,6 +72,7 @@ class parameters:
     outputSTF = 0     # 1/0, write per-event rupture time histories (stf.bin) on/off
     stfEvery = 1      # keep every Nth solver step (dt_out = stfEvery*dt1)
     stfVmin = 1.e-3   # m/s; write only nodes whose peak slip rate exceeds this
+    slipSense = 1     # +1 right-lateral, -1 left-lateral (ftType is not read by the solver)
     
     yext = 10.e3 # m, extent of the coarsening zone outside the uniform mesh, along x and y
     rat = 1.025 # growth ratio of element size in the coarsening zone

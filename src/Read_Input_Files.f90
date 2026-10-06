@@ -55,6 +55,14 @@ subroutine readglobal
 			stfOn = 0; stfEvery = 1; stfVmin = 1.0d-3
 		endif
 		if (stfEvery < 1) stfEvery = 1
+		! Optional slip sense (+1 right-lateral, -1 left-lateral); absent => +1,
+		! which is how every case before this parameter ran.
+		read(1001,*,iostat=ios) slipSense
+		if (ios /= 0) slipSense = 1.0d0
+		if (abs(abs(slipSense) - 1.0d0) > 1.0d-12) then
+			write(*,*) 'error: slipSense in FE_Global.txt must be +1 or -1, got ', slipSense
+			stop 1
+		endif
 	close(1001)
 end subroutine readglobal 
 ! #2 readmodelgeometry -------------------------------------------------

@@ -66,6 +66,10 @@ MODULE globalvar
   integer (kind=4) :: stfOn = 0, stfEvery = 1, stfNt = 0, stfOriginKnown = 1
   integer (kind=4), parameter :: stfNvar = 7
   real (kind = dp) :: stfVmin = 1.0d-3
+  !...slip sense: +1 right-lateral (default; the convention the solver was
+  !   written in, SAF), -1 left-lateral. FE_Global.txt line 30, optional.
+  !   ftType in nsmpGeoPhys.txt is NOT read by the solver; this is the switch.
+  real (kind = dp) :: slipSense = 1.0d0
   !   tSeqYr: time of the current event in the sequence (yr since model start,
   !   i.e. the cumulative sum of interseismic intervals INCLUDING this event's).
   real (kind = dp) :: tSeqYr = 0.0d0, tInterYr = 0.0d0, tSeqStartYr = 0.0d0

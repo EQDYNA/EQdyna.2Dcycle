@@ -27,13 +27,27 @@ state set by the local shear strain rate γ and the angle of compression φ
 (local fault strike minus the maximum-shear-strain-rate direction):
 
 ```
-shear  ->  γ cos(2φ) η
-normal ->  -γ sin(2φ) η + σ_ambient
+shear  ->  s γ cos(2φ) η
+normal ->  -s γ sin(2φ) η + σ_ambient
 ```
 
 with a viscosity η = η₀ · γ_ref / γ, so the asymptotic stress does not depend
-on γ and γ only sets how fast it is approached. Positive φ clamps the fault
-(more compression); negative φ unclamps it.
+on γ and γ only sets how fast it is approached. s is `par.slipSense`: +1
+(default) drives right-lateral slip, −1 left-lateral. For s = +1, positive φ
+clamps the fault (more compression) and negative φ unclamps it; for s = −1 the
+reverse.
+
+**Slip sense comes only from `slipSense`.** `ftType` (column 4 of
+`nsmpGeoPhys.txt`) is written but never read by the solver, so before
+`slipSense` existed every fault was simulated right-lateral. One value
+applies to the whole system.
+
+For s = −1, measure φ from the **left-lateral** maximum-shear plane, with
+angles counter-clockwise: in the frame where the strain-rate tensor is E and
+the fault has unit tangent t and left normal n, γ cos 2φ = −tᵀEn (left-lateral
+resolved shear) and γ sin 2φ = nᵀEn − tr(E)/2 (deviatoric normal, extension
+positive). The `strain_rate_loading.py` scripts in the GSRM compsets compute
+φ this way.
 
 ### C_mesh = 2: `Rate_direction.txt`
 
