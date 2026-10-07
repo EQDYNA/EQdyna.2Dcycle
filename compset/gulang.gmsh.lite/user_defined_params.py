@@ -30,6 +30,7 @@ par.eta0 = 6.e21 # Pa-s, pseudo viscosity for interseismic loading solution.
 par.maxShearStrainLoadRate = 1.427e-14 # On-fault maximum shearing strain loading rate.
 
 par.ambientnorm = -100.e6 # background ambient on-fault normal stress, Pa. 
+par.slipSense = -1 # left-lateral system (ftType is not read by the solver)
 par.debug = 0 # 1/0, activate/deactivate debugging mode.
 par.plotmesh = 0 # 1/0, genearte/NOTgenearte mesh files.
 
