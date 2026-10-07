@@ -179,10 +179,11 @@ python3 test_system/run.py ci            # + build/mesh/one-cycle smoke (what CI
 python3 test_system/run.py all           # + bit-exact e2e; run locally before a release
 ```
 
-Releases follow the gates in `PROJECT_RULES.md` (R22-R27): clean tree, docs
-touched since the last tag, a non-empty `CHANGELOG.md` body for the version in
-`VERSION`, a passing smoke test, then an annotated tag carrying that changelog
-section.
+Releases follow the gates in `PROJECT_RULES.md` (R22-R27, R34, R27a): clean
+tree, docs touched since the last tag, a non-empty `CHANGELOG.md` body for the
+version in `VERSION`, a passing smoke test, CI green on the release commit,
+then `gh release create` (tag and Release together, never a bare tag push)
+carrying that changelog section as the tag message.
 
 ## Authors
 

@@ -6,6 +6,14 @@ id has a check in `test_system/test_conventions.py`; run it with
 `python3 -m test_system.test_conventions` — fast (no binary, no meshing),
 meant to run on every change.
 
+**Index** — read this list first; jump to a rule only when it's load-bearing.
+R1-R3, R18, R20, R21, R28: mesh-file conventions. R4-R6, R19: new fault system
+setup. R7-R9: loading conventions. R10-R14, R30-R32: reproducing/verifying
+published or prior results. R15-R17, R29: case I/O and plotting. R22-R27,
+R27a, R34: release gates. R33, R35, R36: repo hygiene (tracked files, root
+whitelist, silent fallbacks). R37: status board. R38: PR/merge and host
+protection.
+
 ---
 
 ## Mesh file conventions
@@ -340,3 +348,105 @@ states the version independently: two sources diverge the moment one is
 bumped and the other isn't; `paper.saf.A` was found hardcoding `par.exe =
 run_eqdyna2d_2.0.3` instead of reading `VERSION` (fixed in b3ea71b).
 Mechanical check: `test_version_file_is_single_semver_line`.
+
+### R27a — Tag and Release in one step, never a bare tag push
+`git tag` + `git push --tags` can publish a tag whose CI run (triggered by the
+tag itself, e.g. `docs.yml`'s `push: tags: v*`) nobody waits on — a tag exists
+before anyone knows whether its own build passes. Cut the release as
+`gh release create v$(cat VERSION) --target <sha> --latest` once R22-R26 and
+R34 have all passed on that SHA: this creates the tag and the GitHub Release
+together, so no tag exists without a Release, and the trigger it fires
+(`docs.yml`) is itself part of what "released" means. R22 (clean tree), R23
+(docs lockstep), R24 (CHANGELOG body), R25 (smoke), R26 (tag-message
+extraction) and R34 (CI green on that SHA) are unchanged prerequisites; this
+rule only replaces the final step. Procedural — `gh release create` is a
+release-time command, not a standing repo-state check.
+
+### R35 — The repo root is a whitelist, not a preference
+Tracked top-level entries are exactly:
+`.gitignore`, `CHANGELOG.md`, `CLAUDE.md`, `LICENSE`, `PROJECT_RULES.md`,
+`README.md`, `VERSION`, `example_workflow.sh`, `install.sh`,
+`resume_claude.sh`, `PATHWAY_FORWARD.md`, and the directories `.github/`,
+`compset/`, `docs/`, `misc/`, `scripts/`, `src/`, `test_system/`.
+`archive/`, `bin/`, `work/` exist on disk and are gitignored, never tracked.
+Release notes live in `CHANGELOG.md` only — no per-release
+`release_notes_v<X.Y.Z>.md` files, by owner decision. Renaming `compset/` /
+`test_system/` to EQdyna's `case_input/` / `testsys/` naming is deferred (see
+`PATHWAY_FORWARD.md`) — not a rule violation until that decision is made. A
+new root entry needs an explicit ask; the alternative is a root that collects
+mission notes nobody prunes. Mechanical check: `test_root_whitelist` diffs
+`git ls-files` against this list. **Not yet landed** — the check lives in the
+2026-10-04 stash, not on `main`; see `PATHWAY_FORWARD.md`.
+
+### R36 — No silent fallbacks: `|| true` needs a stated reason on the same line
+Swallowing a command's exit status hides a real failure (disk full,
+permission denied, a changed glob) behind the same silent success as the
+case it was written for. `install.sh` cleared old binaries with `rm -f
+bin/run_eqdyna2d_* 2>/dev/null || true` — on a permission error the stale
+binary would survive a "successful" install with nothing printed;
+`make_results_bundle.sh` copied inputs and figures with
+`-exec cp ... \; 2>/dev/null || true`, so a real `cp` failure left the
+bundle silently incomplete. Fixed in both: `rm -f` and `cp -n` already don't
+error on a merely-absent file, so dropping `|| true` lets `set -e` do its
+job. Where `|| true` genuinely encodes "this can legitimately not match" (an
+empty glob before any output exists, an optional cleanup `rmdir` that fails
+only when there's something worth keeping), mark it with `# intentional:
+<why>`, inline or on the line directly above — `scripts/case.setup`'s
+generated `run.sh` (no `setsid` on macOS) and `make_results_bundle.sh`'s
+optional-glob lines do this. An unmarked `|| true` is a violation; a marked
+one still needs the reason to hold up. Mechanical check:
+`test_no_unmarked_silent_fallback` over tracked `*.sh` files and the `run.sh`
+template written by `scripts/case.setup`. **Not yet landed** — same stash as
+R35; the fixes to `install.sh`/`case.setup`/`make_results_bundle.sh` are
+drafted there too, unapplied to `main`.
+
+### R37 — A living, prioritised status board: `PATHWAY_FORWARD.md`, and only one
+Every open issue, to-do and standing claim lives in `PATHWAY_FORWARD.md` at
+the repo root — that name, that location — one row per item with a
+priority (P1/P2/P3), a re-check interval, the date it was last checked, and
+the exact command whose output settles it. No `TODO.md`, `STATUS.md`,
+`BACKLOG.md`, `ROADMAP.md`, or a second copy anywhere in the tree — a rival
+board is silently right about different things the moment the two diverge.
+A blank last-checked date means never audited and stays blank; a claim with
+no command is remembered, not verified, and is marked so. Mechanical checks:
+`test_status_board_exists` (file present, parses as a table, every row has
+the same column count as the header — an unescaped `|` in a cell splits the
+row silently) and `test_no_rival_status_board` (`git ls-files` has no
+`TODO|STATUS|ROADMAP|BACKLOG|TASKS|PLAN` named `.md`/`.txt` file anywhere
+else). **Not yet landed** — same stash as R35/R36.
+
+### R38 — Land through one gated PR at a time; merge only on green required CI
+Branch, run `python3 test_system/run.py unit regression` (and `smoke` before
+anything that touches the solver) locally, open a PR with evidence for any
+removal; `.github/workflows/test.yml` (`unit-regression`, `build-smoke`) gates
+it; squash-merge only once that CI run on the PR's head is green; the next PR
+opens only after, since a parallel branch returns stale-based. **Decided by
+the owner (2026-10-07): PR-only, merge only on green required CI for that PR**
+— this is now a standing rule, not a proposal. **Still a proposal, pending the
+owner's own action on GitHub: host-side branch/tag protection** (require PR
+before merge, no direct push to `main`, no force-push/delete, immutable `v*`
+tags, no bypass actors). Until the owner enables it, nothing in this repo or
+in CI can *stop* a direct push to `main` — the PR-only/green-CI rule above is
+binding on agents working this repo, not yet enforced by the host. Tracked on
+`PATHWAY_FORWARD.md`.
+
+Proposed ruleset for `main` (host-side, GitHub branch/tag protection, pending
+owner action — see `PATHWAY_FORWARD.md`):
+- Require a pull request before merging; no direct pushes to `main`.
+- Required status checks: `unit-regression`, `build-smoke` (the jobs in
+  `.github/workflows/test.yml`) must pass on the merge commit.
+- No force-push, no branch deletion, on `main`.
+- Tag protection on `v*`: immutable once pushed (no force-push, no delete).
+- No bypass actors — agents push and merge with the owner's own credentials,
+  under the unattended grant below, not a separate privileged identity.
+
+**Unattended grant.** Within that protection, once it is enabled, the agent
+may merge its own gated PR once `unit-regression` and `build-smoke` are green
+and the PR carries removal evidence, and may cut `vX.Y.Z` patch/minor tags via
+`gh release create` (R27a) on `main` once R22-R26 and R34 have passed.
+It may never: cut a major version tag, force-tag, publish a package, or
+touch host-side protection settings themselves. Without this paragraph
+written down, the correct default is to stop and ask at every release —
+this grant is what makes not asking a rule rather than an assumption.
+Procedural; the host settings it describes are checked by reading GitHub's
+branch/tag protection pages, not by anything in this repository.
