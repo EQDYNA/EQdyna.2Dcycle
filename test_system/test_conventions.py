@@ -517,6 +517,97 @@ def test_no_tracked_bytecode() -> None:
     check("R33", "no .pyc / __pycache__ tracked", not bad, ", ".join(bad[:5]))
 
 
+def test_root_whitelist() -> None:
+    """R35: the repo root is a whitelist, not a preference."""
+    import subprocess
+    r = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        skip("R35", "root whitelist", "not a git checkout")
+        return
+    allowed_files = {
+        ".gitignore", "CHANGELOG.md", "CLAUDE.md", "LICENSE", "PROJECT_RULES.md",
+        "README.md", "VERSION", "example_workflow.sh", "install.sh",
+        "resume_claude.sh", "PATHWAY_FORWARD.md",
+    }
+    allowed_dirs = {".github", "compset", "docs", "misc", "scripts", "src", "test_system"}
+    offenders = []
+    for f in r.stdout.splitlines():
+        if "/" not in f:
+            if f not in allowed_files:
+                offenders.append(f)
+        else:
+            top = f.split("/", 1)[0]
+            if top not in allowed_dirs:
+                offenders.append(f)
+    check("R35", "tracked root matches the whitelist", not offenders,
+          "unexpected root entries: " + ", ".join(sorted(set(
+              o if "/" not in o else o.split('/', 1)[0] for o in offenders))[:10]))
+
+
+def test_no_unmarked_silent_fallback() -> None:
+    """R36: `|| true` needs a stated reason on the same line.
+
+    install.sh and make_results_bundle.sh both swallowed real cp/rm failures
+    this way; fixed by dropping the unneeded `|| true` where `set -e` was
+    already enough. Where it is genuine ("this glob may legitimately not
+    match yet"), it must carry an inline `# intentional: <why>` marker.
+    """
+    import glob
+    sh_files = sorted(glob.glob(os.path.join(ROOT, "*.sh")) +
+                       glob.glob(os.path.join(ROOT, "scripts", "*.sh")))
+    # The run.sh template is Python source (scripts/case.setup) that emits
+    # shell text via f.write(...); check the emitted text, not the .py file.
+    offenders = []
+    for path in sh_files:
+        lines = open(path).readlines()
+        for i, line in enumerate(lines, 1):
+            if "|| true" not in line:
+                continue
+            prev = lines[i - 2] if i >= 2 else ""
+            if "intentional:" not in line and "intentional:" not in prev:
+                offenders.append(f"{os.path.relpath(path, ROOT)}:{i}")
+    case_setup = os.path.join(SCRIPTS, "case.setup")
+    if os.path.exists(case_setup):
+        for i, line in enumerate(open(case_setup), 1):
+            if "|| true" in line and "intentional:" not in line:
+                offenders.append(f"scripts/case.setup:{i} (emitted into run.sh)")
+    check("R36", "no unmarked `|| true`", not offenders, ", ".join(offenders[:10]))
+
+
+def test_status_board_exists() -> None:
+    """R37: PATHWAY_FORWARD.md exists, parses, and every row matches the header width."""
+    p = os.path.join(ROOT, "PATHWAY_FORWARD.md")
+    if not os.path.exists(p):
+        check("R37", "PATHWAY_FORWARD.md exists", False, "missing at repo root")
+        return
+    rows = [l for l in open(p) if l.strip().startswith("|")]
+    tables = []
+    cur = []
+    for l in rows:
+        cur.append(l)
+    # Group contiguous pipe-rows into tables (separated by non-pipe lines already excluded)
+    if rows:
+        header_cols = rows[0].count("|")
+        bad = [f"line with {l.count('|')} cols (header has {header_cols}): {l.strip()[:60]}"
+               for l in rows if l.count("|") != header_cols and not set(l.strip()) <= set("|-: ")]
+        check("R37", "every board row matches the header's column count", not bad,
+              "; ".join(bad[:5]))
+    else:
+        check("R37", "PATHWAY_FORWARD.md has at least one table", False, "no '|' rows found")
+
+
+def test_no_rival_status_board() -> None:
+    """R37: one board, everywhere -- no TODO/STATUS/BACKLOG/ROADMAP file beside it."""
+    import subprocess, re as _re
+    r = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        skip("R37", "no rival status board", "not a git checkout")
+        return
+    pat = _re.compile(r"(TODO|STATUS|ROADMAP|BACKLOG|TASKS|PLAN)\.(md|txt)$", _re.IGNORECASE)
+    bad = [f for f in r.stdout.splitlines() if pat.search(f)]
+    check("R37", "no rival status board tracked", not bad, ", ".join(bad[:5]))
+
+
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
     for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
@@ -528,6 +619,8 @@ def main() -> None:
                test_version_file_is_single_semver_line, test_changelog_has_body_for_version,
                test_changelog_section_extraction_returns_text,
                test_run_sh_sets_omp_threads, test_fig4_refuses_empty_output, test_stf_format_versions_match, test_user_guide, test_no_tracked_bytecode,
+               test_root_whitelist, test_no_unmarked_silent_fallback,
+               test_status_board_exists, test_no_rival_status_board,
                test_every_check_is_registered):
         fn()
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")

@@ -375,8 +375,7 @@ Release notes live in `CHANGELOG.md` only — no per-release
 `PATHWAY_FORWARD.md`) — not a rule violation until that decision is made. A
 new root entry needs an explicit ask; the alternative is a root that collects
 mission notes nobody prunes. Mechanical check: `test_root_whitelist` diffs
-`git ls-files` against this list. **Not yet landed** — the check lives in the
-2026-10-04 stash, not on `main`; see `PATHWAY_FORWARD.md`.
+`git ls-files` against this list.
 
 ### R36 — No silent fallbacks: `|| true` needs a stated reason on the same line
 Swallowing a command's exit status hides a real failure (disk full,
@@ -396,9 +395,7 @@ generated `run.sh` (no `setsid` on macOS) and `make_results_bundle.sh`'s
 optional-glob lines do this. An unmarked `|| true` is a violation; a marked
 one still needs the reason to hold up. Mechanical check:
 `test_no_unmarked_silent_fallback` over tracked `*.sh` files and the `run.sh`
-template written by `scripts/case.setup`. **Not yet landed** — same stash as
-R35; the fixes to `install.sh`/`case.setup`/`make_results_bundle.sh` are
-drafted there too, unapplied to `main`.
+template written by `scripts/case.setup`.
 
 ### R37 — A living, prioritised status board: `PATHWAY_FORWARD.md`, and only one
 Every open issue, to-do and standing claim lives in `PATHWAY_FORWARD.md` at
@@ -413,7 +410,7 @@ no command is remembered, not verified, and is marked so. Mechanical checks:
 the same column count as the header — an unescaped `|` in a cell splits the
 row silently) and `test_no_rival_status_board` (`git ls-files` has no
 `TODO|STATUS|ROADMAP|BACKLOG|TASKS|PLAN` named `.md`/`.txt` file anywhere
-else). **Not yet landed** — same stash as R35/R36.
+else).
 
 ### R38 — Land through one gated PR at a time; merge only on green required CI
 Branch, run `python3 test_system/run.py unit regression` (and `smoke` before

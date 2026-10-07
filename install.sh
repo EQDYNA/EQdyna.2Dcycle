@@ -63,7 +63,7 @@ if [ -n "$MACH" ]; then
         mkdir -p bin
         # rm first so a busy binary (running sim) can be replaced safely:
         # unlink keeps the in-use inode alive for running procs; mv lays a fresh file.
-        rm -f bin/run_eqdyna2d_* 2>/dev/null || true
+        rm -f bin/run_eqdyna2d_*
         mv src/run_eqdyna2d_* bin/
         # Clean .o/.mod artifacts; src/ holds source only.
         rm -f src/*.o src/*.mod

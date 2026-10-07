@@ -55,54 +55,60 @@ def main() -> int:
         return 0
 
     case = tempfile.mkdtemp(prefix="xsh_verify_")
+    rc = 1
     try:
-        with tarfile.open(os.path.join(REF, "inputs.tar.gz")) as t:
-            t.extractall(case)
-        shutil.copy2(exe, case)
-
-        env = dict(os.environ, OMP_NUM_THREADS="1", GFORTRAN_UNBUFFERED_ALL="1")
-        print(f"running {NCYCLE} cycles, 1 thread, {os.path.basename(exe)} ...")
-        r = subprocess.run([f"./run_eqdyna2d_{version}"], cwd=case, env=env,
-                           capture_output=True, text=True, timeout=3600)
-        if r.returncode != 0:
-            print(f"FAIL: binary exited {r.returncode}\n{r.stdout[-2000:]}")
-            return 1
-
-        got_p = os.path.join(case, "totalop.txt1")
-        if not os.path.exists(got_p):
-            print("FAIL: no totalop.txt1 produced")
-            return 1
-        got = np.loadtxt(got_p)
-        with gzip.open(os.path.join(REF, "totalop.txt1.gz"), "rt") as f:
-            want = np.loadtxt(f)
-
-        if got.shape != want.shape:
-            print(f"FAIL: shape {got.shape} against reference {want.shape}")
-            return 1
-        d = np.abs(got - want).max()
-        iv_got = np.atleast_1d(np.loadtxt(os.path.join(case, "interval.txt1")))
-        iv_want = np.atleast_1d(np.loadtxt(os.path.join(REF, "interval.txt1")))
-        iv_ok = iv_got.shape == iv_want.shape and np.array_equal(iv_got, iv_want)
-
-        print(f"  intervals: {' '.join(f'{v:.0f}' for v in iv_got)}")
-        print(f"  reference: {' '.join(f'{v:.0f}' for v in iv_want)}")
-        print(f"  totalop max abs diff: {d:.3e}")
-
-        if d <= args.tol and iv_ok:
-            print("PASS")
-            return 0
-        if not iv_ok:
-            print("FAIL: recurrence intervals differ from the reference")
-        else:
-            print(f"FAIL: totalop differs by {d:.3e} (tolerance {args.tol})")
-        print("If this change was meant to alter results, regenerate the "
-              "reference and say why in the commit message.")
-        return 1
+        rc = _run(case, args, version, exe)
+        return rc
     finally:
-        if args.keep:
-            print(f"case kept at {case}")
-        else:
+        if rc == 0 and not args.keep:
             shutil.rmtree(case, ignore_errors=True)
+        else:
+            print(f"case kept at {case}" + (" (non-pass result)" if rc != 0 else ""))
+
+
+def _run(case: str, args: argparse.Namespace, version: str, exe: str) -> int:
+    with tarfile.open(os.path.join(REF, "inputs.tar.gz")) as t:
+        t.extractall(case)
+    shutil.copy2(exe, case)
+
+    env = dict(os.environ, OMP_NUM_THREADS="1", GFORTRAN_UNBUFFERED_ALL="1")
+    print(f"running {NCYCLE} cycles, 1 thread, {os.path.basename(exe)} ...")
+    r = subprocess.run([f"./run_eqdyna2d_{version}"], cwd=case, env=env,
+                       capture_output=True, text=True, timeout=3600)
+    if r.returncode != 0:
+        print(f"FAIL: binary exited {r.returncode}\n{r.stdout[-2000:]}")
+        return 1
+
+    got_p = os.path.join(case, "totalop.txt1")
+    if not os.path.exists(got_p):
+        print("FAIL: no totalop.txt1 produced")
+        return 1
+    got = np.loadtxt(got_p)
+    with gzip.open(os.path.join(REF, "totalop.txt1.gz"), "rt") as f:
+        want = np.loadtxt(f)
+
+    if got.shape != want.shape:
+        print(f"FAIL: shape {got.shape} against reference {want.shape}")
+        return 1
+    d = np.abs(got - want).max()
+    iv_got = np.atleast_1d(np.loadtxt(os.path.join(case, "interval.txt1")))
+    iv_want = np.atleast_1d(np.loadtxt(os.path.join(REF, "interval.txt1")))
+    iv_ok = iv_got.shape == iv_want.shape and np.array_equal(iv_got, iv_want)
+
+    print(f"  intervals: {' '.join(f'{v:.0f}' for v in iv_got)}")
+    print(f"  reference: {' '.join(f'{v:.0f}' for v in iv_want)}")
+    print(f"  totalop max abs diff: {d:.3e}")
+
+    if d <= args.tol and iv_ok:
+        print("PASS")
+        return 0
+    if not iv_ok:
+        print("FAIL: recurrence intervals differ from the reference")
+    else:
+        print(f"FAIL: totalop differs by {d:.3e} (tolerance {args.tol})")
+    print("If this change was meant to alter results, regenerate the "
+          "reference and say why in the commit message.")
+    return 1
 
 
 if __name__ == "__main__":
