@@ -65,3 +65,7 @@ README.md
 | Mesh | C_mesh=3 (gmsh, multi-surface) |
 | dx (gmsh) | 0.5 km |
 | Fault nodes (atf/dxs/sbt) | ~205 / ~99 / ~27 |
+
+## Known limitations
+
+**Mixed fault types (strike-slip + thrust) under single slip sense:** The Subei system mixes strike-slip faults (atf, dxs) and a thrust fault (sbt), but the solver applies a global `slipSense` parameter (±1) to all faults uniformly. Per-fault `ftType` and `ftDip` are read but unused by the dynamic solver; loading is computed from fault geometry (tangent vector) and the shared `slipSense` multiplier alone. Consequently, the per-system slip-sense setting cannot correctly represent both fault types' kinematics at once. Per-fault slip-sense control would be needed to fix this. The loading mechanism is in `src/interstress.f90`, lines 78–113, especially lines 112–113 where global `slipSense` multiplies shear components for all faults.
