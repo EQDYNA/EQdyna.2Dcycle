@@ -139,32 +139,33 @@ immune to frame choice. GSRM tensor **components** are interpolated, never the
 principal angle (pi-periodic; interpolating it directly spikes +/-90 deg at
 the wrap).
 
+
 **`ftVis` and TARGET.** `ftVis_i = TARGET/gamma_i` (SAF construction, `ant =
 ant0*str/rd`): constant rate x viscosity → uniform asymptotic shear stress,
 gamma sets only the approach timescale. TARGET must not exceed ambient normal
-stress: with `ambientnorm = -100 MPa`, `ns = -N - T*sin(2*phi)`, `strength =
-fric_fs*|ns|`, `shs = T*cos(2*phi)`, tensile once `T*|sin 2phi| > N`
-(negative-phi side):
+stress. With `ambientnorm = -100 MPa` and `slipSense = -1` (left-lateral):
 
-| T/N | tensile nodes | strength < 5 MPa | can nucleate | max ns |
-|---:|---:|---:|---:|---:|
-| 0.90 | 0% | 0% | 90% | -18.0 MPa |
-| 1.00 | 0% | 0.4% | 93% | -8.9 MPa |
-| 1.20 | 1.5% | 2.4% | 95% | +9.3 MPa |
+    rn = +gamma*sin(2*phi)*ant         (positive when phi > 0)
+    ns = rn + ambientnorm = rn - 100   (asymptotic)
+    Tensile (clamped at -10 MPa) when rn > 90.
 
-SAF uses T/N=1.20 because its angle of compression is coherently positive (91%
-of nodes, mean +6.8 deg); Xianshuihe straddles zero (43% positive, mean -0.2
-deg). **Use T = 90-100 MPa here.** Backstop: `interstress.f90` now caps
+For Xianshuihe, max|sin(2*phi)| = 1.00 (audit from `strain_rate_loading.py
+--case`), so tensile when TARGET > 90 MPa. **Use T = 90 MPa** (lower than the
+original right-lateral guidance of 90-100 MPa, because Xianshuihe's angle of
+compression straddles zero: 43% positive, mean -0.2 deg). Tested on 30
+earthquake cycles: all nucleate, 2325-2559 nodes rupture per cycle (90-99%),
+peak shear 151 MPa, recurrence 1-23 years, mean ~10 yr after the long
+pre-seismic phase. Backstop: `interstress.f90` now caps
 effective normal stress at `minnorm = -10 MPa` (matches `faulting.f90`'s
 dynamic cap; previously `abs(ns)`, giving a tensile node strength proportional
 to how tensile it was).
 
-| compset | ftLoadMaxShear | nanostrain/yr | ftVis (Pa s) |
-|---|---|---|---|
-| `saf.gmsh.lite` | varies per node | 143-536 | 7.1e21-2.6e22 |
-| `subei.gmsh.lite` | 1.427e-14 uniform | 450 | 8.4e21 |
-| `gulang.gmsh.lite` | 1.427e-14 uniform | 450 | 5.0e21 |
-| `xianshuihe` (GSRM) | varies per node | 39-202 | 1.6e22-8.0e22 |
+| compset | ftLoadMaxShear | nanostrain/yr | ftVis (Pa s) | TARGET (MPa) |
+|---|---|---|---|---|
+| `saf.gmsh.lite` | varies per node | 143-536 | 7.1e21-2.6e22 | 120 |
+| `subei.gmsh.lite` | 1.427e-14 uniform | 450 | 8.4e21 | 120 |
+| `gulang.gmsh.lite` | 1.427e-14 uniform | 450 | 5.0e21 | 71 |
+| `xianshuihe` (GSRM, slipSense=−1) | varies per node | 39-202 | 1.6e22-8.0e22 | 90 |
 
 Only SAF and this case derive loading from a strain field; `subei`/`gulang`
 carry the SAF default 450 nanostrain/yr unchanged, above the SAF's own max
