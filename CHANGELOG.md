@@ -2,24 +2,12 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [2.3.0] - 2026-10-07
 
-### Added
-- `par.slipSense` (FE_Global, optional last line): +1 right-lateral (default,
-  bit-identical to before), −1 left-lateral. It flips the sign of the
-  interseismic shear and normal loading and of the initial shear stress, so a
-  left-lateral system is loaded and ruptures left-lateral.
-
-### Fixed
-- `ftType` was never read by the solver: every fault, including the
-  left-lateral Xianshuihe, Gulang and Subei compsets, was simulated
-  right-lateral. Use `slipSense = -1` for left-lateral systems.
-- The 45° clamp on the loading angle in `interstress.f90` was one-sided
-  (upper bound only); it is now ±45°. Of the shipped compsets only
-  `subei.gmsh.lite` has angles below −45° (23 nodes), so only its results
-  change.
-
-## [2.2.0] - 2026-09-25
+`VERSION` had been bumped to 2.2.0 but that version was never tagged (the
+latest tag is `v2.1.1`); this release folds the untagged 2.2.0 work and
+everything since into a single `v2.3.0`, so `v2.2.0` is never tagged after
+the fact.
 
 ### Added
 - **Source-time-function output** (`par.outputSTF = 1`). For every event, one
@@ -41,7 +29,50 @@ All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https:/
   ruptured node, carries the right sequence times, and reproduces the
   catalogue moment. R31 and `test_stf_format_versions_match` guard the
   writer/reader contract.
+- `par.slipSense` (FE_Global, optional last line): +1 right-lateral (default,
+  bit-identical to before), −1 left-lateral. It flips the sign of the
+  interseismic shear and normal loading and of the initial shear stress, so a
+  left-lateral system is loaded and ruptures left-lateral.
+- `docs/user/new-fault-system.md`: porting workflow guide for adding a new
+  fault system under C_mesh=3, including the sign-aware loading-stress limit
+  now printed by `xianshuihe.gmsh.lite/strain_rate_loading.py` (audits its
+  loading angle against the resolved strain-rate tensor; shear and normal
+  agree to 1e-7).
+- `PATHWAY_FORWARD.md`: present-tense status board (R37) seeded with the
+  open items below; `PROJECT_RULES.md` gains R27a (tag and Release in one
+  step), R35 (repo root is a whitelist), R36 (no unmarked `|| true`), R37
+  (status board), R38 (PR-only merge, green required CI).
 
+### Fixed
+- `ftType` was never read by the solver: every fault, including the
+  left-lateral Xianshuihe, Gulang and Subei compsets, was simulated
+  right-lateral. Use `slipSense = -1` for left-lateral systems.
+- The 45° clamp on the loading angle in `interstress.f90` was one-sided
+  (upper bound only); it is now ±45°. Of the shipped compsets only
+  `subei.gmsh.lite` has angles below −45° (23 nodes), so only its results
+  change.
+- `gulang.gmsh.lite`: set `slipSense = -1` (left-lateral). Verified against
+  `totalop.txt1`: shear stress 100% negative (96,744/96,744 rows, mean −48.5
+  MPa) over 233 completed cycles, matching `ss0 =
+  -ambientnorm*fric_fini*slipSense` theory.
+- `xianshuihe.gmsh.lite`: set `slipSense = -1` and rederive the loading
+  target stress. The prior 90-100 MPa TARGET guidance was built for the
+  opposite sign convention and stalled at simulated year ~2.27M with zero
+  ruptures; rederived for `slipSense = -1` (`src/interstress.f90:112-113`,
+  `rn` flips sign relative to the right-lateral case, so tensile clamping at
+  `minnorm = -10 MPa` occurs above TARGET = 90 MPa given this system's
+  max|sin(2*phi)| = 1.00). TARGET = 90 MPa verified: 30/30 cycles nucleate,
+  2325-2559/2581 nodes rupture per cycle, peak shear 151 MPa, peak normal 105
+  MPa (compressive), recurrence 1-23 yr. README T/N table and guidance
+  rewritten to match; strain diagnostic figures regenerated (confirmed by
+  direct array diff against the prior PNGs, not just re-encoded).
+
+### Documented
+- `subei.gmsh.lite` mixes strike-slip (atf, dxs) and thrust (sbt) faults
+  under one global `slipSense` applied uniformly in
+  `src/interstress.f90:112-113`; per-fault `ftType`/`ftDip` are read but
+  unused by the loading calculation. Flagged, not fixed — tracked on
+  `PATHWAY_FORWARD.md`.
 
 ## [2.1.1] - 2026-08-28
 
