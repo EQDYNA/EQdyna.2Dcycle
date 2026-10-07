@@ -76,7 +76,7 @@ def create_run_sh():
             # process-group kill cannot orphan the binary and skip the
             # post-run steps. Not present on macOS, so fall back to plain
             # nohup there.
-            f.write("SETSID=$(command -v setsid || true)\n")
+            f.write("SETSID=$(command -v setsid || true)  # intentional: macOS has no setsid, nohup is the fallback\n")
             f.write("$SETSID nohup bash -c '\n")
             f.write("  export GFORTRAN_UNBUFFERED_ALL=1  # flush stdout in real time\n")
             f.write("  export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}  # OpenMP threads (default serial; set in caller env to scale up)\n")
@@ -143,7 +143,7 @@ def create_run_sh():
             # process-group kill cannot orphan the binary and skip the
             # post-run steps. Not present on macOS, so fall back to plain
             # nohup there.
-            f.write("SETSID=$(command -v setsid || true)\n")
+            f.write("SETSID=$(command -v setsid || true)  # intentional: macOS has no setsid, nohup is the fallback\n")
             f.write("$SETSID nohup bash -c '\n")
             f.write("  export GFORTRAN_UNBUFFERED_ALL=1  # flush stdout in real time\n")
             f.write("  export OMP_NUM_THREADS=${OMP_NUM_THREADS:-1}  # OpenMP threads (default serial; set in caller env to scale up)\n")

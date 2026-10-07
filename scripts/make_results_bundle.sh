@@ -30,7 +30,7 @@ for d in "$CASE" "$CASE/aRawSimuData" "$CASE/fem_mesh_output"; do
         -name 'fac.txt' -o -name 'nsmpTanLen.txt' -o -name 'FE_*.txt' -o \
         -name 'Rate_direction.txt' -o -name 'x[0-9]_1.txt' -o \
         -name 'user_defined_params.py' -o -name 'run_*.log' \) \
-        -exec cp -n {} "$B/" \; 2>/dev/null || true
+        -exec cp -n {} "$B/" \;
 done
 
 # Figures and the catalogue may live in the case dir or in its snapshot
@@ -41,14 +41,16 @@ for a in "$CASE/aPlots" "${CASE}_snap/aPlots"; do
     [ -d "$a" ] || continue
     find "$a" -maxdepth 1 -type f \( -name '*.csv' -o -name 'catalog_analysis.png' \
         -o -name 'Figure*.png' -o -name 'faults.png' -o -name 'loading_inputs.png' \) \
-        -exec cp {} "$B/aPlots/" \; 2>/dev/null || true
+        -exec cp {} "$B/aPlots/" \;
 done
 # Prefer the snapshot's merged interval/cyclelog when a restart split them.
 if [ -f "${CASE}_snap/interval.txt1" ]; then
-    cp "${CASE}_snap/interval.txt1" "$B/interval.merged.txt" 2>/dev/null || true
+    cp "${CASE}_snap/interval.txt1" "$B/interval.merged.txt"
 fi
+# intentional: fails only when aPlots/ still holds files we meant to keep; empty-dir cleanup, not an error path
 rmdir "$B/aPlots" 2>/dev/null || true
 
+# intentional: an in-progress run legitimately has no interval.txt* yet; IVS stays empty, not an error
 IVS=$(ls "$CASE"/interval.txt* "$CASE"/aRawSimuData/interval.txt* 2>/dev/null || true)
 cyc=$( { [ -n "$IVS" ] && cat $IVS; } 2>/dev/null | wc -l | tr -d ' ')
 yrs=$( { [ -n "$IVS" ] && cat $IVS; } 2>/dev/null | awk '{s+=$1}END{printf "%.0f", s}')
