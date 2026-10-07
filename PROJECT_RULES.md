@@ -377,6 +377,18 @@ new root entry needs an explicit ask; the alternative is a root that collects
 mission notes nobody prunes. Mechanical check: `test_root_whitelist` diffs
 `git ls-files` against this list.
 
+#### R35a — No committed file over 5 MB; a report-only tidy pass names what's stale
+A large binary or bundle committed by accident bloats every future clone
+forever — `git rm` doesn't shrink history. Mechanical check:
+`test_root_file_size` runs `git ls-files -z` and fails if any tracked file
+exceeds 5 MB. Separately, `test_repo_tidy` is **report-only** (it prints,
+never fails the suite): stale `.claude/worktrees/*` left after a branch
+merged, local branches already squash-merged into `main` on origin, and
+`work/`-style run output nothing in the repo still cites. It is advisory
+because tidying is the owner's call, not a gate — see the pending-deletion
+rows on `PATHWAY_FORWARD.md` for both the merged autopilot branches and the
+superseded results bundle it already found.
+
 ### R36 — No silent fallbacks: `|| true` needs a stated reason on the same line
 Swallowing a command's exit status hides a real failure (disk full,
 permission denied, a changed glob) behind the same silent success as the

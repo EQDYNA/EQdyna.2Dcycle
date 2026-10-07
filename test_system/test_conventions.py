@@ -544,6 +544,62 @@ def test_root_whitelist() -> None:
               o if "/" not in o else o.split('/', 1)[0] for o in offenders))[:10]))
 
 
+def test_root_file_size() -> None:
+    """R35a: no tracked file over 5 MB."""
+    import subprocess
+    r = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True)
+    if r.returncode != 0:
+        skip("R35a", "no tracked file over 5 MB", "not a git checkout")
+        return
+    files = [f for f in r.stdout.decode().split("\0") if f]
+    limit = 5 * 1024 * 1024
+    offenders = []
+    for f in files:
+        path = os.path.join(ROOT, f)
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            continue
+        if size > limit:
+            offenders.append(f"{f} ({size // (1024*1024)} MB)")
+    check("R35a", "no tracked file over 5 MB", not offenders, ", ".join(offenders[:10]))
+
+
+def test_repo_tidy() -> None:
+    """R35a: report-only tidy pass -- stale worktrees, merged branches, uncited runs/.
+
+    Never fails the suite; prints findings for the owner to act on.
+    """
+    import subprocess
+    notes = []
+
+    wt = subprocess.run(["git", "worktree", "list", "--porcelain"], cwd=ROOT,
+                         capture_output=True, text=True)
+    worktrees = [l.split(" ", 1)[1] for l in wt.stdout.splitlines() if l.startswith("worktree ")]
+    stale = [w for w in worktrees if os.path.normpath(w) != os.path.normpath(ROOT)
+             and not os.path.isdir(w)]
+    if stale:
+        notes.append(f"stale worktree entries: {', '.join(stale)}")
+
+    br = subprocess.run(["git", "branch", "--merged", "main"], cwd=ROOT,
+                         capture_output=True, text=True)
+    merged = [l.strip().lstrip("* ").strip() for l in br.stdout.splitlines()
+              if l.strip().lstrip("* ").strip() not in ("", "main")]
+    if merged:
+        notes.append(f"local branches already merged into main: {', '.join(merged)}")
+
+    runs_dir = os.path.join(ROOT, "runs")
+    if os.path.isdir(runs_dir):
+        entries = sorted(os.listdir(runs_dir))
+        if entries:
+            notes.append(f"runs/ entries present (verify still cited): {', '.join(entries[:10])}")
+
+    if notes:
+        print("  note  R35a  repo tidy (report-only): " + "; ".join(notes))
+    else:
+        print("  note  R35a  repo tidy (report-only): nothing to report")
+
+
 def test_no_unmarked_silent_fallback() -> None:
     """R36: `|| true` needs a stated reason on the same line.
 
@@ -619,7 +675,8 @@ def main() -> None:
                test_version_file_is_single_semver_line, test_changelog_has_body_for_version,
                test_changelog_section_extraction_returns_text,
                test_run_sh_sets_omp_threads, test_fig4_refuses_empty_output, test_stf_format_versions_match, test_user_guide, test_no_tracked_bytecode,
-               test_root_whitelist, test_no_unmarked_silent_fallback,
+               test_root_whitelist, test_root_file_size, test_repo_tidy,
+               test_no_unmarked_silent_fallback,
                test_status_board_exists, test_no_rival_status_board,
                test_every_check_is_registered):
         fn()
