@@ -581,12 +581,27 @@ def test_repo_tidy() -> None:
     if stale:
         notes.append(f"stale worktree entries: {', '.join(stale)}")
 
-    br = subprocess.run(["git", "branch", "--merged", "main"], cwd=ROOT,
-                         capture_output=True, text=True)
-    merged = [l.strip().lstrip("* ").strip() for l in br.stdout.splitlines()
-              if l.strip().lstrip("* ").strip() not in ("", "main")]
+    # `git branch --merged` misses squash merges (every PR here is squashed).
+    # A branch is merged when its whole diff, squashed onto its merge base,
+    # already has an equivalent patch in main (`git cherry` prints "-").
+    def git(*a):
+        return subprocess.run(["git", *a], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    refs = git("for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes/origin").split()
+    merged = []
+    for ref in refs:
+        if ref in ("main", "origin/main", "origin/HEAD", "origin"):
+            continue
+        base = git("merge-base", "main", ref)
+        if not base:
+            continue
+        if git("rev-parse", ref) == base:
+            merged.append(ref)
+            continue
+        squash = git("commit-tree", f"{ref}^{{tree}}", "-p", base, "-m", "tidy-probe")
+        if squash and git("cherry", "main", squash).startswith("-"):
+            merged.append(ref)
     if merged:
-        notes.append(f"local branches already merged into main: {', '.join(merged)}")
+        notes.append(f"branches already merged into main (incl. squash): {', '.join(merged)}")
 
     runs_dir = os.path.join(ROOT, "runs")
     if os.path.isdir(runs_dir):
