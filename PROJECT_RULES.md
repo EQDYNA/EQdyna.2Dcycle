@@ -431,16 +431,16 @@ removal; `.github/workflows/test.yml` (`unit-regression`, `build-smoke`) gates
 it; squash-merge only once that CI run on the PR's head is green; the next PR
 opens only after, since a parallel branch returns stale-based. **Decided by
 the owner (2026-10-07): PR-only, merge only on green required CI for that PR**
-— this is now a standing rule, not a proposal. **Still a proposal, pending the
-owner's own action on GitHub: host-side branch/tag protection** (require PR
-before merge, no direct push to `main`, no force-push/delete, immutable `v*`
-tags, no bypass actors). Until the owner enables it, nothing in this repo or
-in CI can *stop* a direct push to `main` — the PR-only/green-CI rule above is
-binding on agents working this repo, not yet enforced by the host. Tracked on
+— this is now a standing rule, not a proposal. **Host-side branch/tag
+protection: ENABLED by the owner on 2026-10-11** — PR required before merge,
+required status checks `unit-regression` + `build-smoke`, no force-push on
+`main`; admins are not enforced (owner keeps an escape hatch). The host now
+enforces the PR-only/green-CI rule above, not just this rule book. Verify with
+`gh api repos/EQDYNA/EQdyna.2Dcycle/branches/main/protection`. Tracked on
 `PATHWAY_FORWARD.md`.
 
-Proposed ruleset for `main` (host-side, GitHub branch/tag protection, pending
-owner action — see `PATHWAY_FORWARD.md`):
+Ruleset enabled for `main` (host-side, GitHub branch/tag protection — see
+`PATHWAY_FORWARD.md`):
 - Require a pull request before merging; no direct pushes to `main`.
 - Required status checks: `unit-regression`, `build-smoke` (the jobs in
   `.github/workflows/test.yml`) must pass on the merge commit.
