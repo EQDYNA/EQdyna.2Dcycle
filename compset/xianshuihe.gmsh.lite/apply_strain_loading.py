@@ -42,8 +42,7 @@ from pathlib import Path
 
 import numpy as np
 
-# 1.427e-14 s^-1 x 5.0e21 Pa s, i.e. gulang's asymptotic shear stress.
-TARGET_SHEAR_STRESS_PA = 1.427e-14 * 5.0e21
+TARGET_SHEAR_STRESS_PA = 90.0e6   # all-compressive limit at slipSense = -1 (README)
 
 COL_MAXSHEAR, COL_ANGLE, COL_VIS = 5, 6, 8   # 0-based
 

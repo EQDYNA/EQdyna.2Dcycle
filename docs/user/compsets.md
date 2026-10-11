@@ -33,5 +33,7 @@ loading file's provenance is documented in
 
 **`xianshuihe.gmsh.lite`.** Loading is sampled from the GSRM v2.1 strain-rate
 model at the mesh fault nodes. The data are not shipped; fetch them with
-`bash compset/xianshuihe.gmsh.lite/fetch_strain_rate.sh`. Use a target
-asymptotic shear stress of 90–100 MPa (see [Model inputs](inputs.md)).
+`bash compset/xianshuihe.gmsh.lite/fetch_strain_rate.sh`. Left-lateral
+(`slipSense = -1`); keep the target asymptotic shear stress at or below
+90 MPa (see [Model inputs](inputs.md)). Its calibration against the
+historical record is still open; the compset README has the sweep.
