@@ -150,12 +150,28 @@ stress. With `ambientnorm = -100 MPa` and `slipSense = -1` (left-lateral):
     Tensile (clamped at -10 MPa) when rn > 90.
 
 For Xianshuihe, max|sin(2*phi)| = 1.00 (audit from `strain_rate_loading.py
---case`), so tensile when TARGET > 90 MPa. **Use T = 90 MPa** (lower than the
+--case`), so tensile when TARGET > 90 MPa: **T ≤ 90 MPa** (lower than the
 original right-lateral guidance of 90-100 MPa, because Xianshuihe's angle of
-compression straddles zero: 43% positive, mean -0.2 deg). Tested on 30
-earthquake cycles: all nucleate, 2325-2559 nodes rupture per cycle (90-99%),
-peak shear 151 MPa, recurrence 1-23 years, mean ~10 yr after the long
-pre-seismic phase. Backstop: `interstress.f90` now caps
+compression straddles zero: 43% positive, mean -0.2 deg).
+
+Sweep at slipSense = -1, 150 cycles each, 4 OpenMP threads (2026-10-11):
+
+| T (MPa) | first interval (yr) | span (kyr) | Mw max | median interval, 2nd half (yr) | median nodes slipping > 5 cm |
+|---:|---:|---:|---:|---:|---:|
+| 60 | 2411 | 4.8 | 7.17 | 7 | 26 / 2581 |
+| 70 | 1780 | 3.7 | 7.39 | 3 | 25 / 2581 |
+| 80 | 1489 | 3.1 | 7.37 | 2 | 28 / 2581 |
+| 90 | 1321 | 2.7 | 7.42 | 1 | 26 / 2581 |
+
+At every T the catalogue is dominated by small events (median rupture ~45
+nodes, ~9 km; median slip 0.25 m) recurring every few years, with
+occasional Mw 7.2-7.4. No T in this range yet gives the centuries-scale
+recurrence of the historical M ≥ 7 events, and 150 cycles barely pass the
+spin-up; the calibration is open. (An earlier note here said 90-99% of
+nodes rupture every cycle: that counted every node with nonzero slip, which
+is all of them, since the dynamic phase leaves a tiny slip everywhere.
+Count nodes slipping more than a threshold, or with a rupture time.)
+`apply_strain_loading.py` defaults to the 90 MPa limit. Backstop: `interstress.f90` now caps
 effective normal stress at `minnorm = -10 MPa` (matches `faulting.f90`'s
 dynamic cap; previously `abs(ns)`, giving a tensile node strength proportional
 to how tensile it was).
