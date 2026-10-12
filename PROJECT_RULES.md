@@ -10,8 +10,8 @@ meant to run on every change.
 R1-R3, R18, R20, R21, R28: mesh-file conventions. R4-R6, R19: new fault system
 setup. R7-R9: loading conventions. R10-R14, R30-R32: reproducing/verifying
 published or prior results. R15-R17, R29: case I/O and plotting. R22-R27,
-R27a, R34: release gates. R33, R35, R36: repo hygiene (tracked files, root
-whitelist, silent fallbacks). R37: status board. R38: PR/merge and host
+R27a, R34, R39: release gates. R33, R35, R36: repo hygiene (tracked files,
+root whitelist, silent fallbacks). R37: status board. R38: PR/merge and host
 protection.
 
 ---
@@ -438,6 +438,17 @@ required status checks `unit-regression` + `build-smoke`, no force-push on
 enforces the PR-only/green-CI rule above, not just this rule book. Verify with
 `gh api repos/EQDYNA/EQdyna.2Dcycle/branches/main/protection`. Tracked on
 `PATHWAY_FORWARD.md`.
+
+### R39 — No release tag without a quoted audit or a written owner waiver
+`v2.3.0` shipped (PR #9) with no victor-reyes/zofia-kaminska/kai review on
+the release PR — the release process named no audit gate, so nothing
+stopped it. Before any future `gh release create`, either the release note
+or `PATHWAY_FORWARD.md` must quote victor-reyes's audit report covering
+`<last-tag>..<tagged-commit>`, or the owner must waive it in writing on the
+same row. No tag is cut on the strength of "the audit is running" alone.
+Procedural — the audit itself is commissioned by hand per release; nothing
+in this repo can run it, only check that its report is quoted before the
+tag.
 
 Ruleset enabled for `main` (host-side, GitHub branch/tag protection — see
 `PATHWAY_FORWARD.md`):
