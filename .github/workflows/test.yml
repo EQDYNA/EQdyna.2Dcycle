@@ -34,7 +34,7 @@ jobs:
         run: |
           export EQDYNA2DCYCLEROOT="$GITHUB_WORKSPACE"
           export PATH="$EQDYNA2DCYCLEROOT/bin:$EQDYNA2DCYCLEROOT/scripts:$PATH"
-          mkdir -p work
+          mkdir -p work bin  # create.newcase copies bin/* into the case dir; this tier never builds, so bin/ is empty
           python3 scripts/create.newcase --work_dir work/regression_case --compset subei.gmsh.lite --force
           cd work/regression_case && python3 meshgen.py
       - name: Unit and regression tiers
