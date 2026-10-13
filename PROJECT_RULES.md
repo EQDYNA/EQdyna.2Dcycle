@@ -10,7 +10,7 @@ meant to run on every change.
 R1-R3, R18, R20, R21, R28: mesh-file conventions. R4-R6, R19: new fault system
 setup. R7-R9: loading conventions. R10-R14, R30-R32: reproducing/verifying
 published or prior results. R15-R17, R29: case I/O and plotting. R22-R27,
-R27a, R34, R39: release gates. R33, R35, R36: repo hygiene (tracked files,
+R27a, R34, R39, R39a: release gates. R33, R35, R36: repo hygiene (tracked files,
 root whitelist, silent fallbacks). R37: status board. R38: PR/merge and host
 protection.
 
@@ -449,6 +449,30 @@ same row. No tag is cut on the strength of "the audit is running" alone.
 Procedural — the audit itself is commissioned by hand per release; nothing
 in this repo can run it, only check that its report is quoted before the
 tag.
+
+### R39a — The quoted audit's stated range must equal `<last-tag>..<tagged-commit>`, in writing
+`v2.3.1`'s tag (2026-10-12) was nearly cut on the `v2.1.1..v2.3.0` audit
+alone — correct in form (an audit was quoted, satisfying R39's letter) but
+covering the wrong diff, since PRs #17/#18 landed fixes *after* that audit
+ran. Only haruto-nakamura noticing by hand, before tagging, that R39 says
+`<last-tag>..<tagged-commit>` and not "the most recent audit on file,"
+caught it and forced a second, covering audit of `v2.3.0..00e7865`. R39 did
+not make this checkable; it only made "an audit exists" checkable.
+
+Going forward: the release note's audit section must state the audited
+range as literal text (e.g. "Covering audit, this release's own diff
+(`v2.3.0..00e7865`)"), and whoever cuts the tag runs, before `gh release
+create`, a command that prints the expected range for comparison against
+that literal text:
+```bash
+echo "$(git describe --tags --abbrev=0 HEAD^)..$(git rev-parse --short HEAD)"
+```
+If the two don't match character-for-character, R39 is not satisfied by
+that audit and a fresh covering audit is owed, same as `00e7865` required.
+Procedural, same as R39 — no script in this repo can diff the audit
+report's prose against the tag's own range; the command above is the
+reader's manual check, and an unattended release is the agent printing it
+in the PR/release description before tagging, not a human.
 
 Ruleset enabled for `main` (host-side, GitHub branch/tag protection — see
 `PATHWAY_FORWARD.md`):
