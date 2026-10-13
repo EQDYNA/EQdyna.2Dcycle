@@ -707,7 +707,11 @@ def test_feglobal_malformed_lines() -> None:
 		skip("R39a", "FE_Global malformed lines", "binary not built")
 		return
 	
-	# Find a case to template from (any compset with FE_Global.txt)
+	# Find a case to template from (any compset with FE_Global.txt already on
+	# disk); failing that, generate one with case.setup -- a fresh checkout or
+	# CI run never has a pre-existing FE_Global.txt (it's a generated file,
+	# excluded from compset/ on purpose), so relying on one being present would
+	# make this check skip, not run, on every clean environment.
 	case_template = None
 	for base in ("compset", "work"):
 		base_path = os.path.join(root, base)
@@ -720,11 +724,29 @@ def test_feglobal_malformed_lines() -> None:
 				break
 		if case_template:
 			break
-	
+
+	generated_case = None
 	if not case_template:
-		skip("R39a", "FE_Global malformed lines", "no case with FE_Global.txt on disk")
-		return
-	
+		import subprocess as _sp
+		import tempfile as _tf
+		generated_case = _tf.mkdtemp(prefix="r39a_case_")
+		create_newcase = os.path.join(root, "scripts", "create.newcase")
+		case_env = os.environ.copy()
+		case_env["EQDYNA2DCYCLEROOT"] = root
+		r = _sp.run(["python3", create_newcase, "--work_dir", generated_case,
+		             "--compset", "gulang.gmsh.lite", "--force"],
+		            cwd=root, capture_output=True, text=True, timeout=60, env=case_env)
+		if r.returncode == 0:
+			r2 = _sp.run(["python3", "case.setup"], cwd=generated_case,
+			              capture_output=True, text=True, timeout=60, env=case_env)
+			if r2.returncode == 0 and os.path.exists(os.path.join(generated_case, "FE_Global.txt")):
+				case_template = generated_case
+		if not case_template:
+			shutil.rmtree(generated_case, ignore_errors=True)
+			skip("R39a", "FE_Global malformed lines",
+			     f"could not generate a case to template from: {r.stderr[:200] or (r2.stderr[:200] if 'r2' in dir() else '')}")
+			return
+
 	fails = []
 	
 	# Test 1: Malformed STF line (present but unparseable)
@@ -820,8 +842,10 @@ def test_feglobal_malformed_lines() -> None:
 	finally:
 		shutil.rmtree(case3, ignore_errors=True)
 	
-	check("R39a", "FE_Global malformed lines hard-fail, missing lines silent-default", 
+	check("R39a", "FE_Global malformed lines hard-fail, missing lines silent-default",
 	      not fails, "; ".join(fails[:3]))
+	if generated_case:
+		shutil.rmtree(generated_case, ignore_errors=True)
 
 
 
