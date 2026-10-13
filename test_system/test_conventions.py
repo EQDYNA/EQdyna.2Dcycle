@@ -18,6 +18,7 @@ import sys
 
 import numpy as np
 
+HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SCRIPTS = os.path.join(ROOT, "scripts")
 sys.path.insert(0, SCRIPTS)
@@ -892,6 +893,62 @@ def test_feglobal_malformed_lines() -> None:
 		shutil.rmtree(generated_case, ignore_errors=True)
 
 
+# --- R10: every bug gets a regression test ----------------------------------
+
+def test_fe_global_pre230_no_crash() -> None:
+    """A genuinely pre-2.3.0 FE_Global.txt (no STF or slipSense trailer at
+    all) must not crash readglobal, and slipSense must silently default to
+    +1 as documented.
+
+    PR #17 (35a6549) made a malformed slipSense line a hard error. It did
+    not account for gfortran escalating a second consecutive read past
+    end-of-file from a negative (EOF) iostat to a positive (error) iostat:
+    any FE_Global.txt missing *both* trailers -- i.e. every file written
+    before this parameter existed -- hit the STF read's correct EOF
+    default, then the slipSense read's new hard-error path, and the binary
+    aborted with "could not parse slipSense line in FE_Global.txt". PR #18
+    (00e7865) fixed it by skipping the slipSense read entirely once the STF
+    read had already failed. CI never caught the original regression
+    because every smoke/regression fixture has a current-format
+    FE_Global.txt; only a hand-run case with an old file crashed (caught by
+    e2e re-run before tagging v2.3.1, not by CI). This guards that gap: the
+    fixture is a real FE_Global.txt from before v2.3.0 (git-archived from
+    commit 2211914, "Release v2.0.5"), not a hand truncation.
+
+    We run the real binary (not a mock of readglobal) because the bug is in
+    Fortran sequential-read EOF semantics across two consecutive reads --
+    exactly the kind of thing a unit test of parsed values, divorced from
+    the actual read sequence, would not reproduce.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    version = _read_version()
+    exe = os.path.join(ROOT, "bin", f"run_eqdyna2d_{version}")
+    fixture = os.path.join(HERE, "fixtures", "FE_Global.pre230.txt")
+    if not os.path.exists(exe):
+        skip("R10", "pre-2.3.0 FE_Global.txt does not crash", f"binary not built: {exe}")
+        return
+    if not os.path.exists(fixture):
+        check("R10", "pre-2.3.0 FE_Global.txt fixture exists", False, fixture)
+        return
+    with tempfile.TemporaryDirectory() as d:
+        shutil.copy(fixture, os.path.join(d, "FE_Global.txt"))
+        r = subprocess.run([exe], cwd=d, capture_output=True, text=True, timeout=30)
+    check("R10", "pre-2.3.0 FE_Global.txt: readglobal completes (exit 0)",
+          r.returncode == 0,
+          f"exit {r.returncode}; stdout tail: {r.stdout[-400:]}")
+    check("R10", "pre-2.3.0 FE_Global.txt: no slipSense parse error",
+          "could not parse slipSense" not in r.stdout,
+          "the EOF-escalation regression from PR #17 is back")
+    # readglobal must have returned control to the caller: the next
+    # subroutine (readmodelgeometry) ran and reported its own missing file,
+    # proving readglobal did not abort partway through on this fixture.
+    check("R10", "pre-2.3.0 FE_Global.txt: proceeds past readglobal",
+          "FE_Model_Geometry.txt is required but missing" in r.stdout,
+          "did not reach readmodelgeometry; readglobal aborted or hung")
+
 
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
@@ -923,6 +980,7 @@ def main() -> None:
                test_status_board_exists,
                test_no_rival_status_board,
                test_feglobal_malformed_lines,
+               test_fe_global_pre230_no_crash,
                test_every_check_is_registered):
         fn()
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")
