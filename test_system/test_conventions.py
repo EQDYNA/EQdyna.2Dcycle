@@ -708,24 +708,11 @@ def test_feglobal_malformed_lines() -> None:
 		skip("R39a", "FE_Global malformed lines", "binary not built")
 		return
 	
-	# Find a case to template from (any compset with FE_Global.txt already on
-	# disk); failing that, generate one with case.setup -- a fresh checkout or
-	# CI run never has a pre-existing FE_Global.txt (it's a generated file,
-	# excluded from compset/ on purpose), so relying on one being present would
-	# make this check skip, not run, on every clean environment.
+	# Always generate the template from a known compset in a temp dir. Never
+	# scan compset/ or work/ for an existing FE_Global.txt: what is found there
+	# depends on the machine (an old-format case with a full mesh outruns the
+	# 30 s timeouts below), and work/ can hold runs that must not be copied.
 	case_template = None
-	for base in ("compset", "work"):
-		base_path = os.path.join(root, base)
-		if not os.path.isdir(base_path):
-			continue
-		for case in os.listdir(base_path):
-			fg = os.path.join(base_path, case, "FE_Global.txt")
-			if os.path.exists(fg):
-				case_template = os.path.join(base_path, case)
-				break
-		if case_template:
-			break
-
 	generated_case = None
 	if not case_template:
 		import subprocess as _sp
