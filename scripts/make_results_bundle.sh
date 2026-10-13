@@ -30,7 +30,7 @@ for d in "$CASE" "$CASE/aRawSimuData" "$CASE/fem_mesh_output"; do
         -name 'fac.txt' -o -name 'nsmpTanLen.txt' -o -name 'FE_*.txt' -o \
         -name 'Rate_direction.txt' -o -name 'x[0-9]_1.txt' -o \
         -name 'user_defined_params.py' -o -name 'run_*.log' \) \
-        -exec cp -n {} "$B/" \;
+        -print0 | xargs -0 -r cp -n -t "$B/"
 done
 
 # Figures and the catalogue may live in the case dir or in its snapshot
@@ -41,7 +41,7 @@ for a in "$CASE/aPlots" "${CASE}_snap/aPlots"; do
     [ -d "$a" ] || continue
     find "$a" -maxdepth 1 -type f \( -name '*.csv' -o -name 'catalog_analysis.png' \
         -o -name 'Figure*.png' -o -name 'faults.png' -o -name 'loading_inputs.png' \) \
-        -exec cp {} "$B/aPlots/" \;
+        -print0 | xargs -0 -r cp -t "$B/aPlots/"
 done
 # Prefer the snapshot's merged interval/cyclelog when a restart split them.
 if [ -f "${CASE}_snap/interval.txt1" ]; then
