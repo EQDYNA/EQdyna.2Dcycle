@@ -679,20 +679,182 @@ def test_no_rival_status_board() -> None:
     check("R37", "no rival status board tracked", not bad, ", ".join(bad[:5]))
 
 
+def test_feglobal_malformed_lines() -> None:
+	"""R39a — Malformed STF/slipSense lines in FE_Global.txt hard-fail, not silent-default.
+	
+	PR #18 (00e7865) fixed an EOF escalation bug where the binary would abort 
+	when FE_Global.txt lacked both STF and slipSense lines (old pre-2.3.0 format).
+	The fix made it skip the slipSense read if STF read failed, but didn't 
+	distinguish between "line missing" (ios < 0, EOF) and "line malformed" 
+	(ios > 0, parse error). A malformed line should hard-fail loudly, not 
+	silently default to slipSense=+1, since that would silently flip fault 
+	sense without warning.
+	
+	This test verifies:
+	- Malformed STF line: hard-fails with error message
+	- Valid STF + malformed slipSense: hard-fails with error message  
+	- Missing both STF and slipSense (old format): silently defaults to +1
+	"""
+	import subprocess
+	import shutil
+	import tempfile
+	
+	root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+	version = open(os.path.join(root, "VERSION")).read().strip()
+	exe = os.path.join(root, "bin", f"run_eqdyna2d_{version}")
+	
+	if not os.path.exists(exe):
+		skip("R39a", "FE_Global malformed lines", "binary not built")
+		return
+	
+	# Find a case to template from (any compset with FE_Global.txt)
+	case_template = None
+	for base in ("compset", "work"):
+		base_path = os.path.join(root, base)
+		if not os.path.isdir(base_path):
+			continue
+		for case in os.listdir(base_path):
+			fg = os.path.join(base_path, case, "FE_Global.txt")
+			if os.path.exists(fg):
+				case_template = os.path.join(base_path, case)
+				break
+		if case_template:
+			break
+	
+	if not case_template:
+		skip("R39a", "FE_Global malformed lines", "no case with FE_Global.txt on disk")
+		return
+	
+	fails = []
+	
+	# Test 1: Malformed STF line (present but unparseable)
+	case1 = tempfile.mkdtemp(prefix="test_malformed_stf_")
+	try:
+		shutil.copytree(case_template, case1, dirs_exist_ok=True)
+		fg = os.path.join(case1, "FE_Global.txt")
+		with open(fg, 'r') as f:
+			lines = f.read().splitlines()
+		# Replace STF line (usually line 27, 0-indexed) with garbage
+		for i, line in enumerate(lines):
+			if line and not line.isspace():
+				# Find the STF line (the one that looks like "0 1 0.001" or similar)
+				if i > 25 and i < 30:  # STF is near the end, after plotmesh
+					try:
+						parts = line.split()
+						if len(parts) == 3:
+							float(parts[0]); float(parts[1]); float(parts[2])
+							lines[i] = "garbage not a number xyz"
+							break
+					except (ValueError, IndexError):
+						pass
+		with open(fg, 'w') as f:
+			f.write("\n".join(lines) + "\n")
+		
+		shutil.copy2(exe, case1)
+		env = os.environ.copy()
+		env['OMP_NUM_THREADS'] = '1'
+		r = subprocess.run([os.path.basename(exe)], cwd=case1, 
+		                   capture_output=True, text=True, timeout=30)
+		
+		if r.returncode != 0 and "error: could not parse STF line" in r.stdout:
+			pass  # Good
+		else:
+			fails.append("malformed STF line should hard-fail")
+	except Exception as e:
+		fails.append(f"test 1 exception: {e}")
+	finally:
+		shutil.rmtree(case1, ignore_errors=True)
+	
+	# Test 2: Valid STF + Malformed slipSense line
+	case2 = tempfile.mkdtemp(prefix="test_malformed_slip_")
+	try:
+		shutil.copytree(case_template, case2, dirs_exist_ok=True)
+		fg = os.path.join(case2, "FE_Global.txt")
+		with open(fg, 'r') as f:
+			lines = f.read().splitlines()
+		# Replace slipSense line (usually last line) with garbage
+		lines[-1] = "not a valid slipsense"
+		with open(fg, 'w') as f:
+			f.write("\n".join(lines) + "\n")
+		
+		shutil.copy2(exe, case2)
+		env = os.environ.copy()
+		env['OMP_NUM_THREADS'] = '1'
+		r = subprocess.run([os.path.basename(exe)], cwd=case2, 
+		                   capture_output=True, text=True, timeout=30)
+		
+		if r.returncode != 0 and "error: could not parse slipSense" in r.stdout:
+			pass  # Good
+		else:
+			fails.append("malformed slipSense line should hard-fail")
+	except Exception as e:
+		fails.append(f"test 2 exception: {e}")
+	finally:
+		shutil.rmtree(case2, ignore_errors=True)
+	
+	# Test 3: Missing both STF and slipSense (old format)
+	case3 = tempfile.mkdtemp(prefix="test_missing_stf_")
+	try:
+		shutil.copytree(case_template, case3, dirs_exist_ok=True)
+		fg = os.path.join(case3, "FE_Global.txt")
+		with open(fg, 'r') as f:
+			lines = f.read().splitlines()
+		# Truncate to remove STF and slipSense lines (pre-2.3.0 format)
+		lines = lines[:27]  # Keep only lines up to plotmesh
+		with open(fg, 'w') as f:
+			f.write("\n".join(lines) + "\n")
+		
+		shutil.copy2(exe, case3)
+		env = os.environ.copy()
+		env['OMP_NUM_THREADS'] = '1'
+		r = subprocess.run([os.path.basename(exe)], cwd=case3, 
+		                   capture_output=True, text=True, timeout=30)
+		
+		# Should silently default, not error
+		if r.returncode == 0:
+			pass  # Good - PR #18's original fix should still work
+		else:
+			fails.append("missing STF/slipSense should silently default (PR #18 regression)")
+	except Exception as e:
+		fails.append(f"test 3 exception: {e}")
+	finally:
+		shutil.rmtree(case3, ignore_errors=True)
+	
+	check("R39a", "FE_Global malformed lines hard-fail, missing lines silent-default", 
+	      not fails, "; ".join(fails[:3]))
+
+
+
 def main() -> None:
     print("EQdyna.2Dcycle convention checks (PROJECT_RULES.md)\n")
-    for fn in (test_mesh_indexing, test_utilities_guard_index_base, test_nsmp_not_filtered,
-               test_side_classification_uses_normal, test_compset_params_use_par_prefix,
+    for fn in (test_mesh_indexing,
+               test_utilities_guard_index_base,
+               test_nsmp_not_filtered,
+               test_side_classification_uses_normal,
+               test_compset_params_use_par_prefix,
                test_mesh_export_keeps_all_elements,
-               test_geometry_checker, test_dropped_e_truncates, test_observed_site_constants,
-               test_magnitude_constants_documented, test_scripts_search_araw,
-               test_case_setup_run_sh, test_no_hardcoded_fault_counts_in_fortran,
-               test_version_file_is_single_semver_line, test_changelog_has_body_for_version,
+               test_geometry_checker,
+               test_dropped_e_truncates,
+               test_observed_site_constants,
+               test_magnitude_constants_documented,
+               test_scripts_search_araw,
+               test_case_setup_run_sh,
+               test_no_hardcoded_fault_counts_in_fortran,
+               test_version_file_is_single_semver_line,
+               test_changelog_has_body_for_version,
                test_changelog_section_extraction_returns_text,
-               test_run_sh_sets_omp_threads, test_fig4_refuses_empty_output, test_stf_format_versions_match, test_user_guide, test_no_tracked_bytecode,
-               test_root_whitelist, test_root_file_size, test_repo_tidy,
+               test_run_sh_sets_omp_threads,
+               test_fig4_refuses_empty_output,
+               test_stf_format_versions_match,
+               test_user_guide,
+               test_no_tracked_bytecode,
+               test_root_whitelist,
+               test_root_file_size,
+               test_repo_tidy,
                test_no_unmarked_silent_fallback,
-               test_status_board_exists, test_no_rival_status_board,
+               test_status_board_exists,
+               test_no_rival_status_board,
+               test_feglobal_malformed_lines,
                test_every_check_is_registered):
         fn()
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")

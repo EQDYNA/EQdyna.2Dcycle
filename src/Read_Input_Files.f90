@@ -52,8 +52,16 @@ subroutine readglobal
 		! Optional STF output control; absent in older FE_Global.txt files, in
 		! which case the output stays off and the run is unchanged.
 		read(1001,*,iostat=ios) stfOn, stfEvery, stfVmin
-		stfLineMissing = (ios /= 0)
-		if (ios /= 0) then
+		! Distinguish between missing STF line (ios < 0, EOF) and malformed
+		! STF line (ios > 0, parse error). A malformed line (present but
+		! unparseable) is a hard error; a genuinely missing line (old
+		! pre-2.3.0 format) gets silently defaulted.
+		if (ios > 0) then
+			write(*,*) 'error: could not parse STF line in FE_Global.txt'
+			stop 1
+		endif
+		stfLineMissing = (ios < 0)  ! genuinely missing (EOF)
+		if (stfLineMissing) then
 			stfOn = 0; stfEvery = 1; stfVmin = 1.0d-3
 		endif
 		if (stfEvery < 1) then
@@ -67,15 +75,14 @@ subroutine readglobal
 		! the wrong line could otherwise flip a left-lateral case to
 		! right-lateral without any indication.
 		!
-		! If the STF line was already missing/malformed (stfLineMissing), the
-		! unit is already past end-of-file: per the Fortran standard, a
-		! sequential-file READ after an end-of-file condition is undefined
-		! without an intervening REWIND/BACKSPACE/ENDFILE, and gfortran
-		! returns a positive (error) iostat rather than repeating the
-		! negative (EOF) one on a further read. So skip the slipSense read
-		! entirely in that case -- there is nothing reliable left to read --
-		! and default it, matching the pre-2.3.0 behaviour of a FE_Global.txt
-		! with no trailing lines at all.
+		! If the STF line was genuinely missing (stfLineMissing), the unit is
+		! already past end-of-file: per the Fortran standard, a sequential-file
+		! READ after an end-of-file condition is undefined without an intervening
+		! REWIND/BACKSPACE/ENDFILE, and gfortran can return a positive (error)
+		! iostat rather than repeating the negative (EOF) one on a further read.
+		! So skip the slipSense read entirely in that case -- there is nothing
+		! reliable left to read -- and default it, matching the pre-2.3.0
+		! behaviour of a FE_Global.txt with no trailing lines at all.
 		if (stfLineMissing) then
 			slipSense = 1.0d0
 		else
