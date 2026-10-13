@@ -775,7 +775,7 @@ def test_feglobal_malformed_lines() -> None:
 		shutil.copy2(exe, case1)
 		env = os.environ.copy()
 		env['OMP_NUM_THREADS'] = '1'
-		r = subprocess.run([os.path.basename(exe)], cwd=case1, 
+		r = subprocess.run([os.path.join(case1, os.path.basename(exe))], cwd=case1, 
 		                   capture_output=True, text=True, timeout=30)
 		
 		if r.returncode != 0 and "error: could not parse STF line" in r.stdout:
@@ -802,7 +802,7 @@ def test_feglobal_malformed_lines() -> None:
 		shutil.copy2(exe, case2)
 		env = os.environ.copy()
 		env['OMP_NUM_THREADS'] = '1'
-		r = subprocess.run([os.path.basename(exe)], cwd=case2, 
+		r = subprocess.run([os.path.join(case2, os.path.basename(exe))], cwd=case2, 
 		                   capture_output=True, text=True, timeout=30)
 		
 		if r.returncode != 0 and "error: could not parse slipSense" in r.stdout:
@@ -829,7 +829,7 @@ def test_feglobal_malformed_lines() -> None:
 		shutil.copy2(exe, case3)
 		env = os.environ.copy()
 		env['OMP_NUM_THREADS'] = '1'
-		r = subprocess.run([os.path.basename(exe)], cwd=case3, 
+		r = subprocess.run([os.path.join(case3, os.path.basename(exe))], cwd=case3, 
 		                   capture_output=True, text=True, timeout=30)
 		
 		# Should silently default, not error
@@ -871,7 +871,7 @@ def test_feglobal_malformed_lines() -> None:
 		shutil.copy2(exe, case4)
 		env = os.environ.copy()
 		env['OMP_NUM_THREADS'] = '1'
-		r = subprocess.run([os.path.basename(exe)], cwd=case4, 
+		r = subprocess.run([os.path.join(case4, os.path.basename(exe))], cwd=case4, 
 		                   capture_output=True, text=True, timeout=30)
 		
 		# The lone "-1" cannot parse as (stfOn, stfEvery, stfVmin) — it's missing
