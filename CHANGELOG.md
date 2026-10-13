@@ -2,6 +2,50 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Covering audit (v2.3.0..00e7865, victor-reyes, 2026-10-12) findings, all closed (PRs #20, #21, #22):
+- `src/Read_Input_Files.f90`: closes the "known gap" noted below under [2.3.1] M3 — a
+  malformed-but-present STF/slipSense line now hard-fails rather than silently
+  defaulting. The first attempt at this (PR #21's initial commit) was itself
+  insufficient: Fortran list-directed `read(unit,*)` continues onto the next
+  record when the current line doesn't satisfy all requested variables, so a
+  truncated line (e.g. the real slipSense value `-1` left as the sole trailing
+  line after the STF line was deleted) produced `iostat<0` (EOF) rather than a
+  parse error, and was silently misclassified as "line genuinely missing" —
+  reproducing the exact flip the fix was meant to close. Caught by a
+  victor-reyes audit and independently reproduced before merge. Fixed by
+  splitting line-presence (a whole-record character read, which cannot span
+  lines) from value-parsing (an internal read on that buffer, which also
+  cannot span lines), so "no more lines at all" and "a malformed line" are now
+  unambiguous and distinct.
+- `test_system/test_conventions.py` (R39a): regression test for the above,
+  including the specific truncated-line case that exposed the first fix's gap.
+  The test originally invoked the built binary by bare basename
+  (`subprocess.run([os.path.basename(exe)], ...)`), which only resolves via
+  `PATH`, not `cwd` — it passed locally by accident of leftover shell `PATH`
+  state and failed loudly on CI; fixed to invoke by full path.
+- `.github/workflows/test.yml`: `unit-regression` never built the binary, so
+  R39a (and the new R10 test below) always reported `skip`, not `ok` — CI
+  never actually ran the check it gated on. Added a build step, mirroring the
+  existing mesh-step fix for R1/R20 in the same job.
+- `test_system/test_conventions.py` (R10) + `test_system/fixtures/FE_Global.pre230.txt`:
+  new regression test guarding a genuinely pre-2.3.0 `FE_Global.txt` (STF/slipSense
+  trailers fully absent) against the EOF-escalation crash PR #18 originally fixed —
+  previously untested, the exact gap a hand-run case (not CI) caught before v2.3.1.
+- `.github/workflows/test.yml:56`: `build-smoke`'s `pip install` was still
+  unpinned despite the [2.3.1] L2 claim that CI installs were pinned (only
+  `unit-regression`'s were). Pinned to match.
+- `scripts/make_results_bundle.sh:33,44`: `find -exec cp` does not propagate a
+  failed copy's exit status under `set -e` (verified: `find ... -exec false {} \;`
+  exits 0) — the R36/L4 "real cp failures now stop the script" claim only
+  half held. Switched to `find -print0 | xargs -0 -r cp -t`, which does fail
+  the pipeline under `pipefail` (verified: a permission-denied cp now exits 123).
+- `CHANGELOG.md` [2.3.1]: the M3 bullet below overclaimed ("cannot silently
+  flip a left-lateral case to right-lateral") without the malformed-line
+  carve-out; narrowed at the time (this entry documents the carve-out's
+  closure).
+
 ## [2.3.1] - 2026-10-12
 
 Retroactive Phase-3a audit of `v2.1.1..v2.3.0` (victor-reyes, 2026-10-12): no
