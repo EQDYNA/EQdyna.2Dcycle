@@ -53,7 +53,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq gfortran libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1
       - name: Python dependencies
-        run: pip install numpy matplotlib xarray scipy gmsh meshio
+        run: pip install numpy==1.26.4 matplotlib==3.8.4 xarray==2024.3.0 scipy==1.13.0 gmsh==4.12.2 meshio==5.3.5
       - name: Build, mesh and run one cycle
         run: OMP_NUM_THREADS=1 python3 test_system/run.py smoke
       - name: Upload the smoke case log on failure

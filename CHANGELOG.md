@@ -19,8 +19,12 @@ silently reset instead of warned), L2 (CI pip installs pinned), L4 (unquoted
   meshes `subei.gmsh.lite` before running the regression tier.
 - `src/Read_Input_Files.f90`: `slipSense` read failure (`iostat/=0`) silently
   defaulted to +1 (right-lateral); now stops with an error, matching the
-  existing out-of-range check, so a reordered/truncated `FE_Global.txt`
-  cannot silently flip a left-lateral case to right-lateral.
+  existing out-of-range check, for the case where the STF/slipSense lines
+  are genuinely absent (a pre-2.3.0 `FE_Global.txt`). Known gap (found by
+  the v2.3.0..00e7865 covering audit, 2026-10-12): a line that is *present*
+  but malformed still falls into the same default-to-+1 path rather than
+  this error path, so the "cannot silently flip" claim does not yet cover a
+  corrupted (as opposed to missing) line — tracked on the status board.
 - `src/Read_Input_Files.f90`: `stfEvery < 1` was silently clamped to 1; now
   prints a warning before clamping.
 - CI `pip install` steps pinned to exact versions instead of floating
