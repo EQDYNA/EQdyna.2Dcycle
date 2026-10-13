@@ -32,6 +32,8 @@ jobs:
         run: pip install numpy==1.26.4 matplotlib==3.8.4 xarray==2024.3.0 scipy==1.13.0 pytest==8.1.1 gmsh==4.12.2 meshio==5.3.5
       - name: Mesh a case (R1/R20 need a meshed case on disk, else they skip and the tier reports green without checking anything)
         run: |
+          export EQDYNA2DCYCLEROOT="$GITHUB_WORKSPACE"
+          export PATH="$EQDYNA2DCYCLEROOT/bin:$EQDYNA2DCYCLEROOT/scripts:$PATH"
           mkdir -p work
           python3 scripts/create.newcase --work_dir work/regression_case --compset subei.gmsh.lite --force
           cd work/regression_case && python3 meshgen.py
