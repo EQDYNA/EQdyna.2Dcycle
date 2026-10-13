@@ -2,6 +2,40 @@
 
 All notable changes to EQdyna.2Dcycle. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [2.3.1] - 2026-10-12
+
+Retroactive Phase-3a audit of `v2.1.1..v2.3.0` (victor-reyes, 2026-10-12): no
+defects in the new solver features (STF writer/reader, slipSense, symmetric
+±45° clamp, seqtime restarts). Fixed below: H1 (CI regression tier skipped
+two mesh gates while reporting green), H2 (see erratum on 2.3.0 below), M3
+(slipSense silent fallback to +1 on a malformed FE_Global), L1 (stfEvery<1
+silently reset instead of warned), L2 (CI pip installs pinned), L4 (unquoted
+`$IVS` in make_results_bundle.sh).
+
+### Fixed
+- `.github/workflows/test.yml`: the `unit-regression` job never meshed a
+  case, so R1 (scrambled-indexing / cell-area) and R20 (dropped mesh
+  elements) always `skip()`'d and the tier still reported green. The job now
+  meshes `subei.gmsh.lite` before running the regression tier.
+- `src/Read_Input_Files.f90`: `slipSense` read failure (`iostat/=0`) silently
+  defaulted to +1 (right-lateral); now stops with an error, matching the
+  existing out-of-range check, so a reordered/truncated `FE_Global.txt`
+  cannot silently flip a left-lateral case to right-lateral.
+- `src/Read_Input_Files.f90`: `stfEvery < 1` was silently clamped to 1; now
+  prints a warning before clamping.
+- CI `pip install` steps pinned to exact versions instead of floating
+  latest.
+- `scripts/make_results_bundle.sh`: `cat $IVS` word-split an unquoted
+  variable; collected into a bash array and quoted instead, so a path
+  containing a space is not silently mishandled.
+
+### Erratum (2.3.0)
+- The "2325-2559/2581 nodes rupture per cycle" Xianshuihe claim below counted
+  every node with nonzero slip, which is every node (the dynamic phase
+  leaves a tiny residual slip everywhere). Corrected in PR #14 (`ed6ed96`,
+  2026-10-11): measured properly (slip > 5 cm, or rupture time set), the
+  median event involves ~45 of 2581 nodes.
+
 ## [2.3.0] - 2026-10-07
 
 `VERSION` had been bumped to 2.2.0 but that version was never tagged (the
