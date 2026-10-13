@@ -5,7 +5,8 @@ subroutine readglobal
 	implicit none
 	integer (kind = 4) :: i, ios
 	logical::file_exists
-	
+	logical::stfLineMissing
+
 	INQUIRE(FILE="FE_Global.txt", EXIST=file_exists)
 	write(*,*) '=                                                                   ='
 	write(*,*) '=     Checking in FE_global.txt ...                                 ='
@@ -51,6 +52,7 @@ subroutine readglobal
 		! Optional STF output control; absent in older FE_Global.txt files, in
 		! which case the output stays off and the run is unchanged.
 		read(1001,*,iostat=ios) stfOn, stfEvery, stfVmin
+		stfLineMissing = (ios /= 0)
 		if (ios /= 0) then
 			stfOn = 0; stfEvery = 1; stfVmin = 1.0d-3
 		endif
@@ -59,17 +61,31 @@ subroutine readglobal
 			stfEvery = 1
 		endif
 		! Optional slip sense (+1 right-lateral, -1 left-lateral); absent (older
-		! FE_Global.txt with no trailing line, iostat < 0) => +1, which is how
+		! FE_Global.txt with no trailing line at all) => +1, which is how
 		! every case before this parameter ran. A malformed (but present) line
 		! is a hard error, not a silent +1: a reordered FE_Global that lands on
 		! the wrong line could otherwise flip a left-lateral case to
 		! right-lateral without any indication.
-		read(1001,*,iostat=ios) slipSense
-		if (ios < 0) then
+		!
+		! If the STF line was already missing/malformed (stfLineMissing), the
+		! unit is already past end-of-file: per the Fortran standard, a
+		! sequential-file READ after an end-of-file condition is undefined
+		! without an intervening REWIND/BACKSPACE/ENDFILE, and gfortran
+		! returns a positive (error) iostat rather than repeating the
+		! negative (EOF) one on a further read. So skip the slipSense read
+		! entirely in that case -- there is nothing reliable left to read --
+		! and default it, matching the pre-2.3.0 behaviour of a FE_Global.txt
+		! with no trailing lines at all.
+		if (stfLineMissing) then
 			slipSense = 1.0d0
-		else if (ios > 0) then
-			write(*,*) 'error: could not parse slipSense line in FE_Global.txt'
-			stop 1
+		else
+			read(1001,*,iostat=ios) slipSense
+			if (ios < 0) then
+				slipSense = 1.0d0
+			else if (ios > 0) then
+				write(*,*) 'error: could not parse slipSense line in FE_Global.txt'
+				stop 1
+			endif
 		endif
 		if (abs(abs(slipSense) - 1.0d0) > 1.0d-12) then
 			write(*,*) 'error: slipSense in FE_Global.txt must be +1 or -1, got ', slipSense
