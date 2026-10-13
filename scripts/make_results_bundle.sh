@@ -51,9 +51,11 @@ fi
 rmdir "$B/aPlots" 2>/dev/null || true
 
 # intentional: an in-progress run legitimately has no interval.txt* yet; IVS stays empty, not an error
-IVS=$(ls "$CASE"/interval.txt* "$CASE"/aRawSimuData/interval.txt* 2>/dev/null || true)
-cyc=$( { [ -n "$IVS" ] && cat $IVS; } 2>/dev/null | wc -l | tr -d ' ')
-yrs=$( { [ -n "$IVS" ] && cat $IVS; } 2>/dev/null | awk '{s+=$1}END{printf "%.0f", s}')
+shopt -s nullglob
+IVS=("$CASE"/interval.txt* "$CASE"/aRawSimuData/interval.txt*)
+shopt -u nullglob
+cyc=$( { [ "${#IVS[@]}" -gt 0 ] && cat "${IVS[@]}"; } 2>/dev/null | wc -l | tr -d ' ')
+yrs=$( { [ "${#IVS[@]}" -gt 0 ] && cat "${IVS[@]}"; } 2>/dev/null | awk '{s+=$1}END{printf "%.0f", s}')
 {
   echo "# $NAME"
   echo

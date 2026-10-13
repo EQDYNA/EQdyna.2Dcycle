@@ -122,7 +122,7 @@ ftLoadWt`, `rs = ftLoadMaxShear / 450 * ftLoadWt * cos(2θ) * ant` — ftLoadWt
 cancels in steady state and only sets the approach timescale (e.g.
 `ftLoadWt = 0.8 * 450` for 80% loading, `0.1 * 450` for 10%). `ftLoadAngle =
 -999` auto-computes `θ = atan(ty/tx)` (fault tangent from x-axis, assuming
-tectonic loading along the general strike direction), clamped to 45° max
+tectonic loading along the general strike direction), clamped to ±45°
 before computing shear/normal loading components.
 
 ### Source directories

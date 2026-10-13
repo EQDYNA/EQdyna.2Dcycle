@@ -54,11 +54,23 @@ subroutine readglobal
 		if (ios /= 0) then
 			stfOn = 0; stfEvery = 1; stfVmin = 1.0d-3
 		endif
-		if (stfEvery < 1) stfEvery = 1
-		! Optional slip sense (+1 right-lateral, -1 left-lateral); absent => +1,
-		! which is how every case before this parameter ran.
+		if (stfEvery < 1) then
+			write(*,*) 'warning: stfEvery < 1 in FE_Global.txt, resetting to 1'
+			stfEvery = 1
+		endif
+		! Optional slip sense (+1 right-lateral, -1 left-lateral); absent (older
+		! FE_Global.txt with no trailing line, iostat < 0) => +1, which is how
+		! every case before this parameter ran. A malformed (but present) line
+		! is a hard error, not a silent +1: a reordered FE_Global that lands on
+		! the wrong line could otherwise flip a left-lateral case to
+		! right-lateral without any indication.
 		read(1001,*,iostat=ios) slipSense
-		if (ios /= 0) slipSense = 1.0d0
+		if (ios < 0) then
+			slipSense = 1.0d0
+		else if (ios > 0) then
+			write(*,*) 'error: could not parse slipSense line in FE_Global.txt'
+			stop 1
+		endif
 		if (abs(abs(slipSense) - 1.0d0) > 1.0d-12) then
 			write(*,*) 'error: slipSense in FE_Global.txt must be +1 or -1, got ', slipSense
 			stop 1
