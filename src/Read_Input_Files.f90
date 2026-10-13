@@ -3,9 +3,9 @@ subroutine readglobal
 ! This subroutine is read information from FE_global.txt
 	use globalvar
 	implicit none
-	integer (kind = 4) :: i, ios
+	integer (kind = 4) :: i, iosLine, iosParse
 	logical::file_exists
-	logical::stfLineMissing
+	character(len=256) :: lineBuf
 
 	INQUIRE(FILE="FE_Global.txt", EXIST=file_exists)
 	write(*,*) '=                                                                   ='
@@ -15,11 +15,6 @@ subroutine readglobal
 		write(*,*) '=     FE_Global.txt is required but missing ...                     ='	
 		stop
 	endif 
-	!INQUIRE(FILE="FE_Global.txt", EXIST=file_exists)
-	! if (file_exists == 0) then
-		! write(*,*) 'FE_Global.txt is still missing, so exiting EQdyna'
-		! stop
-	! endif 
 	
 	open(unit = 1001, file = 'FE_Global.txt', form = 'formatted', status = 'old')
 		read(1001,*) C_mesh
@@ -49,57 +44,77 @@ subroutine readglobal
 		read(1001,*) ambientnorm
 		read(1001,*) debug
 		read(1001,*) plotmesh
+		
 		! Optional STF output control; absent in older FE_Global.txt files, in
 		! which case the output stays off and the run is unchanged.
-		read(1001,*,iostat=ios) stfOn, stfEvery, stfVmin
-		! Distinguish between missing STF line (ios < 0, EOF) and malformed
-		! STF line (ios > 0, parse error). A malformed line (present but
-		! unparseable) is a hard error; a genuinely missing line (old
-		! pre-2.3.0 format) gets silently defaulted.
-		if (ios > 0) then
-			write(*,*) 'error: could not parse STF line in FE_Global.txt'
+		! Two-step reading: first read the line as a character record (which never
+		! spans multiple lines), then parse it with an internal read (which also
+		! cannot span records). This allows us to distinguish three cases:
+		! - iosLine < 0: no more lines in the file (genuinely missing, old format)
+		! - iosLine > 0: I/O error (hard fail)
+		! - iosLine == 0 && iosParse < 0: line exists but has fewer than 3 values (malformed)
+		! - iosLine == 0 && iosParse > 0: line exists but contains non-numeric values (hard fail)
+		! - iosLine == 0 && iosParse == 0: line parsed successfully
+		
+		read(1001,'(A)',iostat=iosLine) lineBuf
+		if (iosLine > 0) then
+			write(*,*) 'error: I/O error reading STF line in FE_Global.txt'
 			stop 1
 		endif
-		stfLineMissing = (ios < 0)  ! genuinely missing (EOF)
-		if (stfLineMissing) then
-			stfOn = 0; stfEvery = 1; stfVmin = 1.0d-3
-		endif
-		if (stfEvery < 1) then
-			write(*,*) 'warning: stfEvery < 1 in FE_Global.txt, resetting to 1'
+		
+		if (iosLine < 0) then
+			! EOF: STF line genuinely missing (old pre-2.3.0 format)
+			stfOn = 0
 			stfEvery = 1
-		endif
-		! Optional slip sense (+1 right-lateral, -1 left-lateral); absent (older
-		! FE_Global.txt with no trailing line at all) => +1, which is how
-		! every case before this parameter ran. A malformed (but present) line
-		! is a hard error, not a silent +1: a reordered FE_Global that lands on
-		! the wrong line could otherwise flip a left-lateral case to
-		! right-lateral without any indication.
-		!
-		! If the STF line was genuinely missing (stfLineMissing), the unit is
-		! already past end-of-file: per the Fortran standard, a sequential-file
-		! READ after an end-of-file condition is undefined without an intervening
-		! REWIND/BACKSPACE/ENDFILE, and gfortran can return a positive (error)
-		! iostat rather than repeating the negative (EOF) one on a further read.
-		! So skip the slipSense read entirely in that case -- there is nothing
-		! reliable left to read -- and default it, matching the pre-2.3.0
-		! behaviour of a FE_Global.txt with no trailing lines at all.
-		if (stfLineMissing) then
+			stfVmin = 1.0d-3
+			! Unit is at EOF; skip the slipSense read entirely to avoid undefined behavior
 			slipSense = 1.0d0
 		else
-			read(1001,*,iostat=ios) slipSense
-			if (ios < 0) then
-				slipSense = 1.0d0
-			else if (ios > 0) then
-				write(*,*) 'error: could not parse slipSense line in FE_Global.txt'
+			! Line exists; attempt to parse it
+			read(lineBuf,*,iostat=iosParse) stfOn, stfEvery, stfVmin
+			if (iosParse /= 0) then
+				write(*,*) 'error: could not parse STF line in FE_Global.txt'
 				stop 1
 			endif
+			
+			if (stfEvery < 1) then
+				write(*,*) 'warning: stfEvery < 1 in FE_Global.txt, resetting to 1'
+				stfEvery = 1
+			endif
+			
+			! Optional slip sense (+1 right-lateral, -1 left-lateral); absent
+			! (older FE_Global.txt with no trailing line at all) => +1, which is
+			! how every case before this parameter ran. A malformed (but present)
+			! line is a hard error, not a silent +1: a reordered FE_Global that
+			! lands on the wrong line could otherwise flip a left-lateral case to
+			! right-lateral without any indication.
+			
+			read(1001,'(A)',iostat=iosLine) lineBuf
+			if (iosLine > 0) then
+				write(*,*) 'error: I/O error reading slipSense line in FE_Global.txt'
+				stop 1
+			endif
+			
+			if (iosLine < 0) then
+				! EOF: slipSense line genuinely missing (STF present but old format)
+				slipSense = 1.0d0
+			else
+				! Line exists; attempt to parse it
+				read(lineBuf,*,iostat=iosParse) slipSense
+				if (iosParse /= 0) then
+					write(*,*) 'error: could not parse slipSense line in FE_Global.txt'
+					stop 1
+				endif
+			endif
 		endif
+		
+		! Validate slipSense value (must be exactly +1 or -1)
 		if (abs(abs(slipSense) - 1.0d0) > 1.0d-12) then
 			write(*,*) 'error: slipSense in FE_Global.txt must be +1 or -1, got ', slipSense
 			stop 1
 		endif
 	close(1001)
-end subroutine readglobal 
+end subroutine readglobal
 ! #2 readmodelgeometry -------------------------------------------------
 subroutine readmodelgeometry
 ! This subroutine is read information from FE_global.txt

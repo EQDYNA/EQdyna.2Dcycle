@@ -842,6 +842,50 @@ def test_feglobal_malformed_lines() -> None:
 	finally:
 		shutil.rmtree(case3, ignore_errors=True)
 	
+	
+	# Test 4: REGRESSION — STF line deleted, only lone -1 left
+	# PR #21 regression: when STF line is genuinely missing but a slipSense-shaped
+	# value (-1) is left as the sole trailing line, the OLD (broken) code would:
+	#   1. Read the entire "-1" line looking for (stfOn, stfEvery, stfVmin)
+	#   2. Get ios < 0 (EOF after finding -1 in stfOn position, missing stfEvery/stfVmin)
+	#   3. Interpret as "STF line missing" and silently default
+	#   4. Skip the slipSense read entirely
+	#   5. Leave slipSense as its uninitialized value (+1 in Fortran)
+	# This silently flipped left-lateral faults to right-lateral.
+	# THE FIX: distinguish line presence (character read) from value parsing (internal read).
+	# A line present but failing to parse must hard-fail, not default.
+	case4 = tempfile.mkdtemp(prefix="test_stf_deleted_lone_")
+	try:
+		shutil.copytree(case_template, case4, dirs_exist_ok=True)
+		fg = os.path.join(case4, "FE_Global.txt")
+		with open(fg, 'r') as f:
+			lines_fg = f.read().splitlines()
+		# Remove the STF line (line 27, 0-indexed), leaving only the next line (-1)
+		# This simulates a user who deleted the STF line but left a slipSense value
+		# The file now has only 27 complete data lines + the lone "-1"
+		lines_fg = lines_fg[:27]  # Remove lines 28 and 29
+		lines_fg.append("-1")   # Add back just the "-1" as the new line 28
+		with open(fg, 'w') as f:
+			f.write("\n".join(lines_fg) + "\n")
+		
+		shutil.copy2(exe, case4)
+		env = os.environ.copy()
+		env['OMP_NUM_THREADS'] = '1'
+		r = subprocess.run([os.path.basename(exe)], cwd=case4, 
+		                   capture_output=True, text=True, timeout=30)
+		
+		# The lone "-1" cannot parse as (stfOn, stfEvery, stfVmin) — it's missing
+		# stfEvery and stfVmin. The internal read must fail (iosParse != 0), and
+		# we must hard-fail, not silently default.
+		if r.returncode != 0 and "error: could not parse STF line" in r.stdout:
+			pass  # Good — rejected the truncated STF line
+		else:
+			fails.append("STF line deleted with lone -1: should hard-fail, not silent-default")
+	except Exception as e:
+		fails.append(f"test 4 exception: {e}")
+	finally:
+		shutil.rmtree(case4, ignore_errors=True)
+	
 	check("R39a", "FE_Global malformed lines hard-fail, missing lines silent-default",
 	      not fails, "; ".join(fails[:3]))
 	if generated_case:
