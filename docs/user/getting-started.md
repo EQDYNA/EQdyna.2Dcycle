@@ -6,8 +6,8 @@
 |---|---|
 | Fortran | `gfortran` with OpenMP |
 | Python 3 | `numpy`, `matplotlib`, `xarray` |
-| gmsh meshing (C_mesh = 3 cases only) | `gmsh` Python package, `meshio` |
-| Optional | `scipy` (some analysis scripts), `netCDF4` (NetCDF export) |
+| gmsh meshing (C_mesh = 3 cases only) | `gmsh` Python package, `meshio`, `scipy` (`meshgen.py` fits the fault traces with it) |
+| Optional | `netCDF4` (NetCDF export) |
 
 ## Install and build
 

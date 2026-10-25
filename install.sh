@@ -43,13 +43,13 @@ if [ -n "$MACH" ]; then
         case "$MACHINE" in
             ubuntu)
                 echo "Installing python deps (Ubuntu)..."
-                pip3 install --user --quiet numpy matplotlib xarray gmsh meshio nbconvert \
-                    || echo "WARNING: pip3 install failed; install numpy/matplotlib/xarray manually"
+                pip3 install --user --quiet numpy scipy matplotlib xarray gmsh meshio nbconvert \
+                    || echo "WARNING: pip3 install failed; install numpy/scipy/matplotlib/xarray manually"
                 ;;
             macos)
                 echo "Installing python deps (macOS via Homebrew)..."
                 brew install gcc python
-                pip3 install --break-system-packages numpy matplotlib xarray gmsh meshio nbconvert
+                pip3 install --break-system-packages numpy scipy matplotlib xarray gmsh meshio nbconvert
                 ;;
             ls6|grace)
                 echo "Skipping python deps on $MACHINE (use module load)."
