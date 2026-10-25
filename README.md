@@ -22,7 +22,7 @@ present). This sets `EQDYNA2DCYCLEROOT`, adds `bin/` and `scripts/` to
 
 Dependencies: `gfortran` (with OpenMP), Python 3 with `numpy`, `matplotlib`,
 `xarray`. See [Getting started](https://eqdyna.github.io/EQdyna.2Dcycle/getting-started/)
-for gmsh/meshio (needed only for the `*.gmsh.lite` compsets) and other
+for gmsh/meshio/scipy (needed only for the `*.gmsh.lite` compsets) and other
 optional packages.
 
 ## Run one example
